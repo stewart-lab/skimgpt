@@ -4,35 +4,58 @@ import pandas as pd
 import openai
 import time
 
-file_path = "/isiseqruns/jfreeman_tmp_home/GPT/skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt"
+file_path = "./skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt"
 df = pd.read_csv(file_path, sep="\t")
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
-def find_papers(c_term, b_term):
-    query = f"{c_term}+{b_term}"
-    url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit=10&fields=paperId,title,abstract"
+def find_papers(c_term, b_term, year=1992):
+    papers = []
+    offset = 0
 
-    response = requests.get(url)
+    while len(papers) < 10:
+        query = f"{c_term}+{b_term}"
+        url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&offset={offset}&limit=10&fields=paperId,title,abstract,year"
 
-    if response.status_code == 429:
-        print("Rate limit reached, sleeping for a moment...")
-        time.sleep(10)
         response = requests.get(url)
 
-    if response.status_code == 200:
-        data = response.json()
-        papers = data["data"]
-        return papers
-    else:
-        print(f"Request failed with status code {response.status_code}")
-        return None
+        if response.status_code == 429:
+            print("Rate limit reached, sleeping for a moment...")
+            time.sleep(10)
+            response = requests.get(url)
+
+        if response.status_code == 200:
+            data = response.json()
+            fetched_papers = data["data"]
+            # Check that the 'year' field is not None before comparing it
+            filtered_papers = [paper for paper in fetched_papers if paper['year'] is not None and paper['year'] <= year and paper['abstract'] is not None]
+
+            papers.extend(filtered_papers)
+
+            # If there are enough papers, break the loop
+            if len(papers) >= 10:
+                break
+
+            # If no more papers are available to fetch, break the loop
+            if len(fetched_papers) < 10:
+                break
+
+            # Increase the offset by 10 for the next iteration
+            offset += 10
+        else:
+            print(f"Request failed with status code {response.status_code}")
+            return None
+
+    return papers[:10] # Return only the first 10 papers
+
+
+
 
 
 
 def analyze_paper(consolidated_abstracts):
-    prompt = f"Read the following abstracts and categorize the discussed treatment as new, ineffective, inconclusive, or known as of 1992: {consolidated_abstracts}"
+    prompt = f"Read the following abstracts and categorize the discussed treatment as valid, ineffective, or inconclusive. For each abstract, return your categorization and nothing else.: {consolidated_abstracts}"
 
     response = openai.ChatCompletion.create(
         model="gpt-4",
@@ -76,12 +99,19 @@ def process_row(row):
 
 
 if __name__ == "__main__":
-    # Taking only the first row of the DataFrame for debugging
-    first_row = df.head(1)
+    # Create a dictionary to hold the results
+    results_dict = {}
+    
+    # Taking only the first 10 rows of the DataFrame
+    first_10_rows = df.head(10)
 
-    # Processing the row using your existing code
-    results = process_row(first_row.iloc[0])
+    # Loop through the first 10 rows, processing each one
+    for index, row in first_10_rows.iterrows():
+        result = process_row(row)
+        key = f"{row['B_term']} + {row['C_term']}" # Create the key by concatenating B_term and C_term
+        results_dict[key] = result
 
-    # You can print the results here or do further debugging as needed
-    print(results)
+    # Print the results in key-value pair format
+    for key, value in results_dict.items():
+        print(f"{key}: {value}")
 
