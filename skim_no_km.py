@@ -4,7 +4,6 @@ import pandas as pd
 import openai
 import time
 
-# Load your DataFrame here
 file_path = "/isiseqruns/jfreeman_tmp_home/GPT/skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt"
 df = pd.read_csv(file_path, sep="\t")
 
@@ -12,28 +11,18 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def find_papers(c_term, b_term):
-    # Construct the query
     query = f"{c_term}+{b_term}"
+    url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit=10&fields=paperId,title,abstract"
 
-    # Construct the API endpoint
-    url = (
-        f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit=100"
-    )
-
-    # Make the API call
     response = requests.get(url)
 
     if response.status_code == 429:
         print("Rate limit reached, sleeping for a moment...")
-        time.sleep(10)  # Adjust the sleep time as needed
+        time.sleep(10)
         response = requests.get(url)
 
-    # Check the response status code to make sure the request was successful
-    elif response.status_code == 200:
-        # If the request was successful, parse the JSON response
+    if response.status_code == 200:
         data = response.json()
-
-        # You can access the 'data' field in the JSON response for the list of papers
         papers = data["data"]
         return papers
     else:
@@ -41,30 +30,25 @@ def find_papers(c_term, b_term):
         return None
 
 
-def analyze_paper(abstract):
-    # Construct the prompt
-    prompt = f"Read the following abstract and categorize the discussed treatment as new, ineffective, inconclusive, or known as of 1992: {abstract}"
 
-    # Make the API call
+def analyze_paper(consolidated_abstracts):
+    prompt = f"Read the following abstracts and categorize the discussed treatment as new, ineffective, inconclusive, or known as of 1992: {consolidated_abstracts}"
+
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.5,
+        temperature=0,
         max_tokens=256,
     )
 
-    # The response from the model will be in response['choices'][0]['message']['content']
-    return response
+    return response["choices"][0]["message"]["content"]
 
 
-# Create a list to hold the analyses
-analyses = []
 
-# Iterate over the rows of your DataFrame
-for index, row in df.iterrows():
+def process_row(row):
     c_term = row["C_term"]
     b_term = row["B_term"]
 
@@ -72,26 +56,32 @@ for index, row in df.iterrows():
 
     if papers is None:
         print(f"Skipping {c_term}, {b_term} due to an error fetching papers")
-        continue
+        return []
 
-    # Each dictionary contains information about a paper
-    for paper in papers:
+    # Concatenate the abstracts together, numbering them for readability
+    consolidated_abstracts = ""
+    for i, paper in enumerate(papers):
         abstract = paper.get("abstract", "")
-        response = analyze_paper(abstract)
+        if abstract:
+            consolidated_abstracts += f"{i+1}. \"{abstract}\" - "
+        else:
+            print(f"Skipping paper due to missing abstract for {c_term}, {b_term}")
 
-        # Assuming the desired information is directly in the content
-        # You may need to further process it if needed
-        analysis = response["choices"][0]["message"]["content"]
+    # Pass the consolidated abstracts to the analyze_paper function
+    result = analyze_paper(consolidated_abstracts)
 
-        # Append the analysis to the list
-        analyses.append(analysis)
+    return result
 
-# Combine the analyses into a single string
-combined_analysis = "\n".join(analyses)
 
-# Write to a text file
-output_file_path = "analysis_output.txt"
-with open(output_file_path, "w") as file:
-    file.write(combined_analysis)
 
-print(f"Analysis written to {output_file_path}")
+
+if __name__ == "__main__":
+    # Taking only the first row of the DataFrame for debugging
+    first_row = df.head(1)
+
+    # Processing the row using your existing code
+    results = process_row(first_row.iloc[0])
+
+    # You can print the results here or do further debugging as needed
+    print(results)
+
