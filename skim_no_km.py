@@ -45,49 +45,70 @@ def find_papers(c_term, year=1992):
 
     return papers[:10]
 
-def analyze_paper(consolidated_abstracts, c_term):
-    prompt = f"Read the following abstracts and categorize the discussed treatment {c_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. For each abstract, return your categorization and nothing else.: {consolidated_abstracts}"
+def analyze_paper(consolidated_abstracts, c_term, abstracts_separate):
+    if abstracts_separate:
+        responses = []
+        for abstract in consolidated_abstracts:
+            prompt = f"Read the following abstract and categorize the discussed treatment {c_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Return your categorization and nothing else.: \"{abstract}\""
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                max_tokens=256,
+            )
+            responses.append(response["choices"][0]["message"]["content"])
+        return responses
+    else:
+        prompt = f"Read the following abstracts and categorize the discussed treatment {c_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. For each abstract, return your categorization and nothing else.: {consolidated_abstracts}"
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-        max_tokens=256,
-    )
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            max_tokens=256,
+        )
+        return response["choices"][0]["message"]["content"]
 
-    return response["choices"][0]["message"]["content"]
-
-def process_row(c_term):
+def process_row(c_term, abstracts_separate):
     papers = find_papers(c_term)
     if not papers:
         print(f"Skipping {c_term} due to an error fetching papers")
         return None, [], []  # Return consistent structure
 
-    consolidated_abstracts = ""
+    consolidated_abstracts = [] if abstracts_separate else ""
     paper_urls = []
     individual_abstracts = []
+
     for i, paper in enumerate(papers):
         abstract = paper.get("abstract", "")
         if abstract:
-            consolidated_abstracts += f"{i+1}. \"{abstract}\" - "
+            if abstracts_separate:
+                consolidated_abstracts.append(abstract)
+            else:
+                consolidated_abstracts += f"{i+1}. \"{abstract}\" - "
             paper_urls.append(paper.get('url', 'N/A'))
             individual_abstracts.append(abstract)
         else:
             print(f"Skipping paper due to missing abstract for {c_term}")
 
-    result = analyze_paper(consolidated_abstracts, c_term)
+    result = analyze_paper(consolidated_abstracts, c_term, abstracts_separate)
     return result, paper_urls, individual_abstracts
+
 
 if __name__ == "__main__":
     results_dict = {}
     
-    unique_c_terms = df["C_term"].unique()[:3]
+    unique_c_terms = df["C_term"].unique()[:1]
 
     for c_term in unique_c_terms:
-        result, urls, abstracts = process_row(c_term)
+        result, urls, abstracts = process_row(c_term, abstracts_separate=False)  # You can switch this boolean as needed
         results_dict[c_term] = {
             "result": result, 
             "urls": urls, 
@@ -95,7 +116,8 @@ if __name__ == "__main__":
         }
 
     # Write the results_dict to a JSON file
-    with open("results.json", "w") as json_file:
+    with open("results2.json", "w") as json_file:
         json.dump(results_dict, json_file, indent=4)
+
 
 
