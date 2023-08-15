@@ -1,6 +1,6 @@
 # GPT-based Paper Analysis
 
-This repository provides tools to skim through scientific papers and analyze the effectiveness of treatment discussed within them using the OpenAI GPT model. The focus is on finding, consolidating, and categorizing abstracts into valid, ineffective, or inconclusive treatments.
+This repository provides tools to SKIM! through scientific papers and analyze the effectiveness of treatment discussed within them using the OpenAI GPT model. The focus is on finding, consolidating, and categorizing abstracts into useful, harmful ineffective, or inconclusive treatments.
 
 ## Directory Structure
 
