@@ -6,7 +6,11 @@ import time
 import json
 from xml.etree import ElementTree
 
-FILE_PATH = "./skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt"
+RATE_LIMIT = 3
+DELAY = 10
+OUTPUT_JSON = "results_old.json"
+
+FILE_PATH = "./km_results_SaffSoyRanit_1992.txt"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 A_TERM = "Crohn's disease"
 
@@ -15,76 +19,36 @@ def read_file_path():
     return pd.read_csv(FILE_PATH, sep="\t")
 
 
-
-
 def get_abstract_from_pubmed(pmid):
     base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
     params = {"db": "pubmed", "id": pmid, "retmode": "xml", "rettype": "abstract"}
 
     response = requests.get(base_url, params=params)
-    tree = ElementTree.fromstring(response.content)
+
+    try:
+        tree = ElementTree.fromstring(response.content)
+    except ElementTree.ParseError:
+        print(
+            f"Error parsing XML for PMID {pmid}. Response content:\n{response.content.decode('utf-8')}"
+        )
+        return None, None
 
     # Extract abstract from the XML response
     abstract_text = ""
     for abstract in tree.findall(".//AbstractText"):
         abstract_text += abstract.text
 
-    return abstract_text
+    # Construct the URL for the paper
+    paper_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
 
-def find_paper_given_pmid(pmid):
-    base_url = "https://api.semanticscholar.org/v1/paper/"
-    response = requests.get(base_url + pmid)
-    if response.status_code != 200:
-        print(
-            f"Error: Unable to fetch data for PMID {pmid}. Status code: {response.status_code}"
-        )
-        return None
-    data = response.json()
-    return {
-        "abstract": data.get("abstract", None),
-        "year": data.get("year", None),
-        "title": data.get("title", None),
-        "url": data.get("url", None),
-        "isOpenAccess": data.get("isOpenAccess", None),
-    }
+    return abstract_text, paper_url
 
 
-def find_papers_given_terms(c_term, year=1992, num_papers=10):
-    papers = []
-    offset = 0
-    while len(papers) < num_papers:
-        query = f"{A_TERM}+{c_term}"
-        url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={query}&offset={offset}&limit=10&fields=paperId,title,url,abstract,year"
-        response = requests.get(url)
-        if response.status_code == 429:
-            print("Rate limit reached, sleeping for a moment...")
-            time.sleep(60)
-            continue
-        if response.status_code == 200:
-            data = response.json()
-            fetched_papers = data["data"]
-            filtered_papers = [
-                paper
-                for paper in fetched_papers
-                if paper["year"] is not None
-                and paper["year"] <= year
-                and paper["abstract"] is not None
-            ]
-            papers.extend(filtered_papers)
-            if len(papers) >= num_papers or len(fetched_papers) < 10:
-                break
-            offset += 10
-        else:
-            print(f"Request failed with status code {response.status_code}")
-            return [], [], []
-    return papers[:num_papers]
-
-
-def analyze_paper(consolidated_abstracts, c_term, abstracts_separate):
+def analyze_paper(consolidated_abstracts, b_term, abstracts_separate):
     if abstracts_separate:
         responses = []
         for abstract in consolidated_abstracts:
-            prompt = f'Read the following abstract and categorize the discussed treatment {c_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Return your categorization and nothing else.: "{abstract}"'
+            prompt = f'Read the following abstract and categorize the discussed treatment {b_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Provide at least two sentences explaining your categorization: "{abstract}"'
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
@@ -95,12 +59,12 @@ def analyze_paper(consolidated_abstracts, c_term, abstracts_separate):
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0,
-                max_tokens=256,
+                max_tokens=512,  # Increased max tokens to accommodate for the rationale
             )
             responses.append(response["choices"][0]["message"]["content"])
         return responses
     else:
-        prompt = f"Read the following abstracts and categorize the discussed treatment {c_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. For each abstract, return your categorization and nothing else.: {consolidated_abstracts}"
+        prompt = f"Read the following abstracts and categorize the discussed treatment {b_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Provide at least two sentences explaining your categorization: {consolidated_abstracts}"
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -113,31 +77,61 @@ def analyze_paper(consolidated_abstracts, c_term, abstracts_separate):
         return response["choices"][0]["message"]["content"]
 
 
-def process_row(c_term, abstracts_separate):
-    papers = find_papers_given_terms(c_term)
-    if not papers:
-        print(f"Skipping {c_term} due to an error fetching papers")
-        return None, [], []
-    consolidated_abstracts = [] if abstracts_separate else ""
+def process_row(row, abstracts_separate):
+    # Extract PMIDs from the 'ab_pmid_intersection' column
+    pmids = eval(row["ab_pmid_intersection"])
+
+    # Split PMIDs into batches of 3
+    pmid_batches = [pmids[i : i + RATE_LIMIT] for i in range(0, len(pmids), RATE_LIMIT)]
+
+    # Retrieve abstracts and URLs for each PMID
+    consolidated_abstracts = []
     paper_urls = []
-    individual_abstracts = []
-    for i, paper in enumerate(papers):
-        abstract = paper.get("abstract", "")
-        if abstract:
-            if abstracts_separate:
+
+    for batch in pmid_batches:
+        for pmid in batch:
+            abstract, url = get_abstract_from_pubmed(pmid)
+            if abstract and url:
                 consolidated_abstracts.append(abstract)
-            else:
-                consolidated_abstracts += f'{i+1}. "{abstract}" - '
-            paper_urls.append(paper.get("url", "N/A"))
-            individual_abstracts.append(abstract)
-        else:
-            print(f"Skipping paper due to missing abstract for {c_term}")
-    result = analyze_paper(consolidated_abstracts, c_term, abstracts_separate)
-    return result, paper_urls, individual_abstracts
+                paper_urls.append(url)
+        time.sleep(DELAY)  # Introduce a delay between batches
+
+    # If you don't want separate abstracts, join them into a single string
+    if not abstracts_separate:
+        consolidated_abstracts = " ".join(consolidated_abstracts)
+
+    b_term = row["b_term"]
+    result = analyze_paper(consolidated_abstracts, b_term, abstracts_separate)
+
+    return result, paper_urls, consolidated_abstracts
 
 
 if __name__ == "__main__":
-# Example usage:
-pmid = input("Enter PubMed ID: ")
-abstract = get_abstract_from_pubmed(pmid)
-print("\nAbstract:\n", abstract)
+    # Read the input file
+    df = read_file_path()
+
+    results_list = []
+
+    # Process each row in the dataframe
+    for index, row in df.iterrows():
+        result, paper_urls, abstracts = process_row(row, abstracts_separate=True)
+
+        # Store the results in a dictionary
+        result_dict = {
+            "Term": row["b_term"],
+            "Result": result,
+            "URLs": paper_urls,
+            "Abstracts": abstracts,
+        }
+        results_list.append(result_dict)
+
+        # Print the results
+        print(f"\nTerm: {row['b_term']}")
+        print(f"Result: {result}")
+        print(f"URLs: {paper_urls}")
+        print(f"Abstracts: {abstracts}")
+        print("-" * 50)
+
+    # Write results to a JSON file
+    with open(OUTPUT_JSON, "w") as outfile:
+        json.dump(results_list, outfile, indent=4)
