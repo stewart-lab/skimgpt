@@ -4,6 +4,7 @@ import pandas as pd
 import openai
 import time
 import json
+from xml.etree import ElementTree
 
 FILE_PATH = "./skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt"
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -13,6 +14,22 @@ A_TERM = "Crohn's disease"
 def read_file_path():
     return pd.read_csv(FILE_PATH, sep="\t")
 
+
+
+
+def get_abstract_from_pubmed(pmid):
+    base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+    params = {"db": "pubmed", "id": pmid, "retmode": "xml", "rettype": "abstract"}
+
+    response = requests.get(base_url, params=params)
+    tree = ElementTree.fromstring(response.content)
+
+    # Extract abstract from the XML response
+    abstract_text = ""
+    for abstract in tree.findall(".//AbstractText"):
+        abstract_text += abstract.text
+
+    return abstract_text
 
 def find_paper_given_pmid(pmid):
     base_url = "https://api.semanticscholar.org/v1/paper/"
@@ -120,11 +137,7 @@ def process_row(c_term, abstracts_separate):
 
 
 if __name__ == "__main__":
-    df = read_file_path()
-    results_dict = {}
-    unique_c_terms = df["C_term"].unique()[:1]
-    for c_term in unique_c_terms:
-        result, urls, abstracts = process_row(c_term, abstracts_separate=False)
-        results_dict[c_term] = {"result": result, "urls": urls, "abstracts": abstracts}
-    with open("results2.json", "w") as json_file:
-        json.dump(results_dict, json_file, indent=4)
+# Example usage:
+pmid = input("Enter PubMed ID: ")
+abstract = get_abstract_from_pubmed(pmid)
+print("\nAbstract:\n", abstract)
