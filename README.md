@@ -1,13 +1,12 @@
 # GPT-based Paper Analysis
 
-This repository provides tools to SKIM! through scientific papers and analyze the effectiveness of treatment discussed within them using the OpenAI GPT model. The focus is on finding, consolidating, and categorizing abstracts into useful, harmful ineffective, or inconclusive treatments.
+This repository provides tools to SKIM! through scientific papers and analyze the effectiveness of treatments discussed within them using the OpenAI GPT model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into categories such as useful, harmful, ineffective, or inconclusive treatments for specific medical conditions.
 
 ## Directory Structure
 
 ```bash
-├── pycache
+├── km_results_of different_flavors.txt
 ├── requirements.txt
-├── skim_crohn_bioprocess_drugs_but_not_km_crohn_colitis_drugs0.05.txt
 ├── skim_no_km.py
 └── test_skim_no_km.py
 ```
@@ -40,10 +39,15 @@ This repository provides tools to SKIM! through scientific papers and analyze th
     export OPENAI_API_KEY=your_api_key_here
 ```
 
+4. **Running the script**
+   ```bash
+   python skim_no_km.py
+   ```
+
 ## Important Notes
 
-- The current script processes only the first 3 rows from the input file.
-- Ensure you are adhering to the rate limits of the Semantic Scholar API and OpenAI API when making requests.
+- The script is designed to handle rate limits when making requests to external APIs.
+- Always handle API keys with care. Do not expose them in public repositories or share them without necessary precautions.
 - Handle API keys with care. Avoid exposing them in public repositories or sharing them.
 
 ## Contributions
