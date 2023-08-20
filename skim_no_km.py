@@ -8,9 +8,9 @@ from xml.etree import ElementTree
 
 RATE_LIMIT = 3
 DELAY = 10
-OUTPUT_JSON = "results_old.json"
+OUTPUT_JSON = "results_new_updated.json"
 
-FILE_PATH = "./km_results_SaffSoyRanit_1992.txt"
+FILE_PATH = "./km_results_SaffSoyRanit_2023.txt"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 A_TERM = "Crohn's disease"
 
@@ -48,7 +48,7 @@ def analyze_paper(consolidated_abstracts, b_term, abstracts_separate):
     if abstracts_separate:
         responses = []
         for abstract in consolidated_abstracts:
-            prompt = f'Read the following abstract and categorize the discussed treatment {b_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Provide at least two sentences explaining your categorization: "{abstract}"'
+            prompt = f"Read the following abstract and classify the discussed treatment: {b_term} as useful, potentially useful, ineffective, potentially harmful, or harmful for successfully treating {A_TERM}. Provide at least two sentences explaining your classification. Your answer should be in the following format: 'Classification': 'Rationale': {abstract}"
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
@@ -64,7 +64,7 @@ def analyze_paper(consolidated_abstracts, b_term, abstracts_separate):
             responses.append(response["choices"][0]["message"]["content"])
         return responses
     else:
-        prompt = f"Read the following abstracts and categorize the discussed treatment {b_term} as useful, harmful, ineffective, or inconclusive for successfully treating {A_TERM}. Provide at least two sentences explaining your categorization: {consolidated_abstracts}"
+        prompt = f"Read the following abstracts and classify the discussed treatment: {b_term} as useful, potentially useful, ineffective, potentially harmful, or harmful for successfully treating {A_TERM}. Provide at least two sentences explaining your classification. Your answer should be in the following format: 'Classification': 'Rationale' : {consolidated_abstracts}"
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -124,14 +124,6 @@ if __name__ == "__main__":
             "Abstracts": abstracts,
         }
         results_list.append(result_dict)
-
-        # Print the results
-        print(f"\nTerm: {row['b_term']}")
-        print(f"Result: {result}")
-        print(f"URLs: {paper_urls}")
-        print(f"Abstracts: {abstracts}")
-        print("-" * 50)
-
     # Write results to a JSON file
     with open(OUTPUT_JSON, "w") as outfile:
         json.dump(results_list, outfile, indent=4)
