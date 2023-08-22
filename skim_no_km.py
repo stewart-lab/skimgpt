@@ -17,12 +17,59 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 A_TERM = "Crohn's disease"
 
 
-def configure_skim_job(a_term):
+def read_terms_from_file(filename):
+    with open(filename, "r") as f:
+        terms = [line.strip() for line in f.readlines()]
+    return terms
+
+
+def configure_skim_job(a_term, filtered_terms):
+    c_terms = read_terms_from_file(
+        "FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt"
+    )
+    b_terms = read_terms_from_file("BIO_PROCESS_cleaned.txt")
+
+    # Remove terms from c_terms that are in filtered_terms
+    c_terms = [term for term in c_terms if term not in filtered_terms]
+
     return {
         "a_terms": [a_term],
-        "b_terms": ["safflower oil", "soybean oil", "ranitidine"],
-        "ab_fet_threshold": 1.00001,
-        "bc_fet_threshold": 0.9999,
+        "b_terms": b_terms,
+        "c_terms": c_terms,
+        "ab_fet_threshold": 1e-5,
+        "bc_fet_threshold": 1e-5,
+        "top_n_articles": 20,
+        "return_pmids": True,
+        "query_knowledge_graph": False,
+        "censor_year": 1992,
+    }
+
+
+def configure_km_job(a_term):
+    b_terms = read_terms_from_file(
+        "FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt"
+    )
+
+    return {
+        "a_terms": [a_term],
+        "b_terms": b_terms,
+        "ab_fet_threshold": 0.05,  # FET threshold is 0.05
+        "top_n_articles": 20,
+        "return_pmids": True,
+        "query_knowledge_graph": False,
+        "censor_year": 1992,
+    }
+
+
+def configure_final_km(a_term, skim_file_path):
+    # Read skim_file to extract unique c_terms
+    df = pd.read_csv(skim_file_path, sep="\t")
+    unique_c_terms = df["c_term"].unique().tolist()
+
+    return {
+        "a_terms": [a_term],
+        "b_terms": unique_c_terms,
+        "ab_fet_threshold": 0.05,
         "top_n_articles": 20,
         "return_pmids": True,
         "query_knowledge_graph": False,
@@ -30,7 +77,6 @@ def configure_skim_job(a_term):
     }
 
 
-# Code from your first script to make the API call and get the data
 def run_skim_query(the_json: dict, url):
     response = requests.post(url, json=the_json, auth=("username", "password")).json()
     job_id = response["id"]
@@ -148,17 +194,49 @@ def process_row(row, abstracts_separate):
     return result, paper_urls, consolidated_abstracts
 
 
-def run_and_save_skim_query(a_term):
-    skim_job_json = configure_skim_job(a_term)
+def run_and_save_km_query(a_term):
+    km_job_json = configure_km_job(a_term)
+    result = run_skim_query(km_job_json, API_URL)
+    km_b_terms = [entry["b_term"] for entry in result]
+
+    return km_b_terms
+
+
+def run_and_save_skim_query(a_term, filtered_terms):
+    skim_job_json = configure_skim_job(a_term, filtered_terms)
     result = run_skim_query(skim_job_json, API_URL)
     file_path = f'gpt4_{skim_job_json["a_terms"][0]}_input.tsv'
     save_to_tsv(result, file_path)
     return file_path
 
 
+def run_and_save_final_km_query(a_term, skim_file_path):
+    # Configure the final KM job
+    final_km_job = configure_final_km(a_term, skim_file_path)
+
+    # Run the final KM query
+    result = run_skim_query(final_km_job, API_URL)
+
+    # Save the result to a TSV file
+    file_path = f'gpt4_final_km_{final_km_job["a_terms"][0]}_input.tsv'
+    save_to_tsv(result, file_path)
+
+    return file_path
+
+
 def main():
-    file_path = run_and_save_skim_query(A_TERM)
-    df = read_file_path(file_path)
+    # Step 1: Run initial KM Query and get b_terms
+    km_b_terms = run_and_save_km_query(A_TERM)
+
+    # Step 2: Run Skim Query and save to file
+    skim_file_path = run_and_save_skim_query(A_TERM, km_b_terms)
+
+    # Step 3: Run and save the final KM query
+    final_km_file_path = run_and_save_final_km_query(A_TERM, skim_file_path)
+
+    print(f"Final KM query results saved to {final_km_file_path}")
+
+    df = read_file_path(final_km_file_path)
 
     results_list = []
 
