@@ -4,19 +4,61 @@ import pandas as pd
 import openai
 import time
 import json
+import csv
 from xml.etree import ElementTree
 
+# Constants
 RATE_LIMIT = 3
 DELAY = 10
-OUTPUT_JSON = "results_new_updated.json"
-
-FILE_PATH = "./km_results_SaffSoyRanit_2023.txt"
+OUTPUT_JSON = "test_updated.json"
+PORT = "5081"
+API_URL = f"http://localhost:{PORT}/skim/api/jobs"
 openai.api_key = os.getenv("OPENAI_API_KEY")
 A_TERM = "Crohn's disease"
 
 
-def read_file_path():
-    return pd.read_csv(FILE_PATH, sep="\t")
+def configure_skim_job(a_term):
+    return {
+        "a_terms": [a_term],
+        "b_terms": ["safflower oil", "soybean oil", "ranitidine"],
+        "ab_fet_threshold": 1.00001,
+        "bc_fet_threshold": 0.9999,
+        "top_n_articles": 20,
+        "return_pmids": True,
+        "query_knowledge_graph": False,
+        "censor_year": 2023,
+    }
+
+
+# Code from your first script to make the API call and get the data
+def run_skim_query(the_json: dict, url):
+    response = requests.post(url, json=the_json, auth=("username", "password")).json()
+    job_id = response["id"]
+    response = requests.get(url + "?id=" + job_id, auth=("username", "password")).json()
+    job_status = response["status"]
+
+    while job_status == "queued" or job_status == "started":
+        time.sleep(1)
+        response = requests.get(
+            url + "?id=" + job_id, auth=("username", "password")
+        ).json()
+        job_status = response["status"]
+
+    if job_status == "finished":
+        return response["result"]
+
+
+def save_to_tsv(data, filename):
+    with open(filename, "w", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
+        keys = data[0].keys()
+        writer.writerow(keys)
+        for row in data:
+            writer.writerow([row[k] for k in keys])
+
+
+def read_file_path(file_path):
+    return pd.read_csv(file_path, sep="\t")
 
 
 def get_abstract_from_pubmed(pmid):
@@ -106,9 +148,17 @@ def process_row(row, abstracts_separate):
     return result, paper_urls, consolidated_abstracts
 
 
-if __name__ == "__main__":
-    # Read the input file
-    df = read_file_path()
+def run_and_save_skim_query(a_term):
+    skim_job_json = configure_skim_job(a_term)
+    result = run_skim_query(skim_job_json, API_URL)
+    file_path = f'gpt4_{skim_job_json["a_terms"][0]}_input.tsv'
+    save_to_tsv(result, file_path)
+    return file_path
+
+
+def main():
+    file_path = run_and_save_skim_query(A_TERM)
+    df = read_file_path(file_path)
 
     results_list = []
 
@@ -124,6 +174,11 @@ if __name__ == "__main__":
             "Abstracts": abstracts,
         }
         results_list.append(result_dict)
+
     # Write results to a JSON file
     with open(OUTPUT_JSON, "w") as outfile:
         json.dump(results_list, outfile, indent=4)
+
+
+if __name__ == "__main__":
+    main()
