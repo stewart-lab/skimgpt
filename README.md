@@ -1,6 +1,6 @@
 # GPT-based Paper Analysis
 
-This repository provides tools to SKIM! through scientific papers and analyze the effectiveness of treatments discussed within them using the OpenAI GPT model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into categories such as useful, harmful, potentially useful, potentially harmful, or ineffective treatments for specific medical conditions.
+This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM-identified (C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into categories such as useful, harmful, potentially useful, potentially harmful, or ineffective treatments (C_TERMS) for specific medical conditions (A_TERMS).
 
 This pipeline consists of two modules:
 - [`skim_no_km` Module Overview](#skim-no-km-overview)
