@@ -1,4 +1,4 @@
-# GPT-based Paper Analysis
+# GPT4-based Abstract Analysis for SKIM-identified Relationships
 
 This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM-identified (C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into categories such as useful, harmful, potentially useful, potentially harmful, or ineffective treatments (C_TERMS) for specific medical conditions (A_TERMS).
 
