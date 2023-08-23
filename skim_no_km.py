@@ -148,9 +148,18 @@ def main_workflow(a_term, config=None):
 
     final_km_df = pd.read_csv(final_km_file_path, sep="\t")
 
-    # Filter final_km_df to get rows where 'ab_pmid_intersection' is not empty
-    # until number of rows equals NUM_C_TERMS
-    valid_rows = final_km_df[final_km_df["ab_pmid_intersection"].notna()]
+    # Set the order of the b_term column based on unique_c_terms
+    final_km_df["b_term"] = pd.Categorical(
+        final_km_df["b_term"], categories=unique_c_terms, ordered=True
+    )
+
+    # Sort the DataFrame based on the custom order
+    final_km_df = final_km_df.sort_values("b_term").reset_index(drop=True)
+
+    valid_rows = final_km_df[
+        final_km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")
+    ]
+
     final_km_df_filtered = valid_rows.head(config["NUM_C_TERMS"])
 
     # Save the filtered final_km_df to disk and return its path
