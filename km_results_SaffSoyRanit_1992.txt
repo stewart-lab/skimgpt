@@ -1,2 +1,0 @@
-a_count	a_term	ab_count	ab_pmid_intersection	ab_pred_score	ab_pvalue	ab_sort_ratio	b_count	b_term	total_count
-7307	crohn	1	[16839981]	0.00165	0.84073	0.00042	2375	ranitidine	9451155
