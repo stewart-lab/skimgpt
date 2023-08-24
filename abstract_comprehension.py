@@ -11,30 +11,39 @@ import skim_no_km as skim
 
 # Step 1: Constants and Configuration
 def get_config():
+    # Define the generation logic for OUTPUT_JSON
+    a_term = "Crohn's disease"
+    censor_year = 1992  # This is taken directly from the skim settings below
+    num_c_terms = 3  # This is also defined below
+
+    # Format the values into the desired output string.
+    output_json = f"{a_term}_censorYear{censor_year}_numCTerms{num_c_terms}.json"
+    # Replace spaces and special characters with underscores to create a valid filename.
+    output_json = output_json.replace(" ", "_").replace("'", "")
+
+    # Return the configuration dictionary
     return {
-        # things that may never change
         "PORT": "5081",
         "API_URL": f"http://localhost:5081/skim/api/jobs",
         "API_KEY": os.getenv("OPENAI_API_KEY"),
-        "RATE_LIMIT": 3,
-        "DELAY": 10,
+        "RATE_LIMIT": 3,  # This is the number of PMIDs to process per API call
+        "DELAY": 10,  # This is the number of seconds to wait between API calls
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
         "PUBMED_PARAMS": {"db": "pubmed", "retmode": "xml", "rettype": "abstract"},
-        # things that may change
-        "A_TERM": "Crohn's disease",
-        "C_TERMS_FILE": "FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
-        "B_TERMS_FILE": "BIO_PROCESS_cleaned.txt",
-        "OUTPUT_JSON": "test_errything_updated.json",
-        "MAX_ABSTRACTS": 5,
-        "SORT_COLUMN": "bc_sort_ratio",
-        "NUM_C_TERMS": 3,
+        "A_TERM": a_term,
+        "C_TERMS_FILE": "FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",  # This file contains FDA-approved drugs
+        "B_TERMS_FILE": "BIO_PROCESS_cleaned.txt",  # This file contains biological processes
+        "OUTPUT_JSON": output_json,
+        "MAX_ABSTRACTS": 5,  # This is the maximum number of abstracts to process per final KM query
+        "SORT_COLUMN": "bc_sort_ratio",  # This is the column to sort by in the SKIM query
+        "NUM_C_TERMS": num_c_terms,
         "JOB_SETTINGS": {
             "skim": {
-                "ab_fet_threshold": 1e-5,
+                "ab_fet_threshold": 1e-5,  # This is the p-value threshold for the Fisher's Exact Test
                 "bc_fet_threshold": 1e-5,
-                "censor_year": 1992,
+                "censor_year": censor_year,  # This is the year to censor the data at
             },
-            "first_km": {"ab_fet_threshold": 0.05, "censor_year": 1992},
+            "first_km": {"ab_fet_threshold": 0.05, "censor_year": censor_year},
             "final_km": {"ab_fet_threshold": 1.1, "censor_year": 2023},
         },
     }
