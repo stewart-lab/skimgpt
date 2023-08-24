@@ -14,7 +14,7 @@ def get_config():
     # Define the generation logic for OUTPUT_JSON
     a_term = "Crohn's disease"
     censor_year = 1992  # This is taken directly from the skim settings below
-    num_c_terms = 3  # This is also defined below
+    num_c_terms = 20  # This is also defined below
 
     # Format the values into the desired output string.
     output_json = f"{a_term}_censorYear{censor_year}_numCTerms{num_c_terms}.json"
@@ -34,7 +34,7 @@ def get_config():
         "C_TERMS_FILE": "FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",  # This file contains FDA-approved drugs
         "B_TERMS_FILE": "BIO_PROCESS_cleaned.txt",  # This file contains biological processes
         "OUTPUT_JSON": output_json,
-        "MAX_ABSTRACTS": 5,  # This is the maximum number of abstracts to process per final KM query
+        "MAX_ABSTRACTS": 20,  # This is the maximum number of abstracts to process per final KM query
         "SORT_COLUMN": "bc_sort_ratio",  # This is the column to sort by in the SKIM query
         "NUM_C_TERMS": num_c_terms,
         "JOB_SETTINGS": {
@@ -43,7 +43,7 @@ def get_config():
                 "bc_fet_threshold": 1e-5,
                 "censor_year": censor_year,  # This is the year to censor the data at
             },
-            "first_km": {"ab_fet_threshold": 0.05, "censor_year": censor_year},
+            "first_km": {"ab_fet_threshold": 0.2, "censor_year": censor_year},
             "final_km": {"ab_fet_threshold": 1.1, "censor_year": 2023},
         },
     }
@@ -102,10 +102,22 @@ def analyze_abstract_with_gpt4(
             assert b_term, "B term is empty"
             assert a_term, "A term is empty"
             prompt = (
-                f"Read the following abstract and classify the discussed treatment: {b_term} "
-                f"as useful, potentially useful, ineffective, potentially harmful, or harmful for "
-                f"successfully treating {a_term}. Provide at least two sentences explaining your "
-                f"classification. Your answer should be in the following format: 'Classification': "
+                f"Read the following abstract carefully. Using the abstract, classify the relationship between {b_term} and {a_term} into one of the"
+                f"following categories :"
+                f"{b_term} is useful for treating {a_term},"
+                f"{b_term} is potentially useful for treating {a_term},"
+                f"{b_term} is ineffective for treating {a_term},"
+                f"{b_term} is potentially harmful for treating {a_term},"
+                f"{b_term} is harmful for treating {a_term},"
+                f"{b_term} is useful for treating only a specific symptom of {a_term},"
+                f"{b_term} is potentially useful for treating only a specific symptom of {a_term},"
+                f"{b_term} is potentially harmful for treating only a specific symptom of{a_term}."
+                f"{b_term} is harmful for treating only a specific symptom of {a_term},"
+                f"{b_term} is useful for diagnosing {a_term},"
+                f"{b_term} is potentially useful for diagnosing {a_term},"
+                f"{b_term} is ineffective for diagnosing {a_term},"
+                f" The relationship between {b_term} and {a_term} is unknown."
+                f"Provide at least two sentences explaining your classification. Your answer should be in the following format: 'Classification': "
                 f"'Rationale': {abstract}"
             )
             response = openai.ChatCompletion.create(
@@ -193,6 +205,19 @@ def main_workflow():
     try:
         df = read_tsv_to_dataframe(skim.main_workflow(a_term, config))
         assert not df.empty, "The dataframe is empty"
+
+        # Calculate the total number of abstracts
+        x = df["ab_count"].sum()
+
+        # Calculate and display the estimated cost
+        estimated_cost = x * 0.006
+        user_input = input(
+            f"The following job consists of {x} abstracts and will cost roughly ${estimated_cost} in GPT-4 API calls. Do you wish to proceed? [Y/n]: "
+        )
+
+        if user_input.lower() != "y":
+            print("Exiting workflow.")
+            return
 
         results_list = []
         test_openai_connection(config["API_KEY"])
