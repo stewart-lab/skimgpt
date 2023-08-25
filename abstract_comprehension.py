@@ -193,6 +193,74 @@ def process_single_row(row, config):
         "Abstracts": consolidated_abstracts,
     }
 
+def process_json(json_data, config):
+    nested_dict = {}
+    a_term = config["A_TERM"]
+    nested_dict[a_term] = {}
+    
+    try:
+        term_scores = {}
+        term_counts = {}
+        
+        for entry in json_data:
+            term = entry.get('Term', None)
+            results = entry.get('Result', None)
+            
+            if term is None or results is None:
+                print("Warning: Invalid entry found in JSON data. Skipping.")
+                continue
+            
+            if term not in term_scores:
+                term_scores[term] = 0
+                term_counts[term] = 0
+            
+            for result in results:
+                term_counts[term] += 1  # Increase the count for this term
+                
+                if f"{term} is useful for treating" in result:
+                    term_scores[term] += 3
+                elif f"{term} is potentially useful for treating" in result:
+                    term_scores[term] += 2
+                elif f"{term} is ineffective for treating" in result:
+                    term_scores[term] -= 1
+                elif f"{term} is potentially harmful for treating" in result:
+                    term_scores[term] -= 2
+                elif f"{term} is harmful for treating" in result:
+                    term_scores[term] -= 3
+                elif f"{term} is useful for treating only a specific symptom of" in result:
+                    term_scores[term] += 2
+                elif f"{term} is potentially useful for treating only a specific symptom of" in result:
+                    term_scores[term] += 1
+                elif f"{term} is potentially harmful for treating only a specific symptom of" in result:
+                    term_scores[term] -= 1
+                elif f"{term} is harmful for treating only a specific symptom of" in result:
+                    term_scores[term] -= 2
+                elif f"{term} is useful for diagnosing" in result:
+                    term_scores[term] += 1
+                elif f"{term} is potentially useful for diagnosing" in result:
+                    term_scores[term] += 0.5
+                elif f"{term} is ineffective for diagnosing" in result:
+                    term_scores[term] -= 0.5
+                elif f"The relationship between {term} and" in result:
+                    term_scores[term] += 0  # No change in score
+
+        term_avg_scores = {term: (term_scores[term] / term_counts[term]) for term in term_scores}
+        
+        for term, score in term_scores.items():
+            avg_score = term_avg_scores[term]
+            nested_dict[a_term][term] = {"Total Score": score, "Average Score": avg_score, "Count": term_counts[term]}
+        
+        return nested_dict
+    
+    except Exception as e:
+        print(f"An error occurred while processing the JSON data: {e}")
+        return None  # Returning None to indicate failure
+
+def save_to_json(data, config):
+    output_filename = config["OUTPUT_JSON"] + "_filtered.json"  # Adding "_filtered" to the filename
+    with open(output_filename, "w") as f:
+        json.dump(data, f, indent=4)
+    print(f"Filtered results have been saved to {output_filename}")
 
 # Step 5: Main Workflow
 def main_workflow():
@@ -229,6 +297,11 @@ def main_workflow():
         assert results_list, "No results were processed"
         write_to_json(results_list, config["OUTPUT_JSON"])
         print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+        with open(config["OUTPUT_JSON"], 'r') as f:
+            json_data = json.load(f)
+        result = process_json(json_data, config)
+        if result: 
+            save_to_json(result, config)
 
     except Exception as e:
         print(f"Error occurred during processing: {e}")
@@ -236,3 +309,4 @@ def main_workflow():
 
 if __name__ == "__main__":
     main_workflow()
+
