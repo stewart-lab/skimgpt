@@ -5,6 +5,7 @@ import openai
 import time
 import json
 import csv
+import re
 from xml.etree import ElementTree
 import skim_no_km as skim
 
@@ -23,8 +24,8 @@ def get_config():
 
     # Return the configuration dictionary
     return {
-        "PORT": "5081",
-        "API_URL": f"http://localhost:5081/skim/api/jobs",
+        "PORT": "5099",
+        "API_URL": f"http://localhost:5099/skim/api/jobs",
         "API_KEY": os.getenv("OPENAI_API_KEY"),
         "RATE_LIMIT": 3,  # This is the number of PMIDs to process per API call
         "DELAY": 10,  # This is the number of seconds to wait between API calls
@@ -193,74 +194,109 @@ def process_single_row(row, config):
         "Abstracts": consolidated_abstracts,
     }
 
+
 def process_json(json_data, config):
     nested_dict = {}
     a_term = config["A_TERM"]
     nested_dict[a_term] = {}
-    
+
     try:
         term_scores = {}
         term_counts = {}
-        
+        term_details = {}  # New dictionary to hold the details
+
         for entry in json_data:
-            term = entry.get('Term', None)
-            results = entry.get('Result', None)
-            
-            if term is None or results is None:
+            term = entry.get("Term", None)
+            results = entry.get("Result", None)
+            urls = entry.get("URLs", None)  # Get URLs
+
+            if term is None or results is None or urls is None:
                 print("Warning: Invalid entry found in JSON data. Skipping.")
                 continue
-            
+
             if term not in term_scores:
                 term_scores[term] = 0
                 term_counts[term] = 0
-            
-            for result in results:
-                term_counts[term] += 1  # Increase the count for this term
-                
-                if f"{term} is useful for treating" in result:
-                    term_scores[term] += 3
-                elif f"{term} is potentially useful for treating" in result:
-                    term_scores[term] += 2
-                elif f"{term} is ineffective for treating" in result:
-                    term_scores[term] -= 1
-                elif f"{term} is potentially harmful for treating" in result:
-                    term_scores[term] -= 2
-                elif f"{term} is harmful for treating" in result:
-                    term_scores[term] -= 3
-                elif f"{term} is useful for treating only a specific symptom of" in result:
-                    term_scores[term] += 2
-                elif f"{term} is potentially useful for treating only a specific symptom of" in result:
-                    term_scores[term] += 1
-                elif f"{term} is potentially harmful for treating only a specific symptom of" in result:
-                    term_scores[term] -= 1
-                elif f"{term} is harmful for treating only a specific symptom of" in result:
-                    term_scores[term] -= 2
-                elif f"{term} is useful for diagnosing" in result:
-                    term_scores[term] += 1
-                elif f"{term} is potentially useful for diagnosing" in result:
-                    term_scores[term] += 0.5
-                elif f"{term} is ineffective for diagnosing" in result:
-                    term_scores[term] -= 0.5
-                elif f"The relationship between {term} and" in result:
-                    term_scores[term] += 0  # No change in score
+                term_details[term] = []  # Initialize list to hold details
 
-        term_avg_scores = {term: (term_scores[term] / term_counts[term]) for term in term_scores}
-        
+            for i, result in enumerate(results):
+                term_counts[term] += 1  # Increase the count for this term
+
+                score = 0  # Placeholder for the score
+                scoring_sentence = ""  # Placeholder for the scoring sentence
+
+                # Define a list of patterns and their corresponding scores
+                patterns = [
+                    (f"{term} is useful for treating", 3),
+                    (f"{term} is potentially useful for treating", 2),
+                    (f"{term} is ineffective for treating", -1),
+                    (f"{term} is potentially harmful for treating", -2),
+                    (f"{term} is harmful for treating", -3),
+                    (f"{term} is useful for treating only a specific symptom of", 2),
+                    (
+                        f"{term} is potentially useful for treating only a specific symptom of",
+                        1,
+                    ),
+                    (
+                        f"{term} is potentially harmful for treating only a specific symptom of",
+                        -1,
+                    ),
+                    (f"{term} is harmful for treating only a specific symptom of", -2),
+                    (f"{term} is useful for diagnosing", 1),
+                    (f"{term} is potentially useful for diagnosing", 0.5),
+                    (f"{term} is ineffective for diagnosing", -0.5),
+                    (f"The relationship between {term} and", 0),
+                ]
+
+                # Search for the pattern in the result to find the scoring sentence and score
+                for pattern, pattern_score in patterns:
+                    if pattern in result:
+                        score = pattern_score
+                        scoring_sentence = re.search(
+                            f"([^\.]*{pattern}[^\.]*\.)", result
+                        ).group(1)
+                        break
+
+                term_scores[term] += score
+
+                # Extract PMID from URL
+                url = urls[i]
+                pmid_match = re.search(r"(\d+)/?$", url)
+                pmid = pmid_match.group(1) if pmid_match else "Unknown"
+
+                # Record the details
+                term_details[term].append(
+                    {"PMID": pmid, "Scoring Sentence": scoring_sentence, "Score": score}
+                )
+
+        term_avg_scores = {
+            term: (term_scores[term] / term_counts[term]) for term in term_scores
+        }
+
         for term, score in term_scores.items():
             avg_score = term_avg_scores[term]
-            nested_dict[a_term][term] = {"Total Score": score, "Average Score": avg_score, "Count": term_counts[term]}
-        
+            nested_dict[a_term][term] = {
+                "Total Score": score,
+                "Average Score": avg_score,
+                "Count": term_counts[term],
+                "Details": term_details[term],  # Add the details
+            }
+
         return nested_dict
-    
+
     except Exception as e:
         print(f"An error occurred while processing the JSON data: {e}")
         return None  # Returning None to indicate failure
 
+
 def save_to_json(data, config):
-    output_filename = config["OUTPUT_JSON"] + "_filtered.json"  # Adding "_filtered" to the filename
+    output_filename = (
+        config["OUTPUT_JSON"] + "_filtered.json"
+    )  # Adding "_filtered" to the filename
     with open(output_filename, "w") as f:
         json.dump(data, f, indent=4)
     print(f"Filtered results have been saved to {output_filename}")
+
 
 # Step 5: Main Workflow
 def main_workflow():
@@ -297,10 +333,10 @@ def main_workflow():
         assert results_list, "No results were processed"
         write_to_json(results_list, config["OUTPUT_JSON"])
         print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
-        with open(config["OUTPUT_JSON"], 'r') as f:
+        with open(config["OUTPUT_JSON"], "r") as f:
             json_data = json.load(f)
         result = process_json(json_data, config)
-        if result: 
+        if result:
             save_to_json(result, config)
 
     except Exception as e:
@@ -309,4 +345,3 @@ def main_workflow():
 
 if __name__ == "__main__":
     main_workflow()
-
