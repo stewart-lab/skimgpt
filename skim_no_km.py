@@ -12,10 +12,11 @@ def read_terms_from_file(filename):
     return terms
 
 
-def save_to_tsv(data, filename):
+def save_to_tsv(data, filename, output_directory):
     """Save the data into a TSV (Tab Separated Values) file."""
+    full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
-    df.to_csv(filename, sep="\t", index=False)
+    df.to_csv(full_path, sep="\t", index=False)
 
 
 # API Calls
@@ -103,6 +104,7 @@ def run_and_save_query(
     username="username",
     password="password",
     config=None,
+    output_directory=None,
 ):
     """Run a query, save the results, and return the saved file path."""
     job_config = configure_job(
@@ -110,11 +112,11 @@ def run_and_save_query(
     )
     result = run_api_query(job_config, config["API_URL"], username, password)
     file_path = f'{job_type}_{job_config["a_terms"][0]}_output.tsv'
-    save_to_tsv(result, file_path)
+    save_to_tsv(result, file_path, output_directory)  # Pass output_directory
     return file_path
 
 
-def main_workflow(a_term, config=None):
+def main_workflow(a_term, config=None, output_directory=None):
     """Execute the main workflow for processing terms."""
     assert config, "No configuration provided"
 
@@ -123,18 +125,27 @@ def main_workflow(a_term, config=None):
     b_terms = read_terms_from_file(config["B_TERMS_FILE"])
 
     print("Running and saving first KM query to subset...")
-    km_file_path = run_and_save_query("first_km", a_term, c_terms, config=config)
-
-    km_df = pd.read_csv(km_file_path, sep="\t")
+    km_file_path = run_and_save_query(
+        "first_km", a_term, c_terms, config=config, output_directory=output_directory
+    )
+    full_km_file_path = os.path.join(output_directory, km_file_path)
+    km_df = pd.read_csv(full_km_file_path, sep="\t")
     km_filtered_terms = km_df["b_term"].tolist()
 
     print("Running and saving SKIM query...")
     skim_file_path = run_and_save_query(
-        "skim", a_term, c_terms, b_terms, km_filtered_terms, config=config
+        "skim",
+        a_term,
+        c_terms,
+        b_terms,
+        km_filtered_terms,
+        config=config,
+        output_directory=output_directory,
     )
 
     print("Processing SKIM results...")
-    skim_df = pd.read_csv(skim_file_path, sep="\t")
+    full_skim_file_path = os.path.join(output_directory, skim_file_path)
+    skim_df = pd.read_csv(full_skim_file_path, sep="\t")
     sort_column = config.get("SORT_COLUMN", "bc_sort_ratio")
     skim_df = skim_df.sort_values(by=sort_column, ascending=False)
     assert not skim_df.empty, "SKIM results are empty"
@@ -143,10 +154,14 @@ def main_workflow(a_term, config=None):
 
     print("Running and saving final KM query...")
     final_km_file_path = run_and_save_query(
-        "final_km", a_term, unique_c_terms, config=config
+        "final_km",
+        a_term,
+        unique_c_terms,
+        config=config,
+        output_directory=output_directory,
     )
-
-    final_km_df = pd.read_csv(final_km_file_path, sep="\t")
+    full_final_km_file_path = os.path.join(output_directory, final_km_file_path)
+    final_km_df = pd.read_csv(full_final_km_file_path, sep="\t")
 
     # Set the order of the b_term column based on unique_c_terms
     final_km_df["b_term"] = pd.Categorical(
@@ -163,7 +178,9 @@ def main_workflow(a_term, config=None):
     final_km_df_filtered = valid_rows.head(config["NUM_C_TERMS"])
 
     # Save the filtered final_km_df to disk and return its path
-    filtered_file_path = os.path.splitext(final_km_file_path)[0] + "_filtered.tsv"
+    filtered_file_path = os.path.join(
+        output_directory, os.path.splitext(final_km_file_path)[0] + "_filtered.tsv"
+    )  # Use output_directory
     final_km_df_filtered.to_csv(filtered_file_path, sep="\t", index=False)
 
     print(f"Filtered final KM query results saved to {filtered_file_path}")

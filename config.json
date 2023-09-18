@@ -1,0 +1,32 @@
+{
+    "PORT": "5099",
+    "API_URL": "http://localhost:5099/skim/api/jobs",
+    "RATE_LIMIT": 3,
+    "DELAY": 10,
+    "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+    "PUBMED_PARAMS": { "db": "pubmed", "retmode": "xml", "rettype": "abstract" },
+    "A_TERM": "Crohn's disease",
+    "C_TERMS_FILE": "input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
+    "B_TERMS_FILE": "input_lists/BIO_PROCESS_cleaned.txt",
+    "OUTPUT_JSON": "Crohns_disease_censorYear1992_numCTerms20.json",
+    "MAX_ABSTRACTS": 20,
+    "MAX_RETRIES": 3,
+    "RETRY_DELAY": 5,
+    "SORT_COLUMN": "bc_sort_ratio",
+    "NUM_C_TERMS": 20,
+    "JOB_SETTINGS": {
+        "skim": {
+            "ab_fet_threshold": 0.00001,
+            "bc_fet_threshold": 0.00001,
+            "censor_year": 1992
+        },
+        "first_km": {
+            "ab_fet_threshold": 0.2,
+            "censor_year": 1992
+        },
+        "final_km": {
+            "ab_fet_threshold": 1.1,
+            "censor_year": 2023
+        }
+    }
+}
