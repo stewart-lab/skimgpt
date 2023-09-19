@@ -59,37 +59,63 @@ def fetch_abstract_from_pubmed(config, pmid, base_url, params):
                 time.sleep(config["RETRY_DELAY"])
             else:
                 print("Max retries reached. Skipping this PMID.")
-                return None, None
+                return None, None, None
 
     abstract_text = ""
     for abstract in tree.findall(".//AbstractText"):
         abstract_text += abstract.text
+
+    # Extract the year
+    year = None
+    pub_date = tree.find(".//PubDate")
+    if pub_date is not None:
+        year_element = pub_date.find("Year")
+        if year_element is not None:
+            year = year_element.text
+
     paper_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
-    return abstract_text, paper_url
+    return abstract_text, paper_url, year
 
 
-def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, api_key):
+def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, api_key, config):
     openai.api_key = api_key
     responses = []
+
     for abstract in consolidated_abstracts:
         assert abstract and len(abstract) > 100, "Abstract is empty or too short"
         assert b_term, "B term is empty"
         assert a_term, "A term is empty"
-        prompt = prompts.drug_process_relationship_classification_prompt(b_term, a_term)
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a medical research analyst.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0,
-            max_tokens=512,
-        )
-        assert response["choices"][0]["message"]["content"], "Response is empty"
-        responses.append(response["choices"][0]["message"]["content"])
+
+        prompt = prompts.drug_process_relationship_classification_prompt(b_term, a_term, abstract)
+
+        for attempt in range(config["MAX_RETRIES"]):
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are a medical research analyst.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0,
+                    max_tokens=512,
+                )
+                assert response["choices"][0]["message"]["content"], "Response is empty"
+                responses.append(response["choices"][0]["message"]["content"])
+                break  # Successful request, break the retry loop
+            except openai.Error as e:
+                if '502' in str(e):  # Bad Gateway
+                    print(f"Bad Gateway error, attempt {attempt + 1}. Retrying in {config['RETRY_DELAY']} seconds...")
+                    time.sleep(config["RETRY_DELAY"])
+                else:
+                    print(f"An unexpected error occurred: {e}")
+                    break  # For other errors, you might want to break the retry loop
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+                break  # For non-OpenAI errors, you might want to break the retry loop
+
     return responses
 
 
@@ -99,14 +125,19 @@ def process_abstracts(config, pmids, rate_limit, delay, base_url, params):
     pmid_batches = [pmids[i : i + rate_limit] for i in range(0, len(pmids), rate_limit)]
     consolidated_abstracts = []
     paper_urls = []
+    publication_years = []  # List to store the years of publication
+
     for batch in pmid_batches:
         for pmid in batch:
-            abstract, url = fetch_abstract_from_pubmed(config, pmid, base_url, params)
+            abstract, url, year = fetch_abstract_from_pubmed(config, pmid, base_url, params)  # Capture the year
             if abstract and url:
                 consolidated_abstracts.append(abstract)
                 paper_urls.append(url)
+                publication_years.append(year)  # Append the year to the list
         time.sleep(delay)
-    return consolidated_abstracts, paper_urls
+
+    return consolidated_abstracts, paper_urls, publication_years  # Return the years as well
+
 
 
 def process_single_row(row, config):
@@ -114,7 +145,8 @@ def process_single_row(row, config):
     assert pmids, "No PMIDs found in the row"
     pmids = pmids[: config["MAX_ABSTRACTS"]]
 
-    consolidated_abstracts, paper_urls = process_abstracts(
+    # Capture the years as well
+    consolidated_abstracts, paper_urls, publication_years = process_abstracts(
         config,
         pmids,
         config["RATE_LIMIT"],
@@ -122,15 +154,19 @@ def process_single_row(row, config):
         config["BASE_URL"],
         config["PUBMED_PARAMS"],
     )
+
     b_term = row["b_term"]
     result = analyze_abstract_with_gpt4(
-        consolidated_abstracts, b_term, config["A_TERM"], config["API_KEY"]
+        consolidated_abstracts, b_term, config["A_TERM"], config["API_KEY"], config
     )
+
+    # Include the years in the returned dictionary
     return {
         "Term": b_term,
         "Result": result,
         "URLs": paper_urls,
         "Abstracts": consolidated_abstracts,
+        "Years": publication_years  # Add the years here
     }
 
 
@@ -148,8 +184,9 @@ def process_json(json_data, config):
             term = entry.get("Term", None)
             results = entry.get("Result", None)
             urls = entry.get("URLs", None)  # Get URLs
+            years = entry.get("Years", None)  # Get Years
 
-            if term is None or results is None or urls is None:
+            if term is None or results is None or urls is None or years is None:
                 print("Warning: Invalid entry found in JSON data. Skipping.")
                 continue
 
@@ -180,9 +217,12 @@ def process_json(json_data, config):
                 pmid_match = re.search(r"(\d+)/?$", url)
                 pmid = pmid_match.group(1) if pmid_match else "Unknown"
 
+                # Get the year for this PMID
+                year = years[i] if i < len(years) else "Unknown"
+
                 # Record the details
                 term_details[term].append(
-                    {"PMID": pmid, "Scoring Sentence": scoring_sentence, "Score": score}
+                    {"PMID": pmid, "Year": year, "Scoring Sentence": scoring_sentence, "Score": score}
                 )
 
         term_avg_scores = {
@@ -203,6 +243,7 @@ def process_json(json_data, config):
     except Exception as e:
         print(f"An error occurred while processing the JSON data: {e}")
         return None  # Returning None to indicate failure
+
 
 
 def save_to_json(data, config, output_directory):
