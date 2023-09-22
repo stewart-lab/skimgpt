@@ -1,5 +1,5 @@
 {
-    "JOB_TYPE": "marker_list",
+    "JOB_TYPE": "drug_discovery_validation",
     "GLOBAL_SETTINGS": {
         "PORT": "5099",
         "API_URL": "http://localhost:5099/skim/api/jobs",
@@ -39,7 +39,7 @@
         "marker_list": {
             "cell_type_list": "input_lists/GAMM_cell_types.txt",
             "GENE_SYMBOL_LIST": "input_lists/HGNC_genesWithSynonyms2023_vocab_out.txt",
-            "ab_fet_threshold": 1e-05
+            "ab_fet_threshold": 0.001
         }
     }
 }
