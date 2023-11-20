@@ -1,6 +1,6 @@
 # GPT4-based Abstract Analysis for SKIM-identified Relationships
 
-This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM-identified (C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into categories such as useful, harmful, potentially useful, potentially harmful, or ineffective treatments (C_TERMS) for specific medical conditions (A_TERMS).
+This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM/KM identified (C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
 
 This pipeline consists of two modules:
 - [`skim_no_km` Module Overview](#skim-no-km-overview)
@@ -14,9 +14,9 @@ This pipeline consists of two modules:
 ├── abstract_comprehension.py
 ├── requirements.txt
 ├── skim_no_km.py
-├── BIO_PROCESS_cleaned.txt (SKIM B_TERMS)
-├── FDA_approved_ProductsActiveIngrediantsOnly_DUPsRemovedCleanedUp.txt (SKIM C_TERMS and KM B_TERMS)
-└── test_skim_no_km.py
+├── input_lists/(B and C terms)
+├── config.json
+└── test/
 ```
 
 
@@ -47,44 +47,36 @@ This pipeline consists of two modules:
     export OPENAI_API_KEY=your_api_key_here
 ```
 4. **Configuring Parameters**
-   #### Configuration Setup in `abstract_comprehension.py`
+   #### Configuration Setup in `config.json`
 
-In the `get_config` function within the `abstract_comprehension.py` file, you will find several settings that you can adjust to fit your specific use case:
+The application's configuration can be customized using the `config.json` file. This file contains various settings that are essential for tailoring the application to specific use cases. Below is a detailed description of the key sections and parameters in the `config.json` file:
 
-#### Core Settings
+- **`JOB_TYPE`**: This specifies the type of job the application will run. For example: `"drug_discovery_validation"`.
 
-- **`A_TERM`**: Specifies the term `A` for the queries. For example, it could be a disease name like `Crohn's disease`.
+- **`GLOBAL_SETTINGS`**: These settings apply globally across the application.
+    - `PORT`: The port on which the application runs.
+    - `A_TERM`: A specific term, such as `"Crohn's disease"`.
+    - `API_URL`: The API endpoint for job submissions.
+    - `RATE_LIMIT`: The maximum number of requests per unit time.
+    - `DELAY`: The delay between requests, in seconds.
+    - `BASE_URL`: The base URL for API requests.
+    - `PUBMED_PARAMS`: Parameters for PubMed API requests.
+    - `MAX_ABSTRACTS`: Maximum number of abstracts to retrieve.
+    - `MAX_RETRIES`: Maximum number of retries for a request.
+    - `RETRY_DELAY`: Delay between retries, in seconds.
+    - `SORT_COLUMN`: Column used for sorting results.
+    - `NUM_C_TERMS`: Number of terms for a specific category.
 
-- **`C_TERMS_FILE`**: The name of the text file containing terms of type `C`. These usually are FDA-approved drugs. Make sure this file exists in the same directory or provide an absolute path.
+- **`JOB_SPECIFIC_SETTINGS`**: These settings are specific to different job types.
+    - For `drug_discovery_validation`:
+        - Paths to files containing terms and thresholds for various analyses (e.g., `C_TERMS_FILE`, `B_TERMS_FILE`).
+        - Specific settings for different stages of the job (e.g., `skim`, `first_km`, `final_km`).
+    - For `marker_list`:
+        - File paths and parameters for marker list generation.
+    - For `post_km_analysis`:
+        - Specific file paths and settings for post-knowledge mining analysis.
 
-- **`B_TERMS_FILE`**: The name of the text file containing terms of type `B`, which usually relate to biological processes. Like `C_TERMS_FILE`, ensure this file is in the correct directory.
-
-- **`OUTPUT_JSON`**: The name of the output JSON file that will store the results of the queries.
-
-- **`MAX_ABSTRACTS`**: The maximum number of abstracts to process per final KM query.
-
-- **`SORT_COLUMN`**: The column name to sort the SKIM query results by. 
-
-- **`NUM_C_TERMS`**: The number of C terms to consider for processing.
-
-#### Job-Specific Settings
-
-The `JOB_SETTINGS` dictionary contains configurations specific to each type of job: `skim`, `first_km`, and `final_km`.
-
-- **`skim`**:
-  - **`ab_fet_threshold`**: The p-value threshold for Fisher's Exact Test when considering the `A-B` term pair.
-  - **`bc_fet_threshold`**: The p-value threshold for Fisher's Exact Test when considering the `B-C` term pair.
-  - **`censor_year`**: The year to censor the data at.
-
-- **`first_km`**:
-  - **`ab_fet_threshold`**: The p-value threshold for Fisher's Exact Test for the `first_km` query.
-  - **`censor_year`**: The year to censor the data at for this job type.
-
-- **`final_km`**:
-  - **`ab_fet_threshold`**: The p-value threshold for Fisher's Exact Test for the `final_km` query.
-  - **`censor_year`**: The year to censor the data at for this job type.
-
-You can adjust these settings to better suit your research or project requirements.
+This JSON file should be updated and maintained to reflect the current operational parameters of the application. Changes to this file will directly impact how the application functions.
 
 
 
