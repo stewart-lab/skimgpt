@@ -6,4 +6,4 @@ Ganglion Cell
 Retinal Progenitor Cell
 Rod Cell
 Cone Cell
-Muller Glia    
+Muller Glia|Müller glia|Müller cell    

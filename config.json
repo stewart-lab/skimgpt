@@ -1,7 +1,8 @@
 {
-    "JOB_TYPE": "marker_list",
+    "JOB_TYPE": "drug_discovery_validation",
     "GLOBAL_SETTINGS": {
         "PORT": "5099",
+        "A_TERM": "Crohn's disease",
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "RATE_LIMIT": 3,
         "DELAY": 10,
@@ -11,17 +12,16 @@
             "retmode": "xml",
             "rettype": "abstract"
         },
-        "MAX_ABSTRACTS": 20,
-        "MAX_RETRIES": 3,
-        "RETRY_DELAY": 5,
+        "MAX_ABSTRACTS": 10,
+        "MAX_RETRIES": 10,
+        "RETRY_DELAY": 60,
         "SORT_COLUMN": "bc_sort_ratio",
-        "NUM_C_TERMS": 20
+        "NUM_C_TERMS": 3
     },
     "JOB_SPECIFIC_SETTINGS": {
         "drug_discovery_validation": {
-            "A_TERM": "Crohn's disease",
-            "C_TERMS_FILE": "input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
-            "B_TERMS_FILE": "input_lists/BIO_PROCESS_cleaned.txt",
+            "C_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
+            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/BIO_PROCESS_cleaned.txt",
             "skim": {
                 "ab_fet_threshold": 1e-05,
                 "bc_fet_threshold": 1e-05,
@@ -39,7 +39,15 @@
         "marker_list": {
             "cell_type_list": "input_lists/GAMM_cell_types.txt",
             "GENE_SYMBOL_LIST": "input_lists/HGNC_genesWithSynonyms2023_vocab_out.txt",
-            "ab_fet_threshold": 1e-05
+            "ab_fet_threshold": 1e-05,
+            "filter_method": "ratio_of_ratios",
+            "ratio_threshold": 7,
+            "occurrence_threshold": 15,
+            "make_marker_list_pretty": true
+        },
+        "post_km_analysis": {
+            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/mapk_set_analysis.csv",
+            "robust": "true"
         }
     }
 }

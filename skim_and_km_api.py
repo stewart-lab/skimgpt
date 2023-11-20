@@ -168,7 +168,7 @@ def skim_no_km_workflow(config=None, output_directory=None):
     """Execute the workflow for drug discovery validation without KM."""
     assert config, "No configuration provided"
 
-    a_term = config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"]["A_TERM"]
+    a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     assert a_term, "A_TERM is not defined in the configuration"
 
     print("Executing drug discovery validation workflow...")
