@@ -51,13 +51,13 @@ This pipeline consists of two modules:
 
 The `config.json` file includes several job types, each with unique settings:
 
-- **drug_discovery_validation**: This job type involves various settings for drug discovery and validation, including files for C and B terms, and settings for skim and knowledge mining.
+- **drug_discovery_validation**: This job type involves using a censor date and an intital KM run to filter out known treatments for a disease for a given censor date. We then run SKIM where the B terms are bio_processes that link a certain disease to C terms which are FDA-approved drugs. We then run a final KM between the disease and the drugs to process and classify their efficacy using GPT-4's API.
 
-- **marker_list**: This job type focuses on creating a list of markers from specified files and includes parameters like thresholds and filtering methods.
+- **marker_list**: This job type focuses on creating a list of markers genes through cell type and gene co-occurance. We have yet to implement filtration with GPT-4 but prelimanry results show co-occurance may nit be the best way to generate marker lists.
 
-- **post_km_analysis**: Used for analysis after knowledge mining, this job type utilizes specific B terms files and robustness settings.
+- **post_km_analysis**: This is a placeholder job type for what will eventually become drug_synergy. This reads in a tsv and utilzes the drug synergy prompt to identify the synergistic relationship between BRD4 and a list of other genes in regard to inhibitng Pancreatic Cancer. TODO: recreate the KM calls to get to the tsv that we start with. Parameterize the other gene of interest (currently BRD4 is hard-coded)
 
-- **pathway_augmentation**: This job type involves augmenting pathway data, using a specified B terms file related to pathway genes.
+- **pathway_augmentation**: This job type involves validating whether a given gene is part of a given pathway. The prompt is a binary classifier. TODO: recreate the km calls using the skim_and_km_api module to reverse engineneer the tsv that we start with. 
 
    ### Configuration Setup in `config.json`
 
