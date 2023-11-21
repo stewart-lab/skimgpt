@@ -47,7 +47,19 @@ This pipeline consists of two modules:
     export OPENAI_API_KEY=your_api_key_here
 ```
 4. **Configuring Parameters**
-   #### Configuration Setup in `config.json`
+   ### Understanding Job Types
+
+The `config.json` file includes several job types, each with unique settings:
+
+- **drug_discovery_validation**: This job type involves various settings for drug discovery and validation, including files for C and B terms, and settings for skim and knowledge mining.
+
+- **marker_list**: This job type focuses on creating a list of markers from specified files and includes parameters like thresholds and filtering methods.
+
+- **post_km_analysis**: Used for analysis after knowledge mining, this job type utilizes specific B terms files and robustness settings.
+
+- **pathway_augmentation**: This job type involves augmenting pathway data, using a specified B terms file related to pathway genes.
+
+   ### Configuration Setup in `config.json`
 
 The application's configuration can be customized using the `config.json` file. This file contains various settings that are essential for tailoring the application to specific use cases. Below is a detailed description of the key sections and parameters in the `config.json` file:
 
