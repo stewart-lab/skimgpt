@@ -15,6 +15,20 @@ import prompt_and_scoring_library as prompts
 import test.test_abstract_comprehension as test
 
 
+def initialize_workflow():
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    os.makedirs("output", exist_ok=True)
+    output_directory = os.path.join("output", f"output_{timestamp}")
+    os.makedirs(output_directory, exist_ok=True)
+    shutil.copy(
+        "/isiseqruns/jfreeman_tmp_home/skimGPT/config.json",
+        os.path.join(output_directory, "config.json"),
+    )
+    config = get_config(output_directory)
+    assert config, "Configuration is empty or invalid"
+    return config, output_directory
+
+
 def get_config(output_directory):
     with open("/isiseqruns/jfreeman_tmp_home/skimGPT/config.json", "r") as f:
         config = json.load(f)
@@ -28,6 +42,8 @@ def get_config(output_directory):
         censor_year = job_settings.get("skim", {}).get("censor_year", "")
         num_c_terms = config["GLOBAL_SETTINGS"].get("NUM_C_TERMS", "")
         output_json = f"{a_term}_censorYear{censor_year}_numCTerms{num_c_terms}.json"
+    elif config["JOB_TYPE"] == "pathway_augmentation":
+        output_json = f"{a_term}_pathway_augmentation.json"
     else:
         print("Invalid job type (caught in get_config)")
 
@@ -95,9 +111,13 @@ def fetch_abstract_from_pubmed(config, pmid):
     return abstract_text, paper_url, year
 
 
-def abstract_quality_control(config, pmids, rate_limit, delay, min_word_count=100):
+def abstract_quality_control(config, pmids, rate_limit, delay):
+    min_word_count = config["GLOBAL_SETTINGS"].get(
+        "MIN_WORD_COUNT", 100
+    )  # Default to 100 if not specified
     assert pmids, "List of PMIDs is empty"
     results = {}
+
     pmid_batches = [pmids[i : i + rate_limit] for i in range(0, len(pmids), rate_limit)]
 
     for batch in pmid_batches:
@@ -125,29 +145,41 @@ def abstract_quality_control(config, pmids, rate_limit, delay, min_word_count=10
 
 
 def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
-    # Assuming openai.api_key is set outside this function globally.
-    responses = []
-
     if not b_term or not a_term:
         logging.error("B term or A term is empty.")
-        return responses
+        return []
 
-    if config["JOB_TYPE"] == "post_km_analysis":
-        prompt = prompts.drug_synergy_prompt(b_term, a_term, consolidated_abstracts)
+    responses = []
+    job_type = config["JOB_TYPE"]
+
+    if job_type in ["post_km_analysis", "pathway_augmentation"]:
+        # For these job types, process the entire set of abstracts at once
+        prompt = generate_prompt(job_type, b_term, a_term, consolidated_abstracts)
         response = call_openai(prompt, config)
         if response:
             responses.append(response)
-    else:
+    elif job_type == "drug_discovery_validation":
+        # For drug discovery validation, process each abstract individually
         for abstract in consolidated_abstracts:
-            if config["JOB_TYPE"] == "drug_discovery_validation":
-                prompt = prompts.drug_process_relationship_classification_prompt(
-                    b_term, a_term, abstract
-                )
+            prompt = generate_prompt(job_type, b_term, a_term, abstract)
             response = call_openai(prompt, config)
             if response:
                 responses.append(response)
 
     return responses
+
+
+def generate_prompt(job_type, b_term, a_term, content):
+    if job_type == "post_km_analysis":
+        return prompts.drug_synergy_prompt(b_term, a_term, content)
+    elif job_type == "pathway_augmentation":
+        return prompts.pathway_augmentation_prompt(b_term, a_term, content)
+    elif job_type == "drug_discovery_validation":
+        return prompts.drug_process_relationship_classification_prompt(
+            b_term, a_term, content
+        )
+    else:
+        raise ValueError(f"Unknown job type: {job_type}")
 
 
 def handle_rate_limit(e, retry_delay):
@@ -168,7 +200,7 @@ def call_openai(prompt, config):
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a medical research analyst.",
+                        "content": "You are a biomedical research analyst.",
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -200,11 +232,14 @@ def call_openai(prompt, config):
 def synergy_dfr_preprocessing(config):
     csv_path = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"]["B_TERMS_FILE"]
     df = pd.read_csv(csv_path)
-    desired_columns = ["term", "panc & ggp & kras-mapk set", "brd & ggp set"]
+    desired_columns = ["b_term", "panc & ggp & kras-mapk set", "brd & ggp set"]
+    # change the column name "term" to "b_term"
+    df.rename(columns={"term": "b_term"}, inplace=True)
+
     filtered_df = df[desired_columns]
 
     new_row = {
-        "term": "CDK9",
+        "b_term": "CDK9",
         "panc & ggp & kras-mapk set": "{26934555, 33879459, 35819261, 31311847}",
         "brd & ggp set": "{19103749, 28673542, 35856391, 16893449, 17942543, 18513937, 32331282, 27764245, 18483222, 23658523, 29415456, 33164842, 18039861, 29212213, 30971469, 28448849, 28077651, 32559187, 29490263, 32012890, 29563491, 28262505, 20201073, 15046258, 28930680, 18971272, 28062857, 29743242, 24335499, 32787081, 33776776, 31594641, 22084242, 34688663, 32203417, 34935961, 23027873, 33619107, 33446572, 18223296, 27322055, 19297489, 29491412, 30068949, 19828451, 36154607, 36690674, 31597822, 23596302, 36046113, 28630312, 29991720, 34045230, 30227759, 34253616, 32188727, 17535807, 16109376, 16109377, 31633227, 28481868, 17686863, 29156698, 26186095, 26083714, 21900162, 27793799, 35249548, 26504077, 29649811, 33298848, 27067814, 31399344, 35337136, 28215221, 22046134, 34062779, 25263550, 21149631, 34971588, 26627013, 26974661, 24518598, 33406420, 36631514, 28182006, 33781756, 24367103}",
     }
@@ -226,94 +261,91 @@ def synergy_dfr_preprocessing(config):
 
     # Filter the DataFrame
     filtered_df = filtered_df[
-        filtered_df["term"]
+        filtered_df["b_term"]
         .str.strip()
         .str.lower()
         .isin([term.lower() for term in terms_to_retain])
     ]
-    filtered_df.loc[filtered_df["term"] == "p akt", "term"] = "AKT"
-    filtered_df["term"] = filtered_df["term"].str.upper()
+    filtered_df.loc[filtered_df["b_term"] == "p akt", "b_term"] = "AKT"
+    filtered_df["b_term"] = filtered_df["b_term"].str.upper()
     return filtered_df
 
 
+def parse_pmids(row, key):
+    return ast.literal_eval(row[key])
+
+
+def get_successful_pmids(pmids, abstracts_data):
+    return [pmid for pmid in pmids if pmid in abstracts_data]
+
+
+def process_abstracts_data(config, pmids):
+    abstracts_data = abstract_quality_control(
+        config,
+        pmids,
+        config["GLOBAL_SETTINGS"]["RATE_LIMIT"],
+        config["GLOBAL_SETTINGS"]["DELAY"],
+    )
+    successful_pmids = get_successful_pmids(pmids, abstracts_data)
+    consolidated_abstracts = [abstracts_data[pmid][0] for pmid in successful_pmids]
+    paper_urls = [abstracts_data[pmid][1] for pmid in successful_pmids]
+    publication_years = [abstracts_data[pmid][2] for pmid in successful_pmids]
+    return consolidated_abstracts, paper_urls, publication_years
+
+
+def perform_analysis(job_type, row, config, robust_setting, abstracts_data):
+    max_abstracts = config["GLOBAL_SETTINGS"].get(
+        "MAX_ABSTRACTS", 10
+    )  # Default to 10 if not specified
+
+    b_term = row["b_term"]
+
+    if job_type == "post_km_analysis":
+        pmids_panc = parse_pmids(row, "panc & ggp & kras-mapk set")
+        pmids_brd = parse_pmids(row, "brd & ggp set")
+        pmids = list(set(pmids_panc) | set(pmids_brd))[:max_abstracts]
+    else:  # drug_discovery_validation or pathway_augmentation
+        pmids = parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
+
+    consolidated_abstracts, paper_urls, publication_years = process_abstracts_data(
+        config, pmids
+    )
+
+    if job_type == "post_km_analysis" and robust_setting.lower() == "true":
+        result = perform_robust_analysis(consolidated_abstracts, b_term, config)
+    else:
+        result = analyze_abstract_with_gpt4(
+            consolidated_abstracts, b_term, config["GLOBAL_SETTINGS"]["A_TERM"], config
+        )
+
+    return result, paper_urls, consolidated_abstracts, publication_years
+
+
 def process_single_row(row, config):
-    b_term = row["term"]
     job_type = config.get("JOB_TYPE")
     robust_setting = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"].get(
         "robust", False
     )
 
-    if job_type == "post_km_analysis":
-        pmids_panc = ast.literal_eval(row["panc & ggp & kras-mapk set"])
-        pmids_brd = ast.literal_eval(row["brd & ggp set"])
-        combined_pmids = list(
-            set(pmids_panc) | set(pmids_brd)
-        )  # Combine and remove duplicates
+    if job_type not in [
+        "post_km_analysis",
+        "drug_discovery_validation",
+        "pathway_augmentation",
+    ]:
+        print("Invalid job type (caught in process_single_row)")
+        return None
 
-        # Get the abstracts and years for all combined PMIDs
-        abstracts_data = abstract_quality_control(
-            config,
-            combined_pmids,
-            config["GLOBAL_SETTINGS"]["RATE_LIMIT"],
-            config["GLOBAL_SETTINGS"]["DELAY"],
-        )
+    result, paper_urls, consolidated_abstracts, publication_years = perform_analysis(
+        job_type, row, config, robust_setting, {}
+    )
 
-        # Filter and sort PMIDs based on success and publication years
-        successful_pmids = [pmid for pmid in combined_pmids if pmid in abstracts_data]
-        pmids_panc = [pmid for pmid in pmids_panc if pmid in successful_pmids]
-        pmids_brd = [pmid for pmid in pmids_brd if pmid in successful_pmids]
-
-        sorted_pmids_panc = sort_pmids_by_year(pmids_panc, abstracts_data)
-        sorted_pmids_brd = sort_pmids_by_year(pmids_brd, abstracts_data)
-        if robust_setting.lower() == "true":
-            return perform_robust_analysis(
-                sorted_pmids_panc,
-                sorted_pmids_brd,
-                [abstracts_data[pmid][0] for pmid in successful_pmids],
-                successful_pmids,
-                b_term,
-                config,
-            )
-        else:
-            # Non-robust analysis
-            num_pmids_panc = min(
-                len(sorted_pmids_panc), config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] // 2
-            )
-            num_pmids_brd = min(
-                len(sorted_pmids_brd),
-                config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] - num_pmids_panc,
-            )
-
-            # Select the top PMIDs from each set
-            selected_pmids_panc = sorted_pmids_panc[:num_pmids_panc]
-            selected_pmids_brd = sorted_pmids_brd[:num_pmids_brd]
-
-            # Combine the selected PMIDs from both sets
-            selected_pmids = selected_pmids_panc + selected_pmids_brd
-
-            # Filter the abstracts, URLs, and years based on the selected PMIDs
-            consolidated_abstracts = [
-                abstracts_data[pmid][0] for pmid in selected_pmids
-            ]
-            paper_urls = [abstracts_data[pmid][1] for pmid in selected_pmids]
-            publication_years = [abstracts_data[pmid][2] for pmid in selected_pmids]
-
-            # Perform analysis on the selected abstracts
-            result = analyze_abstract_with_gpt4(
-                consolidated_abstracts,
-                b_term,
-                config["GLOBAL_SETTINGS"]["A_TERM"],
-                config,
-            )
-
-        # Return the result in the desired format
-        return {
-            "Term": b_term,
-            "Result": result,
-            "URLs": paper_urls,
-            "Abstracts": consolidated_abstracts,
-            "Years": publication_years,
-        }
+    return {
+        "Term": row["b_term"],
+        "Result": result,
+        "URLs": paper_urls,
+        "Abstracts": consolidated_abstracts,
+        "Years": publication_years,
+    }
 
 
 def sort_pmids_by_year(pmids, abstracts_data):
@@ -375,7 +407,7 @@ def perform_robust_analysis(
     return results
 
 
-def process_json(json_data, config):
+def process_drug_discovery_validation_json(json_data, config):
     nested_dict = {}
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     nested_dict[a_term] = {}
@@ -388,8 +420,8 @@ def process_json(json_data, config):
         for entry in json_data:
             term = entry.get("Term", None)
             results = entry.get("Result", None)
-            urls = entry.get("URLs", None)  # Get URLs
-            years = entry.get("Years", None)  # Get Years
+            urls = entry.get("URLs", None)
+            years = entry.get("Years", None)
 
             if term is None or results is None or urls is None or years is None:
                 print("Warning: Invalid entry found in JSON data. Skipping.")
@@ -402,11 +434,9 @@ def process_json(json_data, config):
 
             for i, result in enumerate(results):
                 term_counts[term] += 1  # Increase the count for this term
+                patterns = prompts.drug_process_relationship_scoring(term)
                 score = 0
                 scoring_sentence = ""
-                if config["JOB_TYPE"] == "drug_discovery_validation":
-                    patterns = prompts.drug_process_relationship_scoring(term)
-
                 # Search for the pattern in the result to find the scoring sentence and score
                 for pattern, pattern_score in patterns:
                     if pattern in result:
@@ -446,14 +476,14 @@ def process_json(json_data, config):
                 "Total Score": score,
                 "Average Score": avg_score,
                 "Count": term_counts[term],
-                "Details": term_details[term],  # Add the details
+                "Details": term_details[term],
             }
 
         return nested_dict
 
     except Exception as e:
         print(f"An error occurred while processing the JSON data: {e}")
-        return None  # Returning None to indicate failure
+        return None
 
 
 def save_to_json(data, config, output_directory):
@@ -605,7 +635,7 @@ def api_cost_estimator(df, config):
     job_type = config.get("JOB_TYPE", "")
     estimated_cost = 0
 
-    if job_type == "drug_discovery_validation":
+    if job_type == "drug_discovery_validation" or job_type == "pathway_augmentation":
         x = config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] * len(df)
         estimated_cost = x * 0.006
 
@@ -648,25 +678,19 @@ def api_cost_estimator(df, config):
     return True
 
 
-def initialize_workflow():
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    os.makedirs("output", exist_ok=True)
-    output_directory = os.path.join("output", f"output_{timestamp}")
-    os.makedirs(output_directory, exist_ok=True)
-    shutil.copy(
-        "/isiseqruns/jfreeman_tmp_home/skimGPT/config.json",
-        os.path.join(output_directory, "config.json"),
-    )
-    config = get_config(output_directory)
-    assert config, "Configuration is empty or invalid"
-    return config, output_directory
-
-
 def drug_discovery_validation_workflow(config, output_directory):
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
     try:
-        df = read_tsv_to_dataframe(skim.skim_no_km_workflow(config, output_directory))
+        if (
+            config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"].get("test")
+            == "True"
+        ):
+            df = test.test_gpt4_leakage()
+        else:
+            df = read_tsv_to_dataframe(
+                skim.skim_no_km_workflow(config, output_directory)
+            )
         assert not df.empty, "The dataframe is empty"
         if not api_cost_estimator(df, config):
             return
@@ -684,14 +708,33 @@ def drug_discovery_validation_workflow(config, output_directory):
         json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
         with open(json_file_path, "r") as f:
             json_data = json.load(f)
-        result = process_json(json_data, config)
+        result = process_drug_discovery_validation_json(json_data, config)
         if result:
             save_to_json(result, config, output_directory)
     except Exception as e:
         print(f"Error occurred during processing: {e}")
 
 
-def marker_list_workflow_handler(config, output_directory):
+def extract_term_and_scoring_sentence(json_data):
+    extracted_data = {}
+
+    for term_data in json_data.values():
+        for entry in term_data:
+            term = entry.get("Term")
+            results = entry.get("Result", [])
+
+            if term and results:
+                # Joining the result strings and extracting the first significant sentence
+                full_text = " ".join(results)
+                first_sentence = full_text.split(".")[0] + "." if full_text else ""
+
+                # Adding to the extracted data
+                extracted_data[term] = first_sentence
+
+    return extracted_data
+
+
+def marker_list_workflow(config, output_directory):
     km_file_paths = skim.marker_list_workflow(
         config=config, output_directory=output_directory
     )
@@ -711,17 +754,16 @@ def post_km_analysis_workflow(config, output_directory):
         if not api_cost_estimator(df, config):
             return
         # take the last row for testing purposes
-        df = df.iloc[[1]]
         results = {}
         test.test_openai_connection()
         for index, row in df.iterrows():
-            term = row["term"]
+            term = row["b_term"]
             result_dict = process_single_row(row, config)
             if term not in results:
                 results[term] = [result_dict]
             else:
                 results[term].append(result_dict)
-            print(f"Processed row {index + 1} ({row['term']}) of {len(df)}")
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
         assert results, "No results were processed"
         write_to_json(results, config["OUTPUT_JSON"], output_directory)
         print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
@@ -729,17 +771,52 @@ def post_km_analysis_workflow(config, output_directory):
         print(f"Error occurred during processing: {e}")
 
 
+def pathway_augmentation_workflow(config, output_directory):
+    try:
+        df = read_tsv_to_dataframe(
+            config["JOB_SPECIFIC_SETTINGS"]["pathway_augmentation"]["B_TERMS_FILE"]
+        )
+        # take the first 18 rows for testing purposes
+        df = df.head(18)
+        assert not df.empty, "The dataframe is empty"
+        if not api_cost_estimator(df, config):
+            return
+        results = {}
+        test.test_openai_connection()
+        for index, row in df.iterrows():
+            term = row["b_term"]
+            result_dict = process_single_row(row, config)
+            if term not in results:
+                results[term] = [result_dict]
+            else:
+                results[term].append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+        assert results, "No results were processed"
+        write_to_json(results, config["OUTPUT_JSON"], output_directory)
+        print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+        print("Processing JSON data...")
+        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
+        with open(json_file_path, "r") as f:
+            json_data = json.load(f)
+        result = extract_term_and_scoring_sentence(json_data)
+        if result:
+            save_to_json(result, config, output_directory)
+    except Exception as e:
+        print(f"Error occurred within pathway_augmentation_workflow: {e}")
+
+
 def main_workflow():
     logging.basicConfig(level=logging.INFO)
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")
-
     if job_type == "drug_discovery_validation":
         drug_discovery_validation_workflow(config, output_directory)
     elif job_type == "marker_list":
-        marker_list_workflow_handler(config, output_directory)
+        marker_list_workflow(config, output_directory)
     elif job_type == "post_km_analysis":
         post_km_analysis_workflow(config, output_directory)
+    elif job_type == "pathway_augmentation":
+        pathway_augmentation_workflow(config, output_directory)
     else:
         print("JOB_TYPE does not match known workflows.")
 
