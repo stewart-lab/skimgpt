@@ -8,6 +8,7 @@ import shutil
 import re
 import ast
 import logging
+import copy
 from datetime import datetime
 from xml.etree import ElementTree
 import skim_and_km_api as skim
@@ -30,11 +31,13 @@ def initialize_workflow():
 
 
 def get_config(output_directory):
-    with open("/isiseqruns/jfreeman_tmp_home/skimGPT/config.json", "r") as f:
+    with open("config.json", "r") as f:
         config = json.load(f)
     job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
-    if config["JOB_TYPE"] == "marker_list":
+    if config["JOB_TYPE"] == "km_with_gpt":
+        output_json = f"{a_term}_km_with_gpt.json"
+    elif config["JOB_TYPE"] == "marker_list":
         output_json = f"marker_list_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json"
     elif config["JOB_TYPE"] == "post_km_analysis":
         output_json = f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json"
@@ -150,9 +153,9 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
         return []
 
     responses = []
+    prompt = None
     job_type = config["JOB_TYPE"]
-
-    if job_type in ["post_km_analysis", "pathway_augmentation"]:
+    if job_type in ["post_km_analysis", "pathway_augmentation", "km_with_gpt"]:
         # For these job types, process the entire set of abstracts at once
         prompt = generate_prompt(job_type, b_term, a_term, consolidated_abstracts)
         response = call_openai(prompt, config)
@@ -166,7 +169,7 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
             if response:
                 responses.append(response)
 
-    return responses
+    return responses, prompt
 
 
 def generate_prompt(job_type, b_term, a_term, content):
@@ -178,12 +181,14 @@ def generate_prompt(job_type, b_term, a_term, content):
         return prompts.drug_process_relationship_classification_prompt(
             b_term, a_term, content
         )
+    elif job_type == "km_with_gpt":
+        return prompts.build_your_own_prompt(b_term, a_term, content)
     else:
         raise ValueError(f"Unknown job type: {job_type}")
 
 
 def handle_rate_limit(e, retry_delay):
-    # Extract the retry-after value from the error message if available
+    # Extract the retry-after value from the error message if available0-
     retry_after = int(e.response.headers.get("Retry-After", retry_delay))
     logging.warning(f"Rate limit exceeded. Retrying after {retry_after} seconds...")
     time.sleep(retry_after)
@@ -192,7 +197,6 @@ def handle_rate_limit(e, retry_delay):
 def call_openai(prompt, config):
     retry_delay = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
     max_retries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
-
     for attempt in range(max_retries):
         try:
             response = openai.ChatCompletion.create(
@@ -293,12 +297,13 @@ def process_abstracts_data(config, pmids):
     return consolidated_abstracts, paper_urls, publication_years
 
 
-def perform_analysis(job_type, row, config, robust_setting, abstracts_data):
-    max_abstracts = config["GLOBAL_SETTINGS"].get(
-        "MAX_ABSTRACTS", 10
-    )  # Default to 10 if not specified
+def perform_analysis(
+    job_type, row, config, robust_setting, abstracts_data, a_term=None
+):
+    max_abstracts = config["GLOBAL_SETTINGS"].get("MAX_ABSTRACTS", 10)
 
     b_term = row["b_term"]
+    a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
 
     if job_type == "post_km_analysis":
         pmids_panc = parse_pmids(row, "panc & ggp & kras-mapk set")
@@ -314,15 +319,16 @@ def perform_analysis(job_type, row, config, robust_setting, abstracts_data):
     if job_type == "post_km_analysis" and robust_setting.lower() == "true":
         result = perform_robust_analysis(consolidated_abstracts, b_term, config)
     else:
-        result = analyze_abstract_with_gpt4(
-            consolidated_abstracts, b_term, config["GLOBAL_SETTINGS"]["A_TERM"], config
+        result, prompt = analyze_abstract_with_gpt4(
+            consolidated_abstracts, b_term, a_term, config
         )
 
-    return result, paper_urls, consolidated_abstracts, publication_years
+    return result, prompt, paper_urls, consolidated_abstracts, publication_years
 
 
 def process_single_row(row, config):
     job_type = config.get("JOB_TYPE")
+    a_term = row["a_term"]
     robust_setting = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"].get(
         "robust", False
     )
@@ -331,17 +337,23 @@ def process_single_row(row, config):
         "post_km_analysis",
         "drug_discovery_validation",
         "pathway_augmentation",
+        "km_with_gpt",
     ]:
         print("Invalid job type (caught in process_single_row)")
         return None
 
-    result, paper_urls, consolidated_abstracts, publication_years = perform_analysis(
-        job_type, row, config, robust_setting, {}
-    )
+    (
+        result,
+        prompt,
+        paper_urls,
+        consolidated_abstracts,
+        publication_years,
+    ) = perform_analysis(job_type, row, config, robust_setting, {}, a_term)
 
     return {
         "Term": row["b_term"],
         "Result": result,
+        "Prompt": prompt,  # Added prompt here
         "URLs": paper_urls,
         "Abstracts": consolidated_abstracts,
         "Years": publication_years,
@@ -638,7 +650,24 @@ def api_cost_estimator(df, config):
     if job_type == "drug_discovery_validation" or job_type == "pathway_augmentation":
         x = config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] * len(df)
         estimated_cost = x * 0.006
-
+    elif job_type == "km_with_gpt":
+        if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
+            z = len(
+                skim.read_terms_from_file(
+                    config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
+                )
+            )
+            x = (
+                config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
+                * z
+                * config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
+            )
+        else:
+            x = (
+                config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
+                * config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
+            )
+        estimated_cost = x * 0.006
     elif job_type == "post_km_analysis":
         robust_setting = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"].get(
             "robust", "False"
@@ -776,8 +805,8 @@ def pathway_augmentation_workflow(config, output_directory):
         df = read_tsv_to_dataframe(
             config["JOB_SPECIFIC_SETTINGS"]["pathway_augmentation"]["B_TERMS_FILE"]
         )
-        # take the first 18 rows for testing purposes
-        df = df.head(18)
+        # take rows 19 through 24
+        df = df.iloc[25:30]
         assert not df.empty, "The dataframe is empty"
         if not api_cost_estimator(df, config):
             return
@@ -805,11 +834,53 @@ def pathway_augmentation_workflow(config, output_directory):
         print(f"Error occurred within pathway_augmentation_workflow: {e}")
 
 
+def km_with_gpt_workflow(config, output_directory):
+    km_file_path = skim.km_with_gpt_workflow(
+        config=config, output_directory=output_directory
+    )
+    df = read_tsv_to_dataframe(km_file_path)
+    df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
+    assert not df.empty, "The dataframe is empty"
+    results = {}
+    test.test_openai_connection()
+    for index, row in df.iterrows():
+        term = row["b_term"]
+        result_dict = process_single_row(row, config)
+        if term not in results:
+            results[term] = [result_dict]
+        else:
+            results[term].append(result_dict)
+        print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+    assert results, "No results were processed"
+    write_to_json(results, config["OUTPUT_JSON"], output_directory)
+    print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+
+
 def main_workflow():
     logging.basicConfig(level=logging.INFO)
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")
-    if job_type == "drug_discovery_validation":
+
+    if job_type == "km_with_gpt":
+        if not api_cost_estimator([], config):
+            return
+        if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("A_TERM_LIST"):
+            a_terms = skim.read_terms_from_file(
+                config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
+            )
+            for a_term in a_terms:
+                local_config = copy.deepcopy(config)
+                local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
+
+                # Dynamically generate output_json name for each a_term
+                output_json = f"{a_term}_km_with_gpt.json"
+                output_json = output_json.replace(" ", "_").replace("'", "")
+                local_config["OUTPUT_JSON"] = output_json
+
+                km_with_gpt_workflow(local_config, output_directory)
+        else:
+            km_with_gpt_workflow(config, output_directory)
+    elif job_type == "drug_discovery_validation":
         drug_discovery_validation_workflow(config, output_directory)
     elif job_type == "marker_list":
         marker_list_workflow(config, output_directory)
