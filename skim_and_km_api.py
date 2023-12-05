@@ -9,6 +9,8 @@ def read_terms_from_file(filename):
     """Read terms from a given file and return them as a list."""
     with open(filename, "r") as f:
         terms = [line.strip() for line in f]
+        # Remove empty strings from the list
+        terms = list(filter(None, terms))
     return terms
 
 
@@ -71,6 +73,10 @@ def configure_job(
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][
             "drug_discovery_validation"
         ][job_type]
+    elif job_type == "km_with_gpt":
+        job_specific_settings = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"][
+            "km_with_gpt"
+        ]
     else:
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][job_type]
 
@@ -83,7 +89,7 @@ def configure_job(
             "c_terms": c_terms_filtered,
             "top_n_articles": 20,
         }
-    elif job_type in ["first_km", "final_km", "marker_list"]:
+    elif job_type in ["first_km", "final_km", "marker_list", "km_with_gpt"]:
         return {
             **common_settings,
             **job_specific_settings,
@@ -246,4 +252,44 @@ def skim_no_km_workflow(config=None, output_directory=None):
     final_km_df_filtered.to_csv(filtered_file_path, sep="\t", index=False)
 
     print(f"Filtered final KM query results saved to {filtered_file_path}")
+    return filtered_file_path
+
+
+def km_with_gpt_workflow(config=None, output_directory=None):
+    assert config, "No configuration provided"
+
+    # Directly use A_TERM from global settings as a string
+    a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
+    assert a_term, "A_TERM is not defined in the configuration"
+
+    print("Executing KM workflow...")
+    print("Reading terms from files...")
+    c_terms = read_terms_from_file(
+        config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
+    )
+    assert c_terms, "B_TERM is not defined in the configuration"
+    print(f"Running and saving KM query for a_term: {a_term}...")
+    km_file_path = run_and_save_query(
+        "km_with_gpt",
+        a_term,
+        c_terms,
+        config=config,
+        output_directory=output_directory,
+    )
+
+    full_km_file_path = os.path.join(output_directory, km_file_path)
+    km_df = pd.read_csv(full_km_file_path, sep="\t")
+    sort_column = config["GLOBAL_SETTINGS"].get("SORT_COLUMN", "bc_sort_ratio")
+    km_df = km_df.sort_values(by=sort_column, ascending=False)
+    assert not km_df.empty, "KM results are empty"
+
+    # Save the filtered final_km_df to disk and return its path replacing any spaces with underscores
+    filtered_file_path = os.path.join(
+        output_directory,
+        os.path.splitext(km_file_path)[0].replace(" ", "_") + "_filtered.tsv",
+    )
+    km_df.to_csv(filtered_file_path, sep="\t", index=False)
+
+    print(f"Filtered KM query results saved to {filtered_file_path}")
+
     return filtered_file_path

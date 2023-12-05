@@ -1,3 +1,12 @@
+def build_your_own_prompt(b_term, a_term, consolidated_abstracts):
+    return (
+        f"Using only the information from the biomedical abstracts provided, determine if the gene '{b_term}' "
+        f"is in the pathway '{a_term}'. "
+        f"Provide a binary classification (Yes or No) and at least two sentences explaining the rationale behind your classification. "
+        f"The biomedical abstracts follow:\n{consolidated_abstracts}"
+    )
+
+
 def drug_process_relationship_classification_prompt(b_term, a_term, abstract):
     return (
         f"Read the following abstract carefully. Using the abstract, classify the relationship between {b_term} and {a_term} into one of the "
@@ -60,7 +69,7 @@ def drug_synergy_prompt(b_term, a_term, consolidated_abstracts):
 def pathway_augmentation_prompt(b_term, a_term, consolidated_abstracts):
     return (
         f"Using only the information from the biomedical abstracts provided, determine if the gene '{b_term}' "
-        f"is involved in the pathway '{a_term}'. "
+        f"is in the pathway '{a_term}'. "
         f"Provide a binary classification (Yes or No) and at least two sentences explaining the rationale behind your classification. "
         f"The biomedical abstracts follow:\n{consolidated_abstracts}"
     )
