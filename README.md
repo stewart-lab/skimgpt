@@ -1,6 +1,6 @@
 # GPT4-based Abstract Analysis for co-occurence-identified Relationships
 
-This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
+This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given A_TERM and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. We also accept A_TERM lists to perfrom multiple queries agaisnt a B_TERM list. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
 
 This pipeline consists of three modules:
 - [`skim_no_km` Module Overview](#skim-no-km-overview)
@@ -17,7 +17,7 @@ And a config.json file required to structure and execute the job type:
 ├── prompt_and_scoring.py
 ├── requirements.txt
 ├── skim_no_km.py
-├── input_lists/(B and C terms)
+├── input_lists/(A, B and C terms)
 ├── config.json
 └── test/
 ```
@@ -54,49 +54,6 @@ And a config.json file required to structure and execute the job type:
 
 The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job
 
-- **drug_discovery_validation**: This job type involves using a censor date and an intital KM run to filter out known treatments for a disease for a given censor date. We then run SKIM where the B terms are bio_processes that link a certain disease to C terms which are FDA-approved drugs. We then run a final KM between the disease and the drugs to process and classify their efficacy using GPT-4's API.
-
-- **marker_list**: This job type focuses on creating a list of markers genes through cell type and gene co-occurance. We have yet to implement filtration with GPT-4 but prelimanry results show co-occurance may nit be the best way to generate marker lists.
-
-- **post_km_analysis**: This is a placeholder job type for what will eventually become drug_synergy. This reads in a tsv and utilzes the drug synergy prompt to identify the synergistic relationship between BRD4 and a list of other genes in regard to inhibitng Pancreatic Cancer. TODO: recreate the KM calls to get to the tsv that we start with. Parameterize the other gene of interest (currently BRD4 is hard-coded)
-
-- **pathway_augmentation**: This job type involves validating whether a given gene is part of a given pathway. The prompt is a binary classifier. TODO: recreate the km calls using the skim_and_km_api module to reverse engineneer the tsv that we start with. 
-
-   ### Configuration Setup in `config.json`
-
-The application's configuration can be customized using the `config.json` file. This file contains various settings that are essential for tailoring the application to specific use cases. Below is a detailed description of the key sections and parameters in the `config.json` file:
-
-- **`JOB_TYPE`**: This specifies the type of job the application will run. For example: `"drug_discovery_validation"`.
-
-- **`GLOBAL_SETTINGS`**: These settings apply globally across the application.
-    - `PORT`: The port on which the application runs.
-    - `A_TERM`: A specific term, such as `"Crohn's disease"`.
-    - `API_URL`: The API endpoint for job submissions.
-    - `RATE_LIMIT`: The maximum number of requests per unit time.
-    - `DELAY`: The delay between requests, in seconds.
-    - `BASE_URL`: The base URL for API requests.
-    - `PUBMED_PARAMS`: Parameters for PubMed API requests.
-    - `MAX_ABSTRACTS`: Maximum number of abstracts to retrieve.
-    - `MAX_RETRIES`: Maximum number of retries for a request.
-    - `RETRY_DELAY`: Delay between retries, in seconds.
-    - `SORT_COLUMN`: Column used for sorting results.
-    - `NUM_C_TERMS`: Number of terms for a specific category.
-
-- **`JOB_SPECIFIC_SETTINGS`**: These settings are specific to different job types.
-    - For `drug_discovery_validation`:
-        - Paths to files containing terms and thresholds for various analyses (e.g., `C_TERMS_FILE`, `B_TERMS_FILE`).
-        - Specific settings for different stages of the job (e.g., `skim`, `first_km`, `final_km`).
-    - For `marker_list`:
-        - File paths and parameters for marker list generation.
-    - For `post_km_analysis`:
-        - Specific file paths and settings for post-knowledge mining analysis.
-
-This JSON file should be updated and maintained to reflect the current operational parameters of the application. Changes to this file will directly impact how the application functions.
-
-
-
-
-   
 5. **Running the script**
    ```bash
    python abstract_comprehension.py
