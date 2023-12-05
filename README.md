@@ -1,17 +1,20 @@
-# GPT4-based Abstract Analysis for SKIM-identified Relationships
+# GPT4-based Abstract Analysis for co-occurence-identified Relationships
 
-This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM/KM identified (C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
+This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given term (A_TERM) and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
 
-This pipeline consists of two modules:
+This pipeline consists of three modules:
 - [`skim_no_km` Module Overview](#skim-no-km-overview)
 - [`abstract_comprehension` Module Overview](#abstract-comprehension-overview)
+- [`prompt_and_scoring`Module Overview](#prompt-and-scoring-overview)
 
-
+And a config.json file required to structure and execute the job type:
+- [`config` Module Overview](#config-overview)
 
 ## Directory Structure
 
 ```bash
 ├── abstract_comprehension.py
+├── prompt_and_scoring.py
 ├── requirements.txt
 ├── skim_no_km.py
 ├── input_lists/(B and C terms)
@@ -24,6 +27,7 @@ This pipeline consists of two modules:
 
 - Python 3.x
 - Libraries specified in `requirements.txt`
+- OpenAI API key
 
 ## Getting Started
 
@@ -47,9 +51,8 @@ This pipeline consists of two modules:
     export OPENAI_API_KEY=your_api_key_here
 ```
 4. **Configuring Parameters**
-   ### Understanding Job Types
 
-The `config.json` file includes several job types, each with unique settings:
+The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job
 
 - **drug_discovery_validation**: This job type involves using a censor date and an intital KM run to filter out known treatments for a disease for a given censor date. We then run SKIM where the B terms are bio_processes that link a certain disease to C terms which are FDA-approved drugs. We then run a final KM between the disease and the drugs to process and classify their efficacy using GPT-4's API.
 
@@ -229,7 +232,15 @@ This module provides functions for extracting and analyzing abstracts from PubMe
 - It supports batch processing to handle rate limits and delays.
 - The main workflow function manages the entire process, calling other functions as necessary.
 
+<a name="prompt-and-scoring-overview"></a>
+# `prompt_and_scoring` Module Overview
 
+
+
+
+
+<a name="config-overview"></a>
+# `config` Module Overview
 ## Contributions
 
 Feel free to contribute to this repository by submitting a pull request or opening an issue for suggestions and bugs.
