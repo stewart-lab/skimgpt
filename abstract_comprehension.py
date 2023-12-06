@@ -15,15 +15,16 @@ import skim_and_km_api as skim
 import prompt_and_scoring_library as prompts
 import test.test_abstract_comprehension as test
 
-
+CONFIG_FILE= "./configRMS_needSpecialTunnel.json"  # typically "./config.json"
+# Ron is using: "./configRMS_needSpecialTunnel.json" 
 def initialize_workflow():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     os.makedirs("output", exist_ok=True)
     output_directory = os.path.join("output", f"output_{timestamp}")
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
-        "config.json",
-        os.path.join(output_directory, "config.json"),
+        CONFIG_FILE,
+        os.path.join(output_directory, CONFIG_FILE),
     )
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
@@ -47,7 +48,7 @@ def get_output_json_filename(config, job_settings):
     return output_json.replace(" ", "_").replace("'", "")
 
 
-def get_config(output_directory, config_path="config.json"):
+def get_config(output_directory, config_path=CONFIG_FILE):
     with open(config_path, "r") as f:
         config = json.load(f)
 
@@ -60,7 +61,7 @@ def get_config(output_directory, config_path="config.json"):
 
     config["API_KEY"] = api_key
 
-    with open(os.path.join(output_directory, "config.json"), "w") as f:
+    with open(os.path.join(output_directory, config_path), "w") as f:
         json.dump(config, f, indent=4)
 
     return config
