@@ -3,7 +3,7 @@
 This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given A_TERM and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. We also accept A_TERM lists to perfrom multiple queries agaisnt a B_TERM list. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
 
 This pipeline consists of three modules:
-- [`skim_no_km` Module Overview](#skim-no-km-overview)
+- [`skim_and_km_api` Module Overview](#skim-and-km-api-overview)
 - [`abstract_comprehension` Module Overview](#abstract-comprehension-overview)
 - [`prompt_and_scoring`Module Overview](#prompt-and-scoring-overview)
 
@@ -64,8 +64,8 @@ The `config.json` file includes global parameters as well as several job types, 
 
 
 
-<a name="skim-no-km-overview"></a>
-# `skim_no_km` Module Overview
+<a name="skim-and-km-api-overview"></a>
+# `skim_and_km_api` Module Overview
 
 
 This module provides a set of functions to interact with an external API, process data, and handle file operations. The main purpose is to subset a SKIM query via a KM query of the SKIM A and C terms. The relationship between these terms is well-defined and do not need to be included in downstream analysis. A final KM query is ran to extract PubMed IDs that will serve as the foundation to our GPT4-powered abstract comprehension module. Final output is: terms sorted by our sort_column parameter and respective PMIDs in TSV format.
