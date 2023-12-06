@@ -16,7 +16,7 @@ And a config.json file required to structure and execute the job type:
 ├── abstract_comprehension.py
 ├── prompt_and_scoring.py
 ├── requirements.txt
-├── skim_no_km.py
+├── skim_and_km_api.py
 ├── input_lists/(A, B and C terms)
 ├── config.json
 └── test/
