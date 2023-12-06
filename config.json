@@ -19,10 +19,10 @@
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
-            "A_TERM_LIST": true,
-            "A_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/test_list.txt",
-            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/BIO_PROCESS_cleaned.txt",
-            "SORT_COLUMN": "bc_sort_ratio",
+            "A_TERM_LIST": false,
+            "A_TERMS_FILE": "input_lists/test_list.txt",
+            "B_TERMS_FILE": "input_lists/BIO_PROCESS_cleaned.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 5,
             "km_with_gpt": {
                 "ab_fet_threshold": 1e-05,
@@ -33,8 +33,8 @@
             "test": "false",
             "SORT_COLUMN": "bc_sort_ratio",
             "NUM_C_TERMS": 1,
-            "C_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
-            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/BIO_PROCESS_cleaned.txt",
+            "C_TERMS_FILE": "input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
+            "B_TERMS_FILE": "input_lists/BIO_PROCESS_cleaned.txt",
             "skim": {
                 "ab_fet_threshold": 1e-05,
                 "bc_fet_threshold": 1e-05,
@@ -59,11 +59,11 @@
             "make_marker_list_pretty": true
         },
         "post_km_analysis": {
-            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/mapk_set_analysis.csv",
+            "B_TERMS_FILE": "input_lists/mapk_set_analysis.csv",
             "robust": "false"
         },
         "pathway_augmentation": {
-            "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/pathway_gene.tsv"
+            "B_TERMS_FILE": "input_lists/pathway_gene.tsv"
         }
     }
 }
