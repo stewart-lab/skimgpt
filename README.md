@@ -198,6 +198,64 @@ This module provides functions for extracting and analyzing abstracts from PubMe
 
 <a name="config-overview"></a>
 # `config` Module Overview
+
+This configuration file contains various settings for different job types. Below are descriptions of each parameter:
+
+## General Parameters
+- `JOB_TYPE`: Specifies the type of job to be executed, e.g., `km_with_gpt`.
+
+## Global Settings
+- `A_TERM`: The primary term of interest, such as a disease or condition.
+- `MAX_ABSTRACTS`: The maximum number of abstracts to process.
+- `MIN_WORD_COUNT`: Minimum word count for abstract consideration.
+- `API_URL`: URL for the API endpoint.
+- `PORT`: Port number for the API service.
+- `BASE_URL`: Base URL for external data sources, like PubMed.
+- `PUBMED_PARAMS`: Parameters for PubMed API requests.
+  - `db`: Database to query (e.g., `pubmed`).
+  - `retmode`: Return mode (e.g., `xml`).
+  - `rettype`: Return type (e.g., `abstract`).
+- `RATE_LIMIT`: Maximum number of requests per unit time.
+- `DELAY`: Time in seconds to wait before making a new request.
+- `MAX_RETRIES`: Maximum number of retry attempts after a failed request.
+- `RETRY_DELAY`: Delay in seconds before retrying a request.
+
+## Job-Specific Settings
+### km_with_gpt
+- `A_TERM_LIST`: Boolean to indicate if a list of `A` terms is used.
+- `A_TERMS_FILE`: File path for the `A` terms list.
+- `B_TERMS_FILE`: File path for the `B` terms list.
+- `SORT_COLUMN`: Column used for sorting A-B relationships after fet_threshold is met.
+- `NUM_B_TERMS`: Number of `B` terms to consider after sorting and after fet_threshold is met.
+- `ab_fet_threshold`: fisher exact test A-B relationship threshold.
+- `censor_year`: Year for data censoring (time-slicing).
+
+### drug_discovery_validation
+- `test`: Boolean flag for testing mode.
+- `NUM_C_TERMS`, `C_TERMS_FILE`, `B_TERMS_FILE`: Similar to above.
+- `skim`, `first_km`, `final_km`: Specific parameters for each stage.
+  - `ab_fet_threshold`: Feature extraction threshold.
+  - `bc_fet_threshold`: Threshold for the `BC` feature.
+  - `censor_year`: Year for data censoring.
+
+### marker_list
+- `cell_type_list`: File path for the cell type list.
+- `GENE_SYMBOL_LIST`: File path for the gene symbol list.
+- `ab_fet_threshold`: Feature extraction threshold.
+- `filter_method`: Method used for filtering.
+- `ratio_threshold`, `occurrence_threshold`: Specific thresholds for filtering.
+- `make_marker_list_pretty`: Boolean to beautify the marker list.
+
+### post_km_analysis
+- `B_TERMS_FILE`: File path for `B` terms in post-KM analysis.
+- `robust`: Boolean flag for robust analysis mode.
+
+### pathway_augmentation
+- `B_TERMS_FILE`: File path for `B` terms in pathway augmentation.
+
+This configuration is critical for tailoring the behavior of the system to specific job types and requirements.
+
+
 ## Contributions
 
 Feel free to contribute to this repository by submitting a pull request or opening an issue for suggestions and bugs.
