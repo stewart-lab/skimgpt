@@ -192,7 +192,45 @@ This module provides functions for extracting and analyzing abstracts from PubMe
 <a name="prompt-and-scoring-overview"></a>
 # `prompt_and_scoring` Module Overview
 
+This module contains functions that generate prompts and scoring mechanisms for various classifications and analyses. Below are descriptions of each function:
 
+## `build_your_own_prompt`
+- **Purpose**: Generates a prompt to determine the relationship between (`b_term`) and (`a_term`).
+- **Parameters**:
+  - `b_term`: Whatever terms were in the b_term list.
+  - `a_term`: A string or a iterable list of the main term of interest.
+  - `consolidated_abstracts`: A collection of biomedical abstracts provided for reference.
+- **Returns**: A f'string prompt that will be written out to the output_json and fed into gpt with the appropriate parameters.
+
+## `drug_process_relationship_classification_prompt`
+- **Purpose**: Creates a prompt for classifying the relationship between a drug (`b_term`) and a process or disease (`a_term`).
+- **Parameters**:
+  - `b_term`: The drug or compound in question.
+  - `a_term`: The biological process or disease.
+  - `abstract`: The abstract provided for reference.
+- **Returns**: A string prompt asking for classification into specific categories with a rationale.
+
+## `drug_process_relationship_scoring`
+- **Purpose**: Defines the scoring criteria for the relationship classification between a drug and a process/disease.
+- **Parameter**:
+  - `term`: The term (drug or process/disease) used in the scoring criteria.
+- **Returns**: A list of tuples containing relationship statements and their corresponding score.
+
+## `drug_synergy_prompt`
+- **Purpose**: Generates a prompt to evaluate the synergistic effect of inhibiting BRD4 and another gene (`b_term`) on a disease or process (`a_term`).
+- **Parameters**:
+  - `b_term`: The gene of interest.
+  - `a_term`: The disease or biological process.
+  - `consolidated_abstracts`: A collection of biomedical abstracts for reference.
+- **Returns**: A string prompt asking for a score (0-10) and rationale based on the hypothesis's reasonability from the abstracts.
+
+## `pathway_augmentation_prompt`
+- **Purpose**: Creates a prompt similar to `build_your_own_prompt`, for determining if a gene (`b_term`) is in a pathway (`a_term`).
+- **Parameters**:
+  - `b_term`, `a_term`, `consolidated_abstracts`: Same as in `build_your_own_prompt`.
+- **Returns**: A string prompt asking for a binary classification and rationale based on the given abstracts.
+
+Each function in this module plays a vital role in facilitating specific biomedical analyses and classifications, utilizing the provided abstracts as the primary source of information.
 
 
 
