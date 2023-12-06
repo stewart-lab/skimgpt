@@ -15,7 +15,7 @@ import skim_and_km_api as skim
 import prompt_and_scoring_library as prompts
 import test.test_abstract_comprehension as test
 
-CONFIG_FILE= "./configRMS_needSpecialTunnel.json"  # typically "./config.json"
+CONFIG_FILE= "./config.json"  # typically "./config.json"
 # Ron is using: "./configRMS_needSpecialTunnel.json" 
 def initialize_workflow():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
