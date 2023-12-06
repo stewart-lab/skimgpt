@@ -22,7 +22,7 @@ def initialize_workflow():
     output_directory = os.path.join("output", f"output_{timestamp}")
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
-        "/isiseqruns/jfreeman_tmp_home/skimGPT/config.json",
+        "config.json",
         os.path.join(output_directory, "config.json"),
     )
     config = get_config(output_directory)
@@ -30,34 +30,39 @@ def initialize_workflow():
     return config, output_directory
 
 
-def get_config(output_directory):
-    with open("config.json", "r") as f:
-        config = json.load(f)
-    job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
+def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
-    if config["JOB_TYPE"] == "km_with_gpt":
-        output_json = f"{a_term}_km_with_gpt.json"
-    elif config["JOB_TYPE"] == "marker_list":
-        output_json = f"marker_list_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json"
-    elif config["JOB_TYPE"] == "post_km_analysis":
-        output_json = f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json"
-    elif config["JOB_TYPE"] == "drug_discovery_validation":
-        censor_year = job_settings.get("skim", {}).get("censor_year", "")
-        num_c_terms = config["GLOBAL_SETTINGS"].get("NUM_C_TERMS", "")
-        output_json = f"{a_term}_censorYear{censor_year}_numCTerms{num_c_terms}.json"
-    elif config["JOB_TYPE"] == "pathway_augmentation":
-        output_json = f"{a_term}_pathway_augmentation.json"
-    else:
-        print("Invalid job type (caught in get_config)")
+    output_json_map = {
+        "km_with_gpt": f"{a_term}_km_with_gpt.json",
+        "marker_list": f"marker_list_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
+        "post_km_analysis": f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json",
+        "drug_discovery_validation": f"{a_term}_censorYear{job_settings.get('skim', {}).get('censor_year', '')}_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
+        "pathway_augmentation": f"{a_term}_pathway_augmentation.json",
+    }
 
-    output_json = output_json.replace(" ", "_").replace("'", "")
-    config["OUTPUT_JSON"] = output_json
+    output_json = output_json_map.get(config["JOB_TYPE"])
+    if output_json is None:
+        raise ValueError(f"Invalid job type: {config['JOB_TYPE']}")
+
+    return output_json.replace(" ", "_").replace("'", "")
+
+
+def get_config(output_directory, config_path="config.json"):
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
+    config["OUTPUT_JSON"] = get_output_json_filename(config, job_settings)
+
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set.")
+
+    config["API_KEY"] = api_key
+
     with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
-    config["API_KEY"] = api_key
+
     return config
 
 
@@ -151,21 +156,21 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
     if not b_term or not a_term:
         logging.error("B term or A term is empty.")
         return []
-
+    api_key = config.get("API_KEY", os.getenv("OPENAI_API_KEY", ""))
+    if not api_key:
+        raise ValueError("OpenAI API key is not set.")
+    openai_client = openai.OpenAI(api_key=api_key)
     responses = []
-    prompt = None
     job_type = config["JOB_TYPE"]
     if job_type in ["post_km_analysis", "pathway_augmentation", "km_with_gpt"]:
-        # For these job types, process the entire set of abstracts at once
         prompt = generate_prompt(job_type, b_term, a_term, consolidated_abstracts)
-        response = call_openai(prompt, config)
+        response = call_openai(openai_client, prompt, config)
         if response:
             responses.append(response)
     elif job_type == "drug_discovery_validation":
-        # For drug discovery validation, process each abstract individually
         for abstract in consolidated_abstracts:
             prompt = generate_prompt(job_type, b_term, a_term, abstract)
-            response = call_openai(prompt, config)
+            response = call_openai(openai_client, prompt, config)
             if response:
                 responses.append(response)
 
@@ -194,12 +199,13 @@ def handle_rate_limit(e, retry_delay):
     time.sleep(retry_after)
 
 
-def call_openai(prompt, config):
+def call_openai(client, prompt, config):
     retry_delay = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
     max_retries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
+
     for attempt in range(max_retries):
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4-1106-preview",
                 messages=[
                     {
@@ -211,24 +217,21 @@ def call_openai(prompt, config):
                 temperature=0,
                 max_tokens=512,
             )
-            # Check if the response is valid and has content
-            content = response.get("choices", [{}])[0].get("message", {}).get("content")
+            content = response.choices[0].message.content
             if content:
                 return content
             else:
                 logging.error("Received an empty response.")
                 time.sleep(retry_delay)
-        except openai.error.InvalidRequestError as e:
-            if e.response.status_code == 429:  # Rate limit exceeded
-                logging.warning("Rate limit exceeded, waiting before retrying...")
-                time.sleep(retry_delay)
-            else:
-                logging.error(f"An unexpected OpenAI API error occurred: {e}")
-                time.sleep(retry_delay)
-        except Exception as e:
-            logging.error(f"An unexpected error occurred: {e}")
-            time.sleep(retry_delay)
 
+        except openai.RateLimitError as e:
+            print("A 429 status code was received; we should back off a bit.")
+            time.sleep(retry_delay)
+            print(e.__cause__)
+        except openai.APIStatusError as e:
+            print("Another non-200-range status code was received")
+            print(e.status_code)
+            print(e.response)
     logging.error("Max retries reached or no valid response received.")
     return None
 
@@ -297,25 +300,28 @@ def process_abstracts_data(config, pmids):
     return consolidated_abstracts, paper_urls, publication_years
 
 
-def perform_analysis(
-    job_type, row, config, robust_setting, abstracts_data, a_term=None
-):
+def perform_analysis(job_type, row, config, robust_setting, abstracts_data):
     max_abstracts = config["GLOBAL_SETTINGS"].get("MAX_ABSTRACTS", 10)
-
     b_term = row["b_term"]
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
 
+    pmids = []
     if job_type == "post_km_analysis":
         pmids_panc = parse_pmids(row, "panc & ggp & kras-mapk set")
         pmids_brd = parse_pmids(row, "brd & ggp set")
-        pmids = list(set(pmids_panc) | set(pmids_brd))[:max_abstracts]
-    else:  # drug_discovery_validation or pathway_augmentation
+        pmids = list(set(pmids_panc).union(pmids_brd))[:max_abstracts]
+    elif job_type in [
+        "drug_discovery_validation",
+        "pathway_augmentation",
+        "km_with_gpt",
+    ]:
         pmids = parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
 
     consolidated_abstracts, paper_urls, publication_years = process_abstracts_data(
         config, pmids
     )
 
+    result = prompt = None
     if job_type == "post_km_analysis" and robust_setting.lower() == "true":
         result = perform_robust_analysis(consolidated_abstracts, b_term, config)
     else:
@@ -328,7 +334,6 @@ def perform_analysis(
 
 def process_single_row(row, config):
     job_type = config.get("JOB_TYPE")
-    a_term = row["a_term"]
     robust_setting = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"].get(
         "robust", False
     )
@@ -348,7 +353,7 @@ def process_single_row(row, config):
         paper_urls,
         consolidated_abstracts,
         publication_years,
-    ) = perform_analysis(job_type, row, config, robust_setting, {}, a_term)
+    ) = perform_analysis(job_type, row, config, robust_setting, {})
 
     return {
         "Term": row["b_term"],
@@ -645,61 +650,53 @@ def marker_list_filtration(km_file_paths, output_directory, config):
 
 def api_cost_estimator(df, config):
     job_type = config.get("JOB_TYPE", "")
+    max_abstracts = config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
     estimated_cost = 0
+    total_calls = 0
 
-    if job_type == "drug_discovery_validation" or job_type == "pathway_augmentation":
-        x = config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] * len(df)
-        estimated_cost = x * 0.006
+    def read_terms_length(file_path):
+        return len(skim.read_terms_from_file(file_path))
+
+    if job_type in ["drug_discovery_validation", "pathway_augmentation"]:
+        estimated_cost = max_abstracts * len(df) * 0.006
     elif job_type == "km_with_gpt":
         if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
-            z = len(
-                skim.read_terms_from_file(
-                    config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
-                )
-            )
-            x = (
-                config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
-                * z
-                * config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
+            term_length = read_terms_length(
+                config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
             )
         else:
-            x = (
-                config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
-                * config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
-            )
-        estimated_cost = x * 0.006
+            term_length = 1  # Default value if A_TERM_LIST is not set
+
+        num_b_terms = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
+        total_calls = max_abstracts * term_length * num_b_terms
+        estimated_cost = total_calls * 0.006
     elif job_type == "post_km_analysis":
-        robust_setting = config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"].get(
-            "robust", "False"
+        robust_setting = (
+            config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"]
+            .get("robust", "False")
+            .lower()
         )
 
-        if robust_setting.lower() == "true":  # If the robust method is being used
-            total_calls = 0
-            for _, row in df.iterrows():
-                groups_panc = len(eval(row["panc & ggp & kras-mapk set"])) // (
-                    config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] // 2
-                )
-                groups_brd = len(eval(row["brd & ggp set"])) // (
-                    config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"] // 2
-                )
-                total_calls += groups_panc + groups_brd
-            x = total_calls
-        else:
-            x = sum(
-                df.apply(
-                    lambda row: min(
-                        len(eval(row["panc & ggp & kras-mapk set"]))
-                        + len(eval(row["brd & ggp set"])),
-                        config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"],
-                    ),
-                    axis=1,
-                )
+        if robust_setting == "true":
+            total_calls = sum(
+                len(eval(row["panc & ggp & kras-mapk set"])) // (max_abstracts // 2)
+                + len(eval(row["brd & ggp set"])) // (max_abstracts // 2)
+                for _, row in df.iterrows()
             )
+        else:
+            total_calls = df.apply(
+                lambda row: min(
+                    len(eval(row["panc & ggp & kras-mapk set"]))
+                    + len(eval(row["brd & ggp set"])),
+                    max_abstracts,
+                ),
+                axis=1,
+            ).sum()
 
-        estimated_cost = x * 0.06  # Using the provided cost for this method
+        estimated_cost = total_calls * 0.06
 
     user_input = input(
-        f"The following job consists of {x} abstracts and will cost roughly ${estimated_cost:.2f} in GPT-4 API calls. Do you wish to proceed? [Y/n]: "
+        f"The following job consists of {total_calls} abstracts and will cost roughly ${estimated_cost:.2f} in GPT-4 API calls. Do you wish to proceed? [Y/n]: "
     )
     if user_input.lower() != "y":
         print("Exiting workflow.")
