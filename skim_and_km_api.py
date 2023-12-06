@@ -215,8 +215,12 @@ def skim_no_km_workflow(config=None, output_directory=None):
     print("Processing SKIM results...")
     full_skim_file_path = os.path.join(output_directory, skim_file_path)
     skim_df = pd.read_csv(full_skim_file_path, sep="\t")
-    sort_column = config["GLOBAL_SETTINGS"].get("SORT_COLUMN", "bc_sort_ratio")
+    sort_column = config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"].get(
+        "SORT_COLUMN", "bc_sort_ratio"
+    )
     skim_df = skim_df.sort_values(by=sort_column, ascending=False)
+    # assert the sort_column is in the skim_df
+    assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     assert not skim_df.empty, "SKIM results are empty"
 
     unique_c_terms = skim_df["c_term"].unique().tolist()
@@ -244,7 +248,9 @@ def skim_no_km_workflow(config=None, output_directory=None):
         final_km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")
     ]
 
-    final_km_df_filtered = valid_rows.head(config["GLOBAL_SETTINGS"]["NUM_C_TERMS"])
+    final_km_df_filtered = valid_rows.head(
+        config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"]["NUM_C_TERMS"]
+    )
     # Save the filtered final_km_df to disk and return its path
     filtered_file_path = os.path.join(
         output_directory, os.path.splitext(final_km_file_path)[0] + "_filtered.tsv"
@@ -279,7 +285,12 @@ def km_with_gpt_workflow(config=None, output_directory=None):
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
     km_df = pd.read_csv(full_km_file_path, sep="\t")
-    sort_column = config["GLOBAL_SETTINGS"].get("SORT_COLUMN", "bc_sort_ratio")
+    #
+    sort_column = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get(
+        "SORT_COLUMN", "ab_sort_ratio"
+    )
+    # assert the sort_column is in the km_df
+    assert sort_column in km_df.columns, f"{sort_column} is not in the km_df"
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
 

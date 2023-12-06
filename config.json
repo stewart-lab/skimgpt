@@ -1,29 +1,28 @@
 {
     "JOB_TYPE": "km_with_gpt",
     "GLOBAL_SETTINGS": {
-        "PORT": "5099",
         "A_TERM": "Crohn's disease",
-        "API_URL": "http://localhost:5099/skim/api/jobs",
-        "RATE_LIMIT": 3,
-        "DELAY": 10,
+        "MAX_ABSTRACTS": 1,
         "MIN_WORD_COUNT": 98,
+        "API_URL": "http://localhost:5099/skim/api/jobs",
+        "PORT": "5099",
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
         "PUBMED_PARAMS": {
             "db": "pubmed",
             "retmode": "xml",
             "rettype": "abstract"
         },
-        "MAX_ABSTRACTS": 1,
+        "RATE_LIMIT": 3,
+        "DELAY": 10,
         "MAX_RETRIES": 10,
-        "RETRY_DELAY": 60,
-        "SORT_COLUMN": "bc_sort_ratio",
-        "NUM_C_TERMS": 1
+        "RETRY_DELAY": 60
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
             "A_TERM_LIST": true,
             "A_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/test_list.txt",
             "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/BIO_PROCESS_cleaned.txt",
+            "SORT_COLUMN": "bc_sort_ratio",
             "NUM_B_TERMS": 5,
             "km_with_gpt": {
                 "ab_fet_threshold": 1e-05,
@@ -32,6 +31,8 @@
         },
         "drug_discovery_validation": {
             "test": "false",
+            "SORT_COLUMN": "bc_sort_ratio",
+            "NUM_C_TERMS": 1,
             "C_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/FDA_approved_ProductsActiveIngredientOnly_DupsRemovedCleanedUp.txt",
             "B_TERMS_FILE": "/isiseqruns/jfreeman_tmp_home/skimGPT/input_lists/BIO_PROCESS_cleaned.txt",
             "skim": {
