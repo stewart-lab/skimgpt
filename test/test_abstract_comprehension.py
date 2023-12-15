@@ -73,7 +73,7 @@ def test_gpt4_leakage(use_breast_cancer_drugs=True):
         df_data.append(
             {
                 "a_count": random.randint(1000, 50000),
-                "a_term": "Pancreatic cancer",
+                "a_term": "Breast Cancer",
                 "ab_count": random.randint(1, 30),
                 "ab_pmid_intersection": str(random_pubmed_ids),
                 "ab_pred_score": random.uniform(0, 0.02),

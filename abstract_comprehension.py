@@ -8,15 +8,17 @@ import shutil
 import re
 import ast
 import logging
+import importlib
 import copy
 from datetime import datetime
 from xml.etree import ElementTree
 import skim_and_km_api as skim
-import prompt_and_scoring_library as prompts
 import test.test_abstract_comprehension as test
 
-CONFIG_FILE= "./config.json"  # typically "./config.json"
-# Ron is using: "./configRMS_needSpecialTunnel.json" 
+CONFIG_FILE = "./config.json"  # typically "./config.json"
+
+
+# Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     os.makedirs("output", exist_ok=True)
@@ -157,20 +159,23 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
     if not b_term or not a_term:
         logging.error("B term or A term is empty.")
         return []
+
     api_key = config.get("API_KEY", os.getenv("OPENAI_API_KEY", ""))
     if not api_key:
         raise ValueError("OpenAI API key is not set.")
     openai_client = openai.OpenAI(api_key=api_key)
+
     responses = []
     job_type = config["JOB_TYPE"]
+
     if job_type in ["post_km_analysis", "pathway_augmentation", "km_with_gpt"]:
-        prompt = generate_prompt(job_type, b_term, a_term, consolidated_abstracts)
+        prompt = generate_prompt(b_term, a_term, consolidated_abstracts, config)
         response = call_openai(openai_client, prompt, config)
         if response:
             responses.append(response)
     elif job_type == "drug_discovery_validation":
         for abstract in consolidated_abstracts:
-            prompt = generate_prompt(job_type, b_term, a_term, abstract)
+            prompt = generate_prompt(b_term, a_term, abstract, config)
             response = call_openai(openai_client, prompt, config)
             if response:
                 responses.append(response)
@@ -178,19 +183,23 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
     return responses, prompt
 
 
-def generate_prompt(job_type, b_term, a_term, content):
-    if job_type == "post_km_analysis":
-        return prompts.drug_synergy_prompt(b_term, a_term, content)
-    elif job_type == "pathway_augmentation":
-        return prompts.pathway_augmentation_prompt(b_term, a_term, content)
-    elif job_type == "drug_discovery_validation":
-        return prompts.drug_process_relationship_classification_prompt(
-            b_term, a_term, content
+def generate_prompt(b_term, a_term, content, config):
+    prompt_name = config.get("PROMPT_NAME")
+    if not prompt_name:
+        raise ValueError("PROMPT_NAME is not specified in the configuration.")
+
+    # Dynamically import the prompts module
+    prompts_module = importlib.import_module("prompt_library")
+
+    # Retrieve the function based on the prompt name
+    prompt_function = getattr(prompts_module, prompt_name, None)
+    if not prompt_function:
+        raise ValueError(
+            f"Prompt function '{prompt_name}' not found in the prompts module."
         )
-    elif job_type == "km_with_gpt":
-        return prompts.build_your_own_prompt(b_term, a_term, content)
-    else:
-        raise ValueError(f"Unknown job type: {job_type}")
+
+    # Call the prompt function
+    return prompt_function(b_term, a_term, content)
 
 
 def handle_rate_limit(e, retry_delay):
@@ -203,11 +212,13 @@ def handle_rate_limit(e, retry_delay):
 def call_openai(client, prompt, config):
     retry_delay = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
     max_retries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
+    model = config["GLOBAL_SETTINGS"]["MODEL"]
+    max_tokens = config["GLOBAL_SETTINGS"]["MAX_TOKENS"]
 
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model="gpt-4-1106-preview",
+                model=model,
                 messages=[
                     {
                         "role": "system",
@@ -216,7 +227,7 @@ def call_openai(client, prompt, config):
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0,
-                max_tokens=512,
+                max_tokens=max_tokens,
             )
             content = response.choices[0].message.content
             if content:
