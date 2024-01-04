@@ -168,7 +168,7 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
     responses = []
     job_type = config["JOB_TYPE"]
 
-    if job_type in ["post_km_analysis", "pathway_augmentation", "km_with_gpt"]:
+    if job_type in ["post_km_analysis", "km_with_gpt"]:
         prompt = generate_prompt(b_term, a_term, consolidated_abstracts, config)
         response = call_openai(openai_client, prompt, config)
         if response:
@@ -809,40 +809,6 @@ def post_km_analysis_workflow(config, output_directory):
         print(f"Error occurred during processing: {e}")
 
 
-def pathway_augmentation_workflow(config, output_directory):
-    try:
-        df = read_tsv_to_dataframe(
-            config["JOB_SPECIFIC_SETTINGS"]["pathway_augmentation"]["B_TERMS_FILE"]
-        )
-        # take rows 19 through 24
-        df = df.iloc[25:30]
-        assert not df.empty, "The dataframe is empty"
-        if not api_cost_estimator(df, config):
-            return
-        results = {}
-        test.test_openai_connection()
-        for index, row in df.iterrows():
-            term = row["b_term"]
-            result_dict = process_single_row(row, config)
-            if term not in results:
-                results[term] = [result_dict]
-            else:
-                results[term].append(result_dict)
-            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
-        assert results, "No results were processed"
-        write_to_json(results, config["OUTPUT_JSON"], output_directory)
-        print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
-        print("Processing JSON data...")
-        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
-        with open(json_file_path, "r") as f:
-            json_data = json.load(f)
-        result = extract_term_and_scoring_sentence(json_data)
-        if result:
-            save_to_json(result, config, output_directory)
-    except Exception as e:
-        print(f"Error occurred within pathway_augmentation_workflow: {e}")
-
-
 def km_with_gpt_workflow(config, output_directory):
     km_file_path = skim.km_with_gpt_workflow(
         config=config, output_directory=output_directory
@@ -895,8 +861,6 @@ def main_workflow():
         marker_list_workflow(config, output_directory)
     elif job_type == "post_km_analysis":
         post_km_analysis_workflow(config, output_directory)
-    elif job_type == "pathway_augmentation":
-        pathway_augmentation_workflow(config, output_directory)
     else:
         print("JOB_TYPE does not match known workflows.")
 
