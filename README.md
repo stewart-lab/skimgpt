@@ -14,7 +14,7 @@ And a config.json file required to structure and execute the job type:
 
 ```bash
 ├── abstract_comprehension.py
-├── prompt_and_scoring.py
+├── prompt_library.py
 ├── requirements.txt
 ├── skim_and_km_api.py
 ├── input_lists/(A, B and C terms)
