@@ -25,23 +25,25 @@ And a config.json file required to structure and execute the job type:
 
 ## Requirements
 
-- Python 3.x
+- Python 3.11
 - Libraries specified in `requirements.txt`
 - OpenAI API key
 
 ## Getting Started
 
 1. **Setup**:
-   Clone the repository to your local machine.
+   Clone the repository to your machine and change to its top level directory. 
    
    ```bash
    git clone <repository_url>
    cd <repository_directory>
    ```
 
-2. **Install Dependencies**
+2. **Install Dependencies (with conda)**
    Install the required packages using pip:
    ```bash
+   conda create --name {myenv} python=3.11.3
+   conda activate {myenv}
    pip install -r requirements.txt
    ```
 
