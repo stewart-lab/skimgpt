@@ -2,7 +2,19 @@ def prompt_template(b_term, a_term, consolidated_abstracts):
     return "HELLO WORLD"
 
 
-def build_your_own_prompt(b_term, a_term, consolidated_abstracts):
+def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):
+    return (
+        f"Assessment Task: Critically evaluate the support for the following hypothesis within the provided biomedical texts, assigning a score of -1 or 0. \n"
+        f'Hypothesis: "{b_term} causes {a_term}." \n'
+        f"Instructions: Rely solely on the information within the provided abstract to judge the hypothesis. Use analytical skills to interpret the data, and articulate your reasoning in terms understandable to an undergraduate biochemist. Format: 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
+        f"Scoring Guidelines:\n"
+        f"   - -1 Point: The evidence decisively refutes the hypothesis. There is unambiguous and compelling information in the texts that directly contradicts the hypothesis, leaving no room for alternative interpretation.\n"
+        f"   - 0 Points: The evidence does not decisively refute the hypothesis. This includes cases where the evidence is supportive, neutral, inconclusive, or not directly relevant. Any evidence that does not explicitly negate the hypothesis falls into this category, even if it requires significant extrapolation or inference to draw a link.\n"
+        f"Biomedical Abstract for Analysis:\n{consolidated_abstracts}"
+    )
+
+
+def alzheimer_gene_prompt_2(b_term, a_term, consolidated_abstracts):
     return (
         f"Assessment Task: Evaluate the support for the following hypothesis in the given biomedical texts, assigning a score from -1 to 5. \n"
         f"Hypothesis: \"In Alzheimer's disease patients, the levels of protein product(s) of gene {b_term} in blood plasma differ significantly from those in individuals without Alzheimer's disease.\" \n"
