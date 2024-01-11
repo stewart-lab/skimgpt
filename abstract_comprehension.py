@@ -166,19 +166,19 @@ def analyze_abstract_with_gpt4(consolidated_abstracts, b_term, a_term, config):
     openai_client = openai.OpenAI(api_key=api_key)
 
     responses = []
-    job_type = config["JOB_TYPE"]
-
-    if job_type in ["post_km_analysis", "km_with_gpt"]:
+    if not config["Evaluate_single_abstract"]:
         prompt = generate_prompt(b_term, a_term, consolidated_abstracts, config)
         response = call_openai(openai_client, prompt, config)
         if response:
             responses.append(response)
-    elif job_type == "drug_discovery_validation":
+    elif config["Evaluate_single_abstract"]:
         for abstract in consolidated_abstracts:
             prompt = generate_prompt(b_term, a_term, abstract, config)
             response = call_openai(openai_client, prompt, config)
             if response:
                 responses.append(response)
+    else:
+        raise ValueError("Please set True or False for evaluate_single_abstract.")
 
     return responses, prompt
 
@@ -772,6 +772,41 @@ def extract_term_and_scoring_sentence(json_data):
     return extracted_data
 
 
+def calculate_scores_by_term(json_data):
+    scores_by_term = {}
+    # Iterate over each key (term) in the JSON data
+    for term in json_data:
+        total_score = 0
+        # Loop through each entry in the "Result" list for that term
+        for entry in json_data[term]:
+            result_list = entry["Result"]
+            for result in result_list:
+                # Find and extract the score using regular expression
+                matches = re.findall(r"Score: (-?\d+)", result)
+                for match in matches:
+                    total_score += int(match)
+        # Assign the total score to the term
+        scores_by_term[term] = total_score
+    return scores_by_term
+
+
+def apply_scores_to_df(df, scores_by_term):
+    # Iterate over the DataFrame rows
+    for index, row in df.iterrows():
+        # Check if 'b_term' matches a term in the scores dictionary
+        if row["b_term"] in scores_by_term:
+            # Add the score to the 'ab_count' for the row
+            df.at[index, "ab_count"] += scores_by_term[row["b_term"]]
+
+
+def create_corrected_file_path(original_path):
+    # Split the original path into name and extension
+    file_name, file_extension = os.path.splitext(original_path)
+    # Create a new path with "corrected" appended
+    new_path = f"{file_name}_corrected{file_extension}"
+    return new_path
+
+
 def marker_list_workflow(config, output_directory):
     km_file_paths = skim.marker_list_workflow(
         config=config, output_directory=output_directory
@@ -791,7 +826,6 @@ def post_km_analysis_workflow(config, output_directory):
 
         if not api_cost_estimator(df, config):
             return
-        # take the last row for testing purposes
         results = {}
         test.test_openai_connection()
         for index, row in df.iterrows():
@@ -829,6 +863,15 @@ def km_with_gpt_workflow(config, output_directory):
     assert results, "No results were processed"
     write_to_json(results, config["OUTPUT_JSON"], output_directory)
     print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+    if config["PROMPT_NAME"] == "hypothesis_confirmation":
+        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
+        with open(json_file_path, "r") as f:
+            json_data = json.load(f)
+        scores_by_term = calculate_scores_by_term(json_data)
+        apply_scores_to_df(df, scores_by_term)
+        corrected_file_path = create_corrected_file_path(km_file_path)
+        df.to_csv(corrected_file_path, sep="\t", index=False)
+        print(f"Corrected file has been saved to {corrected_file_path}")
 
 
 def main_workflow():
