@@ -14,7 +14,7 @@ And a config.json file required to structure and execute the job type:
 
 ```bash
 ├── abstract_comprehension.py
-├── prompt_library.py
+├── prompt_and_scoring.py
 ├── requirements.txt
 ├── skim_and_km_api.py
 ├── input_lists/(A, B and C terms)
@@ -25,25 +25,23 @@ And a config.json file required to structure and execute the job type:
 
 ## Requirements
 
-- Python 3.11
+- Python 3.x
 - Libraries specified in `requirements.txt`
 - OpenAI API key
 
 ## Getting Started
 
 1. **Setup**:
-   Clone the repository to your machine and change to its top level directory. 
+   Clone the repository to your local machine.
    
    ```bash
    git clone <repository_url>
    cd <repository_directory>
    ```
 
-2. **Install Dependencies (with conda)**
+2. **Install Dependencies**
    Install the required packages using pip:
    ```bash
-   conda create --name {myenv} python=3.11.3
-   conda activate {myenv}
    pip install -r requirements.txt
    ```
 
@@ -204,6 +202,22 @@ This module contains functions that generate prompts and scoring mechanisms for 
   - `consolidated_abstracts`: A collection of biomedical abstracts provided for reference.
 - **Returns**: A f'string prompt that will be written out to the output_json and fed into gpt with the appropriate parameters.
 
+## `hypothesis_confirmation`
+- **Purpose**: Generates a prompt to confirm a relationship between (`b_term`) and (`a_term`).  Performs count correction
+- **Parameters**:
+  - `b_term`: Whatever terms were in the b_term list.
+  - `a_term`: A string or a iterable list of the main term of interest.
+  - `consolidated_abstracts`: A collection of biomedical abstracts provided for reference.
+- **Returns**: A f'string prompt that will be written out to the output_json and fed into gpt with the appropriate parameters.
+
+## `hypothesis_confirmation_rms`
+- **Purpose**: Generates a prompt to confirm a DDI between (`b_term`) and (`a_term`).  Does NOT perform count correction yet.
+- **Parameters**:
+  - `b_term`: Whatever terms were in the b_term list.
+  - `a_term`: A string or a iterable list of the main term of interest.
+  - `consolidated_abstracts`: A collection of biomedical abstracts provided for reference.
+- **Returns**: A f'string prompt that will be written out to the output_json and fed into gpt with the appropriate parameters.
+
 ## `drug_process_relationship_classification_prompt`
 - **Purpose**: Creates a prompt for classifying the relationship between a drug (`b_term`) and a process or disease (`a_term`).
 - **Parameters**:
@@ -246,6 +260,7 @@ This configuration file contains various settings for different job types. Below
 
 ## Global Settings
 - `A_TERM`: The primary term of interest, such as a disease or condition.
+- `A_TERM_SUFFIX`: This gets added to the A term (or A terms if pass in a file) for KM, but not for GPT
 - `MAX_ABSTRACTS`: The maximum number of abstracts to process.
 - `MIN_WORD_COUNT`: Minimum word count for abstract consideration.
 - `API_URL`: URL for the API endpoint.

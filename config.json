@@ -1,14 +1,15 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "PROMPT_NAME": "hypothesis_confirmation",
+    "PROMPT_NAME": "hypothesis_confirmation_rms",
     "Evaluate_single_abstract": true,
     "GLOBAL_SETTINGS": {
-        "A_TERM": "AIDS",
-        "MAX_ABSTRACTS": 10,
+        "A_TERM": "heparin",
+        "A_TERM_SUFFIX" : "&drug&interaction",
+        "MAX_ABSTRACTS":10,
         "MIN_WORD_COUNT": 98,
         "MODEL": "gpt-4-1106-preview",
         "MAX_TOKENS": 512,
-        "API_URL": "http://localhost:5099/skim/api/jobs",
+        "API_URL": "http://localhost:5081/skim/api/jobs",
         "PORT": "5099",
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
         "PUBMED_PARAMS": {
@@ -23,14 +24,14 @@
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "",
-            "B_TERMS_FILE": "input_lists/hyp_test.txt",
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
+            "B_TERMS_FILE": "input_lists/ddi_b_terms.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 2,
             "km_with_gpt": {
-                "ab_fet_threshold": 1e-05,
-                "censor_year": 1992
+                "ab_fet_threshold": 1e-02,
+                "censor_year": 2023
             }
         },
         "drug_discovery_validation": {
