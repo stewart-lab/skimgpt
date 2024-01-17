@@ -267,7 +267,9 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     # Directly use A_TERM from global settings as a string
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
-
+    if config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]:
+        a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
+        a_term = str(a_term) + str(a_term_suffix)
     print("Executing KM workflow...")
     print("Reading terms from files...")
     c_terms = read_terms_from_file(
