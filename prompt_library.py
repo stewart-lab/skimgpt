@@ -20,9 +20,11 @@ def hypothesis_confirmation_rms(b_term, a_term, consolidated_abstracts):
         f'Hypothesis: "{b_term} and {a_term} will have a drug-drug interaction." \n'
         f"Instructions: Rely solely on the information within the provided abstract to judge the hypothesis. Use analytical skills to interpret the data, and articulate your reasoning in terms understandable to an undergraduate biochemist. Format: 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
         f"Scoring Guidelines:\n"
-        f"   - -1 Point: The evidence decisively refutes the hypothesis. There is unambiguous and compelling information in the texts that directly contradicts the hypothesis, leaving no room for alternative interpretation.\n"
-        f"   - 0 Points: The evidence does not decisively refute the hypothesis. This includes cases where the evidence is neutral, inconclusive, or not directly relevant. Any evidence that does not explicitly negate the hypothesis falls into this category, even if it requires significant extrapolation or inference to draw a link.\n"
-        f"   - 1 Point: The evidence is supportive of the hypothesis. This includes cases where the evidence is supportive.\n"
+        f"   - -2 Points: The evidence decisively refutes the hypothesis. There is unambiguous and compelling information in the texts that directly contradicts the hypothesis, leaving no room for alternative interpretation.\n"
+        f"   - 1 Points: The evidence does not decisively refute the hypothesis, but there is indirect evidence that the hypothesis should be refuted. This includes cases where the evidence is indirect, but seems to refute the hypothesis.\n"
+        f"   - 0 Points: The evidence does not decisively or indirectly refute the hypothesis. This includes cases where the evidence is neutral, inconclusive, or not relevant. Any evidence that does not negate the hypothesis falls into this category, even if it requires significant extrapolation or inference to draw a link.\n"
+        f"   - 1 Point: The evidence is weakly supportive of the hypothesis. This includes cases where the evidence is supportive but indirect such as:  drug A binds X and drugB also binds X.\n"
+        "   -  2 Points: The evidence is strongly supportive of the hypothesis. This includes cases where the evidence is directly supportive.\n"
         f"Biomedical Abstract for Analysis:\n{consolidated_abstracts}"
     )
 
