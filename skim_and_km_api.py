@@ -69,7 +69,10 @@ def configure_job(
     }
 
     # Adjust how we retrieve the job-specific settings based on the job type
-    if job_type in ["skim", "first_km", "final_km"]:
+    if (
+        job_type in ["skim", "first_km", "final_km"]
+        and config["JOB_TYPE"] == "drug_discovery_validation"
+    ):
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][
             "drug_discovery_validation"
         ][job_type]
@@ -77,11 +80,20 @@ def configure_job(
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"][
             "km_with_gpt"
         ]
+    elif job_type == "position_km_with_gpt":
+        job_specific_settings = config["JOB_SPECIFIC_SETTINGS"]["position_km_with_gpt"][
+            "position_km_with_gpt"
+        ]
+    elif job_type == "skim_with_gpt":
+        job_specific_settings = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["skim"]
     else:
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][job_type]
 
-    if job_type == "skim":
-        c_terms_filtered = list(set(c_terms) - set(filtered_terms))
+    if job_type == "skim" or job_type == "skim_with_gpt":
+        print("we are in skim")
+        c_terms_filtered = c_terms
+        if config["JOB_TYPE"] == "km_skim_no_km":
+            c_terms_filtered = list(set(c_terms) - set(filtered_terms))
         return {
             **common_settings,
             **job_specific_settings,
@@ -89,7 +101,12 @@ def configure_job(
             "c_terms": c_terms_filtered,
             "top_n_articles": 20,
         }
-    elif job_type in ["first_km", "final_km", "marker_list", "km_with_gpt"]:
+    elif job_type in [
+        "first_km",
+        "final_km",
+        "km_with_gpt",
+        "position_km_with_gpt",
+    ]:
         return {
             **common_settings,
             **job_specific_settings,
@@ -121,56 +138,14 @@ def run_and_save_query(
     assert api_url, "'API_URL' is not defined in the configuration"
 
     result = run_api_query(job_config, api_url, username, password)
-
-    # Determine the file name based on the job type
-    if job_type == "marker_list":
-        file_name = a_term.replace(" ", "_")  # Replace spaces with underscores
-    else:
-        file_name = job_config["a_terms"][0]
+    file_name = job_config["a_terms"][0]
 
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result, file_path, output_directory)  # Pass output_directory
     return file_path
 
 
-def marker_list_workflow(config=None, output_directory=None):
-    """Execute the marker list workflow for processing a list of a_terms."""
-    assert config, "No configuration provided"
-
-    # Read a_terms from the file specified in config
-    cell_type_list_file = config["JOB_SPECIFIC_SETTINGS"]["marker_list"].get(
-        "cell_type_list", ""
-    )
-    assert cell_type_list_file, "cell_type_list is not defined in the configuration"
-
-    with open(cell_type_list_file, "r") as f:
-        a_terms = [line.strip() for line in f.readlines()]
-
-    # Accessing C_TERMS_FILE from the updated config structure
-    c_terms_file = config["JOB_SPECIFIC_SETTINGS"]["marker_list"].get(
-        "GENE_SYMBOL_LIST", ""
-    )
-    assert c_terms_file, "'GENE_SYMBOL_LIST' is not defined in the configuration"
-    c_terms = read_terms_from_file(c_terms_file)
-
-    km_file_paths = []  # To store the paths of KM files
-
-    for a_term in a_terms:
-        print(f"Running and saving KM query for a_term: {a_term}...")
-        km_file_path = run_and_save_query(
-            "marker_list",
-            a_term,
-            c_terms,
-            config=config,
-            output_directory=output_directory,
-        )
-        km_file_paths.append(km_file_path)  # Store the file path
-
-    # Do something with km_file_paths if needed
-    return km_file_paths
-
-
-def skim_no_km_workflow(config=None, output_directory=None):
+def km_skim_no_km_workflow(config=None, output_directory=None):
     """Execute the workflow for drug discovery validation without KM."""
     assert config, "No configuration provided"
 
@@ -263,8 +238,6 @@ def skim_no_km_workflow(config=None, output_directory=None):
 
 def km_with_gpt_workflow(config=None, output_directory=None):
     assert config, "No configuration provided"
-
-    # Directly use A_TERM from global settings as a string
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
     if config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]:
@@ -287,7 +260,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
     km_df = pd.read_csv(full_km_file_path, sep="\t")
-    #
+
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get(
         "SORT_COLUMN", "ab_sort_ratio"
     )
@@ -306,3 +279,33 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     print(f"Filtered KM query results saved to {filtered_file_path}")
 
     return filtered_file_path
+
+
+def skim_run(config, output_directory):
+    """Run the SKIM workflow."""
+    print("Executing SKIM workflow...")
+    skim_file_path = run_and_save_query(
+        "skim_with_gpt",
+        config["GLOBAL_SETTINGS"]["A_TERM"],
+        read_terms_from_file(
+            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+        ),
+        read_terms_from_file(
+            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
+        ),
+        config=config,
+        output_directory=output_directory,
+    )
+    full_skim_file_path = os.path.join(output_directory, skim_file_path)
+    skim_df = pd.read_csv(full_skim_file_path, sep="\t")
+    sort_column = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get(
+        "SORT_COLUMN", "bc_sort_ratio"
+    )
+    skim_df = skim_df.sort_values(by=sort_column, ascending=False)
+    # assert the sort_column is in the skim_df
+    assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
+    assert not skim_df.empty, "SKIM results are empty"
+
+    skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
+    print(f"SKIM results saved to {full_skim_file_path}")
+    return full_skim_file_path

@@ -1,16 +1,16 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "PROMPT_NAME": "hypothesis_confirmation_rms",
-    "Evaluate_single_abstract": true,
+    "PROMPT_NAME": "hypothesis_confirmation",
+    "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
-        "A_TERM": "warfarin",
-        "A_TERM_SUFFIX" : "&drug&interaction",
-        "MAX_ABSTRACTS":4,
+        "A_TERM": "Covid-19",
+        "A_TERM_SUFFIX": "",
+        "MAX_ABSTRACTS": 10,
         "MIN_WORD_COUNT": 98,
         "MODEL": "gpt-4-1106-preview",
         "MAX_TOKENS": 512,
-        "API_URL": "http://localhost:5081/skim/api/jobs",
-        "PORT": "5099",
+        "API_URL": "http://localhost:5099/skim/api/jobs",
+        "PORT": "5081",
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
         "PUBMED_PARAMS": {
             "db": "pubmed",
@@ -25,12 +25,22 @@
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
             "A_TERM_LIST": false,
-            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
-            "B_TERMS_FILE": "input_lists/ddi_b_termsVsWarfarin.txt",
+            "A_TERMS_FILE": "input_lists/",
+            "B_TERMS_FILE": "input_lists/hyp_test.txt",
             "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 9,
+            "NUM_B_TERMS": 2,
             "km_with_gpt": {
-                "ab_fet_threshold": 1e-02,
+                "ab_fet_threshold": 0.01,
+                "censor_year": 2023
+            }
+        },
+        "position_km_with_gpt": {
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
+            "B_TERMS_FILE": "input_lists/ddi_b_terms.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "position_km_with_gpt": {
+                "ab_fet_threshold": 0.01,
                 "censor_year": 2023
             }
         },
@@ -54,21 +64,20 @@
                 "censor_year": 2023
             }
         },
-        "marker_list": {
-            "cell_type_list": "input_lists/GAMM_cell_types.txt",
-            "GENE_SYMBOL_LIST": "input_lists/HGNC_genesWithSynonyms2023_vocab_out.txt",
-            "ab_fet_threshold": 1e-05,
-            "filter_method": "ratio_of_ratios",
-            "ratio_threshold": 7,
-            "occurrence_threshold": 15,
-            "make_marker_list_pretty": true
-        },
-        "post_km_analysis": {
-            "B_TERMS_FILE": "input_lists/mapk_set_analysis.csv",
-            "robust": "false"
-        },
-        "pathway_augmentation": {
-            "B_TERMS_FILE": "input_lists/pathway_gene.tsv"
+        "skim_with_gpt": {
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
+            "B_TERMS_FILE": "input_lists/genes_no_syn.txt",
+            "NUM_B_TERMS": 2,
+            "C_TERMS_FILE": "input_lists/c_term_test.txt",
+            "SORT_COLUMN": "bc_sort_ratio",
+            "skim": {
+                "ab_fet_threshold": 0.01,
+                "bc_fet_threshold": 0.01,
+                "censor_year": 2023
+            }
         }
+
     }
+
 }

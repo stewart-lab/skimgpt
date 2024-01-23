@@ -1,5 +1,22 @@
-def prompt_template(b_term, a_term, consolidated_abstracts):
+def km_prompt_template(b_term, a_term, consolidated_abstracts):
     return "HELLO WORLD"
+
+
+def skim_prompt_template(b_term, a_term, consolidated_abstracts, c_term):
+    return "HELLO WORLD"
+
+
+def skim_prompt(b_term, a_term, consolidated_abstracts, c_term):
+    return (
+        f"Assessment Task: Critically evaluate the potential indirect relationship between '{a_term}' and '{c_term}' within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
+        f"Hypothesis: 'There exists an indirect link between '{a_term}' and '{c_term}' mediated through '{b_term} found in biomedical interactions.' \n"
+        f"Instructions: Utilize the information within the provided abstracts to infer the potential indirect relationship. Employ analytical skills to deduce connections, ensuring your reasoning is accessible to an undergraduate biochemist. Format your response as 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
+        f"Scoring Guidelines:\n"
+        f"   - -1 Point: The evidence strongly negates any indirect relationship between '{a_term}' and '{c_term}'. Clear, direct information in the texts contradicts the existence of such a link, with no plausible alternative interpretations.\n"
+        f"   - 0 Points: The evidence neither strongly supports nor negates the indirect relationship. This includes cases where the evidence is neutral, inconclusive, or not directly relevant to the hypothesized link. Evidence that does not explicitly negate or support the relationship falls here, even if substantial extrapolation or inference is needed.\n"
+        f"   - 1 Point: The evidence suggests a plausible indirect relationship between '{a_term}' and '{c_term}'. This includes cases where the evidence, though perhaps indirect or requiring some inference, supports the existence of a connection via '{b_term}'.\n"
+        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}"
+    )
 
 
 def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):
@@ -13,8 +30,22 @@ def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):
         f"Biomedical Abstract for Analysis:\n{consolidated_abstracts}"
     )
 
+
 def hypothesis_confirmation_rms(b_term, a_term, consolidated_abstracts):
-    #print("Aterm:", a_term)
+    # print("Aterm:", a_term)
+    return (
+        f"Assessment Task: Critically evaluate the support for the following hypothesis within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
+        f'Hypothesis: "{b_term} and {a_term} will have a drug-drug interaction." \n'
+        f"Instructions: Rely solely on the information within the provided abstract to judge the hypothesis. Use analytical skills to interpret the data, and articulate your reasoning in terms understandable to an undergraduate biochemist. Format: 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
+        f"Scoring Guidelines:\n"
+        f"   - -1 Point: The evidence decisively refutes the hypothesis. There is unambiguous and compelling information in the texts that directly contradicts the hypothesis, leaving no room for alternative interpretation.\n"
+        f"   - 0 Points: The evidence does not decisively refute the hypothesis. This includes cases where the evidence is neutral, inconclusive, or not directly relevant. Any evidence that does not explicitly negate the hypothesis falls into this category, even if it requires significant extrapolation or inference to draw a link.\n"
+        f"   - 1 Point: The evidence is supportive of the hypothesis. This includes cases where the evidence is supportive.\n"
+        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}"
+    )
+
+
+def hypothesis_confirmation_ddi(b_term, a_term, consolidated_abstracts):
     return (
         f"Assessment Task: Critically evaluate the support for the following hypothesis within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
         f'Hypothesis: "{b_term} and {a_term} will have a drug-drug interaction." \n'
@@ -148,3 +179,4 @@ def pathway_augmentation_prompt(b_term, a_term, consolidated_abstracts):
         f"Provide a binary classification (Yes or No) and at least two sentences explaining the rationale behind your classification. "
         f"The biomedical abstracts follow:\n{consolidated_abstracts}"
     )
+
