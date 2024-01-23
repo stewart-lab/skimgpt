@@ -179,3 +179,4 @@ def pathway_augmentation_prompt(b_term, a_term, consolidated_abstracts):
         f"Provide a binary classification (Yes or No) and at least two sentences explaining the rationale behind your classification. "
         f"The biomedical abstracts follow:\n{consolidated_abstracts}"
     )
+
