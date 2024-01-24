@@ -595,10 +595,10 @@ def skim_with_gpt_workflow(config, output_directory):
     else:
         a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
     for a_term in a_terms:
-        local_config = copy.deepcopy(config)
-        local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
         print(f"Processing {len(c_terms)} c_terms for {a_term}")
         for c_term in c_terms:
+            local_config = copy.deepcopy(config)
+            local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
             # Create a temporary file for the current c_term
             c_term_file = os.path.join(output_directory, f"{c_term}.txt")
             with open(c_term_file, "w") as f:
@@ -608,6 +608,11 @@ def skim_with_gpt_workflow(config, output_directory):
             ] = c_term_file
 
             skim_file_path = skim.skim_run(local_config, output_directory)
+            if skim_file_path is None:
+                print(
+                    f"Skim file not found for {a_term} and {c_term}. Please lower fet or check the spelling"
+                )
+                continue
             df = read_tsv_to_dataframe(skim_file_path)
             assert not df.empty, "The dataframe is empty"
             df = df.iloc[
