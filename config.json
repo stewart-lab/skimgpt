@@ -1,13 +1,13 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "PROMPT_NAME": "hypothesis_confirmation",
+    "PROMPT_NAME": "exercise_2_few_shot_prompt",
     "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
-        "A_TERM": "Covid-19",
+        "A_TERM": "Diabetes",
         "A_TERM_SUFFIX": "",
         "MAX_ABSTRACTS": 10,
         "MIN_WORD_COUNT": 98,
-        "MODEL": "gpt-4-1106-preview",
+        "MODEL": "gpt-4-turbo-preview",
         "MAX_TOKENS": 512,
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
@@ -26,22 +26,22 @@
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/hyp_test.txt",
+            "B_TERMS_FILE": "input_lists/diabetes_test.txt",
             "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 2,
+            "NUM_B_TERMS": 4,
             "km_with_gpt": {
-                "ab_fet_threshold": 0.01,
+                "ab_fet_threshold": 1,
                 "censor_year": 2023
             }
         },
         "position_km_with_gpt": {
             "A_TERM_LIST": true,
-            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
-            "B_TERMS_FILE": "input_lists/ddi_b_terms.txt",
+            "A_TERMS_FILE": "input_lists/exp_2_a_list.txt",
+            "B_TERMS_FILE": "input_lists/exp_2_b_list.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "position_km_with_gpt": {
-                "ab_fet_threshold": 0.01,
-                "censor_year": 2023
+                "ab_fet_threshold": 1,
+                "censor_year": 2024
             }
         },
         "drug_discovery_validation": {
