@@ -5,7 +5,6 @@ import time
 import json
 import shutil
 import re
-import logging
 import importlib
 import inspect
 import copy
@@ -82,7 +81,7 @@ def analyze_abstract_with_gpt4(
     consolidated_abstracts, b_term, a_term, config, c_term=None
 ):
     if not b_term or not a_term:
-        logging.error("B term or A term is empty.")
+        print("B term or A term is empty.")
         return []
 
     api_key = config.get("API_KEY", os.getenv("OPENAI_API_KEY", ""))
@@ -235,7 +234,7 @@ def call_openai(client, prompt, config):
             if content:
                 return content
             else:
-                logging.error("Received an empty response.")
+                print("Empty response received from OpenAI API.")
                 time.sleep(retry_delay)
 
         except openai.RateLimitError as e:
@@ -246,7 +245,7 @@ def call_openai(client, prompt, config):
             print("Another non-200-range status code was received")
             print(e.status_code)
             print(e.response)
-    logging.error("Max retries reached or no valid response received.")
+            print(e.__cause__)
     return None
 
 
@@ -567,11 +566,17 @@ def position_km_with_gpt_workflow(config, output_directory):
             "B_TERMS_FILE"
         ] = b_term_file
         km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
-        df = read_tsv_to_dataframe(km_file_path)
+        base, extension = os.path.splitext(km_file_path)
+        new_file_name = f"{base}_{b_term}{extension}"
+        os.rename(km_file_path, new_file_name)
+        df = pd.read_csv(new_file_name, sep="\t")
         assert not df.empty, "The dataframe is empty"
         test.test_openai_connection()
         result_dict = process_single_row(df.iloc[0], local_config)
-        results[a_term] = [result_dict]
+        if a_term in results:
+            results[a_term].append(result_dict)
+        else:
+            results[a_term] = [result_dict]
         print(f"Processed row {i + 1} ({a_term}) of {len(a_terms)}")
         # remove the b_term file
         os.remove(b_term_file)
@@ -636,8 +641,10 @@ def skim_with_gpt_workflow(config, output_directory):
             os.remove(c_term_file)
 
 
+# TODO add time
+
+
 def main_workflow():
-    logging.basicConfig(level=logging.INFO)
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")
 
