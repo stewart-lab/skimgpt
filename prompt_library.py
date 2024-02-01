@@ -279,3 +279,27 @@ def pathway_augmentation_prompt(b_term, a_term, consolidated_abstracts):
         f"Provide a binary classification (Yes or No) and at least two sentences explaining the rationale behind your classification. "
         f"The biomedical abstracts follow:\n{consolidated_abstracts}"
     )
+
+
+def exercise_3_few_shot_prompt(b_term, a_term, consolidated_abstracts):
+    return (
+        "Assessment Task:\n"
+        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
+        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
+        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
+        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
+        "evidence in your evaluation.\n\n"
+        "Hypothesis:\n"
+        f"Being diagniosed with {a_term} will positively impact {b_term}\n\n"
+        "Instructions:\n"
+        "Use only the information from the provided abstracts to assess the hypothesis. While the abstracts may not explicitly state support or "
+        "opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
+        "abstracts, as no single abstract will be conclusive. Provide a justification for your score in simple terms understandable to an "
+        "undergraduate biochemist.\n\n"
+        "Format your response as:\n"
+        "Score: [Number] - Reasoning: [Reasoning]\n\n"
+        "Scoring Guidelines:\n"
+        f"{sg.gpt_customized_scoring_system(b_term, a_term)}\n"
+        "Biomedical Abstracts for Analysis:\n"
+        f"{consolidated_abstracts}"
+    )
