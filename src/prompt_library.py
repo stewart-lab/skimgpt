@@ -1,5 +1,5 @@
-import few_shot_library as fsl
-import scoring_guidelines as sg
+from . import few_shot_library as fsl
+from . import scoring_guidelines as sg
 
 
 def km_prompt_template(b_term, a_term, consolidated_abstracts):
@@ -10,7 +10,7 @@ def skim_prompt_template(b_term, a_term, consolidated_abstracts, c_term):
     return "HELLO WORLD"
 
 
-def exercise_2_few_shot_prompt(b_term, a_term, consolidated_abstracts):
+def drug_disease_few_shot_prompt(b_term, a_term, consolidated_abstracts):
     return (
         "Assessment Task:\n"
         "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
@@ -27,6 +27,7 @@ def exercise_2_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         "undergraduate biochemist.\n\n"
         "Few-Shot Learning Examples:\n"
         "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
+        
         f"Example 1: {fsl.breast_cancer_example_1()}\n"
         f"Example 2: {fsl.breast_cancer_example_2()}\n"
         f"Example 3: {fsl.raynauds_disease_example_1()}\n"
