@@ -26,7 +26,7 @@
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/leo.txt",
+            "B_TERMS_FILE": "input_lists/ddi_a_terms.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 1,
             "km_with_gpt": {
@@ -77,5 +77,7 @@
                 "censor_year": 2023
             }
         }
-    }
+    },
+    "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
+    "API_KEY": "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"
 }

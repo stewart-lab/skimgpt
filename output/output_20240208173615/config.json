@@ -77,5 +77,7 @@
                 "censor_year": 2023
             }
         }
-    }
+    },
+    "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
+    "API_KEY": "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"
 }
