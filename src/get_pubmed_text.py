@@ -55,7 +55,8 @@ def abstract_quality_control(config, pmids, rate_limit, delay):
     min_word_count = config["GLOBAL_SETTINGS"].get(
         "MIN_WORD_COUNT", 100
     )  # Default to 100 if not specified
-    assert pmids, "List of PMIDs is empty"
+    if not pmids:
+        return None
     results = {}
 
     pmid_batches = [pmids[i : i + rate_limit] for i in range(0, len(pmids), rate_limit)]
@@ -91,6 +92,8 @@ def process_abstracts_data(config, pmids):
         config["GLOBAL_SETTINGS"]["RATE_LIMIT"],
         config["GLOBAL_SETTINGS"]["DELAY"],
     )
+    if not abstracts_data:
+        return None, None, None
     successful_pmids = get_successful_pmids(pmids, abstracts_data)
     consolidated_abstracts = [abstracts_data[pmid][0] for pmid in successful_pmids]
     paper_urls = [abstracts_data[pmid][1] for pmid in successful_pmids]
