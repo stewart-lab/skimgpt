@@ -50,7 +50,7 @@ And a config.json file required to structure and execute the job type:
 The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job
 5. **Running the script**
    ```bash
-   python abstract_comprehension.py
+   python -m src.abstract_comprehension
    ```
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 <a name="skim-and-km-api-overview"></a>

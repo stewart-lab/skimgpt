@@ -5,16 +5,15 @@ import time
 import json
 import shutil
 import re
-import logging
 import importlib
 import inspect
 import copy
 from datetime import datetime
-import skim_and_km_api as skim
+from . import skim_and_km_api as skim
 import test.test_abstract_comprehension as test
-import get_pubmed_text as pubmed
 import argparse
 import sys
+from . import get_pubmed_text as pubmed
 
 class Singleton(type):
     def __init__(cls, name, bases, dict):
@@ -25,7 +24,7 @@ class GlobalClass(object):
     __metaclass__ = Singleton
     config_file = 'y'
     def __init__():
-        pinrt("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
+        print("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
         
 
 # Ron is using: "./configRMS_needSpecialTunnel.json"
@@ -100,17 +99,16 @@ def analyze_abstract_with_gpt4(
     consolidated_abstracts, b_term, a_term, config, c_term=None
 ):
     if not b_term or not a_term:
-        logging.error("B term or A term is empty.")
+        print("B term or A term is empty.")
         return []
 
     api_key = config.get("API_KEY", os.getenv("OPENAI_API_KEY", ""))
     if not api_key:
         raise ValueError("OpenAI API key is not set.")
     openai_client = openai.OpenAI(api_key=api_key)
-
+    ensemble = {}
     responses = []
     if not config["Evaluate_single_abstract"]:
-        # Pass c_term if it is not None
         prompt = generate_prompt(
             b_term,
             a_term,
@@ -146,7 +144,7 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
         raise ValueError("PROMPT_NAME is not specified in the configuration.")
 
     # Dynamically import the prompts module
-    prompts_module = importlib.import_module("prompt_library")
+    prompts_module = importlib.import_module("src.prompt_library")
 
     # Retrieve the function based on the prompt name
     prompt_function = getattr(prompts_module, prompt_name, None)
@@ -253,7 +251,7 @@ def call_openai(client, prompt, config):
             if content:
                 return content
             else:
-                logging.error("Received an empty response.")
+                print("Empty response received from OpenAI API.")
                 time.sleep(retry_delay)
 
         except openai.RateLimitError as e:
@@ -264,7 +262,7 @@ def call_openai(client, prompt, config):
             print("Another non-200-range status code was received")
             print(e.status_code)
             print(e.response)
-    logging.error("Max retries reached or no valid response received.")
+            print(e.__cause__)
     return None
 
 
@@ -586,15 +584,26 @@ def position_km_with_gpt_workflow(config, output_directory):
             "B_TERMS_FILE"
         ] = b_term_file
         km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
-        if km_file_path:
-            df = read_tsv_to_dataframe(km_file_path)
-            assert not df.empty, "The dataframe is empty"
-            test.test_openai_connection()
-            result_dict = process_single_row(df.iloc[0], local_config)
+        # if km_file_path is None, then the file was not created and we should skip to the next term
+        if km_file_path is None:
+            print(
+                f"KM file not found for {a_term} and {b_term}. Please lower fet or check the spelling"
+            )
+            continue
+        base, extension = os.path.splitext(km_file_path)
+        new_file_name = f"{base}_{b_term}{extension}"
+        os.rename(km_file_path, new_file_name)
+        df = pd.read_csv(new_file_name, sep="\t")
+        assert not df.empty, "The dataframe is empty"
+        test.test_openai_connection()
+        result_dict = process_single_row(df.iloc[0], local_config)
+        if a_term in results:
+            results[a_term].append(result_dict)
+        else:
             results[a_term] = [result_dict]
-            print(f"Processed row {i + 1} ({a_term}) of {len(a_terms)}")
-            # remove the b_term file
-            os.remove(b_term_file)
+        print(f"Processed row {i + 1} ({a_term}) of {len(a_terms)}")
+        # remove the b_term file
+        os.remove(b_term_file)
     assert results, "No results were processed"
     write_to_json(results, config["OUTPUT_JSON"], output_directory)
     print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
@@ -615,10 +624,10 @@ def skim_with_gpt_workflow(config, output_directory):
     else:
         a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
     for a_term in a_terms:
-        local_config = copy.deepcopy(config)
-        local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
         print(f"Processing {len(c_terms)} c_terms for {a_term}")
         for c_term in c_terms:
+            local_config = copy.deepcopy(config)
+            local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
             # Create a temporary file for the current c_term
             c_term_file = os.path.join(output_directory, f"{c_term}.txt")
             with open(c_term_file, "w") as f:
@@ -628,6 +637,11 @@ def skim_with_gpt_workflow(config, output_directory):
             ] = c_term_file
 
             skim_file_path = skim.skim_run(local_config, output_directory)
+            if skim_file_path is None:
+                print(
+                    f"Skim file not found for {a_term} and {c_term}. Please lower fet or check the spelling"
+                )
+                continue
             df = read_tsv_to_dataframe(skim_file_path)
             assert not df.empty, "The dataframe is empty"
             df = df.iloc[
@@ -651,6 +665,9 @@ def skim_with_gpt_workflow(config, output_directory):
             os.remove(c_term_file)
 
 
+# TODO add time
+
+
 def main_workflow():
     parser = argparse.ArgumentParser("arg_parser")
     parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
@@ -658,8 +675,6 @@ def main_workflow():
 
     args = parser.parse_args()
     GlobalClass.config_file = args.config_file
-
-    logging.basicConfig(level=logging.INFO)
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")
 

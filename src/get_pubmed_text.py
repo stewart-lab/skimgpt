@@ -42,6 +42,9 @@ def fetch_abstract_from_pubmed(config, pmid):
         extract_text_from_xml(abstract) for abstract in tree.findall(".//AbstractText")
     ]
     abstract_text = " ".join(abstract_texts)
+    # Append the PMID to the beginning of the abstract
+    abstract_text = f"PMID: {pmid} Text: {abstract_text}"
+
     year = next((year.text for year in tree.findall(".//PubDate/Year")), None)
     paper_url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
 

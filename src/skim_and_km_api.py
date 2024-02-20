@@ -132,14 +132,19 @@ def run_and_save_query(
     job_config = configure_job(
         job_type, a_term, c_terms, b_terms, filtered_terms, config
     )
-
+    # print(job_config)
     # Accessing API_URL from the updated config structure
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
     result = run_api_query(job_config, api_url, username, password)
+    if not result or result is None:
+        print("The result is empty")
+        return None
     file_name = job_config["a_terms"][0]
-
+    if job_type == "skim_with_gpt":
+        file_name = job_config["a_terms"][0] + "_" + job_config["c_terms"][0]
+    # print(result)
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result, file_path, output_directory)  # Pass output_directory
     return file_path
@@ -288,6 +293,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
 def skim_run(config, output_directory):
     """Run the SKIM workflow."""
     print("Executing SKIM workflow...")
+
     skim_file_path = run_and_save_query(
         "skim_with_gpt",
         config["GLOBAL_SETTINGS"]["A_TERM"],
@@ -300,6 +306,8 @@ def skim_run(config, output_directory):
         config=config,
         output_directory=output_directory,
     )
+    if skim_file_path is None:
+        return None
     full_skim_file_path = os.path.join(output_directory, skim_file_path)
     skim_df = pd.read_csv(full_skim_file_path, sep="\t")
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get(
