@@ -35,9 +35,8 @@ def initialize_workflow():
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
         GlobalClass.config_file,
-        os.path.join(output_directory, GlobalClass.config_file),
+        os.path.join(output_directory, "config.json"),
     )
-    #config = get_config(output_directory, config_path=GlobalClass.config_file)
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
     return config, output_directory
@@ -61,12 +60,7 @@ def get_output_json_filename(config, job_settings):
 
 
 def get_config(output_directory):
-    #RMS note.  if you do def get_config(output_directory, config_path=GlobalClass.config_file):
-    # then try to call get_config with just the output_dir, it, for reasons that ARE NOT CLEAR TO ME
-    # doesn't get the correct set value for config file. 
-    # so I changed get_config to not take the config file as a second parameter. Hmm.
-    config_path=GlobalClass.config_file
-    print("in get_Config:", config_path)
+    config_path = os.path.join(output_directory, "config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
 
@@ -79,7 +73,7 @@ def get_config(output_directory):
 
     config["API_KEY"] = api_key
 
-    with open(os.path.join(output_directory, config_path), "w") as f:
+    with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
 
     return config
@@ -106,7 +100,6 @@ def analyze_abstract_with_gpt4(
     if not api_key:
         raise ValueError("OpenAI API key is not set.")
     openai_client = openai.OpenAI(api_key=api_key)
-    ensemble = {}
     responses = []
     if not config["Evaluate_single_abstract"]:
         prompt = generate_prompt(
@@ -188,6 +181,10 @@ def perform_analysis(job_type, row, config, abstracts_data):
         publication_years,
     ) = pubmed.process_abstracts_data(config, pmids)
 
+    # if all three lists are empty, then we have no data to process
+    if not consolidated_abstracts and not paper_urls and not publication_years:
+        return None, None, None, None, None
+
     # Pass c_term to the analyze function
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
@@ -216,6 +213,10 @@ def process_single_row(row, config):
         consolidated_abstracts,
         publication_years,
     ) = perform_analysis(job_type, row, config, {})
+
+    # if everything is empty, then we have no data to process
+    if not result and not prompt and not paper_urls and not consolidated_abstracts and not publication_years:
+        return None
 
     return {
         "Term": row["b_term"],
@@ -534,12 +535,17 @@ def km_with_gpt_workflow(config, output_directory):
         for index, row in df.iterrows():
             term = row["b_term"]
             result_dict = process_single_row(row, config)
+            # if result_dict is None, then we have no data to process
+            if result_dict is None:
+                print(f"No data found for {term} and {config['GLOBAL_SETTINGS']['A_TERM']}. Skipping.")
+                continue
             if term not in results:
                 results[term] = [result_dict]
             else:
                 results[term].append(result_dict)
             print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
-        assert results, "No results were processed"
+        if not results:
+            print("No results were processed")
         write_to_json(results, config["OUTPUT_JSON"], output_directory)
         print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
         # if the prompt name ends in cc then we need to correct the file
@@ -671,8 +677,6 @@ def skim_with_gpt_workflow(config, output_directory):
 def main_workflow():
     parser = argparse.ArgumentParser("arg_parser")
     parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
-    #parser.add_argument('--product_id', dest='product_id', type=str, help='Add product_id')
-
     args = parser.parse_args()
     GlobalClass.config_file = args.config_file
     config, output_directory = initialize_workflow()
