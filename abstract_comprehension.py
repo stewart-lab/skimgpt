@@ -13,9 +13,20 @@ from datetime import datetime
 import skim_and_km_api as skim
 import test.test_abstract_comprehension as test
 import get_pubmed_text as pubmed
+import argparse
+import sys
 
-CONFIG_FILE = "./config.json"  # typically "./config.json"
+class Singleton(type):
+    def __init__(cls, name, bases, dict):
+        super(Singleton, cls).__init__(name, bases, dict)
+        cls.instance = None
 
+class GlobalClass(object):
+    __metaclass__ = Singleton
+    config_file = 'y'
+    def __init__():
+        pinrt("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
+        
 
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():
@@ -24,9 +35,10 @@ def initialize_workflow():
     output_directory = os.path.join("output", f"output_{timestamp}")
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
-        CONFIG_FILE,
-        os.path.join(output_directory, CONFIG_FILE),
+        GlobalClass.config_file,
+        os.path.join(output_directory, GlobalClass.config_file),
     )
+    #config = get_config(output_directory, config_path=GlobalClass.config_file)
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
     return config, output_directory
@@ -49,7 +61,13 @@ def get_output_json_filename(config, job_settings):
     return output_json.replace(" ", "_").replace("'", "")
 
 
-def get_config(output_directory, config_path=CONFIG_FILE):
+def get_config(output_directory):
+    #RMS note.  if you do def get_config(output_directory, config_path=GlobalClass.config_file):
+    # then try to call get_config with just the output_dir, it, for reasons that ARE NOT CLEAR TO ME
+    # doesn't get the correct set value for config file. 
+    # so I changed get_config to not take the config file as a second parameter. Hmm.
+    config_path=GlobalClass.config_file
+    print("in get_Config:", config_path)
     with open(config_path, "r") as f:
         config = json.load(f)
 
@@ -509,33 +527,34 @@ def km_with_gpt_workflow(config, output_directory):
     km_file_path = skim.km_with_gpt_workflow(
         config=config, output_directory=output_directory
     )
-    df = read_tsv_to_dataframe(km_file_path)
-    df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
-    assert not df.empty, "The dataframe is empty"
-    results = {}
-    test.test_openai_connection()
-    for index, row in df.iterrows():
-        term = row["b_term"]
-        result_dict = process_single_row(row, config)
-        if term not in results:
-            results[term] = [result_dict]
-        else:
-            results[term].append(result_dict)
-        print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
-    assert results, "No results were processed"
-    write_to_json(results, config["OUTPUT_JSON"], output_directory)
-    print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
-    # if the prompt name ends in cc then we need to correct the file
-    if config.get("PROMPT_NAME", "").endswith("cc"):
-        print("Correcting the counts based off cc suffix...")
-        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
-        with open(json_file_path, "r") as f:
-            json_data = json.load(f)
-        scores_by_term = calculate_scores_by_term(json_data)
-        apply_scores_to_df(df, scores_by_term)
-        corrected_file_path = create_corrected_file_path(km_file_path)
-        df.to_csv(corrected_file_path, sep="\t", index=False)
-        print(f"Corrected file has been saved to {corrected_file_path}")
+    if km_file_path:  #Have KM results
+        df = read_tsv_to_dataframe(km_file_path)
+        df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
+        assert not df.empty, "The dataframe is empty"
+        results = {}
+        test.test_openai_connection()
+        for index, row in df.iterrows():
+            term = row["b_term"]
+            result_dict = process_single_row(row, config)
+            if term not in results:
+                results[term] = [result_dict]
+            else:
+                results[term].append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+        assert results, "No results were processed"
+        write_to_json(results, config["OUTPUT_JSON"], output_directory)
+        print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+        # if the prompt name ends in cc then we need to correct the file
+        if config.get("PROMPT_NAME", "").endswith("cc"):
+            print("Correcting the counts based off cc suffix...")
+            json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
+            with open(json_file_path, "r") as f:
+                json_data = json.load(f)
+            scores_by_term = calculate_scores_by_term(json_data)
+            apply_scores_to_df(df, scores_by_term)
+            corrected_file_path = create_corrected_file_path(km_file_path)
+            df.to_csv(corrected_file_path, sep="\t", index=False)
+            print(f"Corrected file has been saved to {corrected_file_path}")
 
 
 def position_km_with_gpt_workflow(config, output_directory):
@@ -567,14 +586,15 @@ def position_km_with_gpt_workflow(config, output_directory):
             "B_TERMS_FILE"
         ] = b_term_file
         km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
-        df = read_tsv_to_dataframe(km_file_path)
-        assert not df.empty, "The dataframe is empty"
-        test.test_openai_connection()
-        result_dict = process_single_row(df.iloc[0], local_config)
-        results[a_term] = [result_dict]
-        print(f"Processed row {i + 1} ({a_term}) of {len(a_terms)}")
-        # remove the b_term file
-        os.remove(b_term_file)
+        if km_file_path:
+            df = read_tsv_to_dataframe(km_file_path)
+            assert not df.empty, "The dataframe is empty"
+            test.test_openai_connection()
+            result_dict = process_single_row(df.iloc[0], local_config)
+            results[a_term] = [result_dict]
+            print(f"Processed row {i + 1} ({a_term}) of {len(a_terms)}")
+            # remove the b_term file
+            os.remove(b_term_file)
     assert results, "No results were processed"
     write_to_json(results, config["OUTPUT_JSON"], output_directory)
     print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
@@ -632,6 +652,13 @@ def skim_with_gpt_workflow(config, output_directory):
 
 
 def main_workflow():
+    parser = argparse.ArgumentParser("arg_parser")
+    parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
+    #parser.add_argument('--product_id', dest='product_id', type=str, help='Add product_id')
+
+    args = parser.parse_args()
+    GlobalClass.config_file = args.config_file
+
     logging.basicConfig(level=logging.INFO)
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")

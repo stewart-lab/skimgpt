@@ -259,6 +259,10 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     )
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
+    if os.path.getsize(full_km_file_path) <= 1:
+        print("KM results are empty. Returning a ZERO to indicate no KM results.")
+        return 0
+   
     km_df = pd.read_csv(full_km_file_path, sep="\t")
 
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get(
