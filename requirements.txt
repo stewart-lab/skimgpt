@@ -2,10 +2,5 @@ openai
 pandas
 requests
 pyarrow
-
-# notes 
-
-# append title and pub year to abstract?
-# confirm coefficient of API cost 
-# Another control: ask gpt-4 directly without abstracts but same prompt 
-# see if any valuable data after training data cutoff 
+paramiko
+scp
