@@ -89,7 +89,3 @@ def main():
     
 if __name__ == '__main__':
     main()
-
-	# model = AutoModelForCausalLM.from_pretrained(config.model, quantization_config = config.bnb_config, torch_dtype = torch.bfloat16, device_map = config.device, trust_remote_code = True)
-	# tokenizer = AutoTokenizer.from_pretrained(config.model)
-	# tokenizer.pad_token = tokenizer.unk_token
