@@ -26,7 +26,7 @@
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/leo.txt",
+            "B_TERMS_FILE": "input_lists/ddi_a_terms.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 1,
             "km_with_gpt": {
@@ -76,6 +76,23 @@
                 "bc_fet_threshold": 0.01,
                 "censor_year": 2023
             }
+        },
+        "abstract_filter": {
+            "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
+            "BNB_CONFIG": {
+                "LOAD_IN_4BIT": true,
+                "BNB_4BIT_QUANT_TYPE": "nf4",
+                "BNB_4BIT_USE_DOUBLE_QUANT": true
+            },
+            "DEVICE": "cuda",
+            "DO_SAMPLE": true,
+            "NUM_RETURN_SEQUENCES": 1,
+            "MAX_OUTPUT_TOKENS": 500,
+            "TEMPERATURE": 0.8,
+            "REPETITION_PENALTY": 1.2,
+            "PENALTY_ALPHA": 0.6
         }
-    }
+    },
+    "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
+    "API_KEY": "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"
 }
