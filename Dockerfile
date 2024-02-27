@@ -5,10 +5,11 @@ WORKDIR /app
 COPY requirements.txt /app
 COPY main.py /app/
 COPY config.json /app
-COPY ./src/km_output.tsv /app
-COPY ~/.cache/huggingface/hub /app
+COPY ./src /app/src
+COPY ./test /app/test
+COPY ./.cache/huggingface/hub/* /app/.cache/huggingface/hub
 
-RUN pip install -r /requirements.txt
+RUN pip install -r /app/requirements.txt
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface/hub
 
-ENTRYPOINT [ "executable" ] ["python", "./main.py"]
+# ENTRYPOINT ["python", "/app/main.py"]
