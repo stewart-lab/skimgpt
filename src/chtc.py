@@ -247,7 +247,7 @@ def main_workflow():
         # Create the subdirectory in the remote path
         remote_subdir_path = os.path.join(ssh_config['remote_path'], timestamp_output_path)
         ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_subdir_path}")
-        
+        config_path = os.path.join(output_directory, "config.json")
         try:
             # Transfer generated files to the newly created subdirectory
             for path_item in generated_file_paths:
@@ -279,7 +279,7 @@ def main_workflow():
 
                     # Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
                     remote_config_path = os.path.join(remote_subdir_path, "config.json")
-                    ssh.transfer_files(ssh_client, ssh_config["config_path"] , remote_config_path)
+                    ssh.transfer_files(ssh_client, config_path , remote_config_path)
                     ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit test_kmgpt.sub")
             
             # Execute a command if needed, e.g., to process files in the remote subdirectory
