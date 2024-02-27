@@ -1,14 +1,17 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "PROMPT_NAME": "exercise_3_few_shot_prompt",
+    "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
+    "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
+    "SKIM_hypothesis": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through its interaction with {b_term}.",
     "Evaluate_single_abstract": false,
+    "PROMPT_NAME": "skim_prompt",
     "GLOBAL_SETTINGS": {
-        "A_TERM": "attention deficit hyperactivity disorder",
+        "A_TERM": "diabetes",
         "A_TERM_SUFFIX": "",
         "MAX_ABSTRACTS": 10,
         "MIN_WORD_COUNT": 98,
         "MODEL": "gpt-4-turbo-preview",
-        "MAX_TOKENS": 512,
+        "MAX_TOKENS": 1000,
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
@@ -22,11 +25,19 @@
         "MAX_RETRIES": 10,
         "RETRY_DELAY": 60
     },
+    "SSH": {
+        "server": "submit2.chtc.wisc.edu",
+        "port": 22,
+        "user": "jfreeman23",
+        "key_path": "/w5home/jfreeman/.ssh/chtc",
+        "config_path": "./config.json",
+        "remote_path": "/home/jfreeman23/kmGPT/"
+    },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/adhd.txt",
+            "B_TERMS_FILE": "input_lists/c_term_test.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 4,
             "km_with_gpt": {
@@ -65,19 +76,17 @@
             }
         },
         "skim_with_gpt": {
-            "A_TERM_LIST": true,
+            "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
-            "B_TERMS_FILE": "input_lists/genes_no_syn.txt",
+            "B_TERMS_FILE": "input_lists/skim_exp_b.txt",
             "NUM_B_TERMS": 2,
-            "C_TERMS_FILE": "input_lists/c_term_test.txt",
+            "C_TERMS_FILE": "input_lists/skim_exp_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
                 "ab_fet_threshold": 0.01,
                 "bc_fet_threshold": 0.01,
-                "censor_year": 2023
+                "censor_year": 2024
             }
         }
-
     }
-
 }
