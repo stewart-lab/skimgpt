@@ -33,6 +33,21 @@
         "config_path": "./config.json",
         "remote_path": "/home/jfreeman23/kmGPT/"
     },
+    "abstract_filter": {
+        "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
+        "BNB_CONFIG": {
+            "LOAD_IN_4BIT": true,
+            "BNB_4BIT_QUANT_TYPE": "nf4",
+            "BNB_4BIT_USE_DOUBLE_QUANT": true
+        },
+        "DEVICE": "cuda",
+        "DO_SAMPLE": true,
+        "NUM_RETURN_SEQUENCES": 1,
+        "MAX_OUTPUT_TOKENS": 500,
+        "TEMPERATURE": 0.8,
+        "REPETITION_PENALTY": 1.2,
+        "PENALTY_ALPHA": 0.6
+    },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
             "A_TERM_LIST": false,

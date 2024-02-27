@@ -46,8 +46,18 @@ def generateOutput(model: any, config: any, hyp: str, abstract: str) -> json:
   
   
 
-def getHypothesis(a_term: str, b_term: str) -> str:
-  return f"{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression."
+def getHypothesis(config, b_term: str, a_term: str) -> str:
+    job_type = config.get("JOB_TYPE", "").lower()
+    if job_type == "km_with_gpt":
+        hypothesis_template = config.get("KM_hypothesis", "")
+    elif job_type == "position_km_with_gpt":
+        hypothesis_template = config.get("POSITION_KM_hypothesis", "")
+    elif job_type == "skim_with_gpt":
+        hypothesis_template = config.get("SKIM_hypothesis", "")
+    else:
+        return "No valid hypothesis for the provided JOB_TYPE."
+    
+    return hypothesis_template.format(a_term=a_term, b_term=b_term)
 
 def main():
     ###################### Argument Parsing ############################ 
