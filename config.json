@@ -78,7 +78,7 @@
             }
         },
         "abstract_filter": {
-            "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
+            "MODEL": "Mistral-7B-OpenOrca",
             "BNB_CONFIG": {
                 "LOAD_IN_4BIT": true,
                 "BNB_4BIT_QUANT_TYPE": "nf4",
