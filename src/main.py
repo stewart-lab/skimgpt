@@ -4,8 +4,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
 from typing import Callable
 import argparse
-from src.get_pubmed_text import process_abstracts_data
-from src.abstract_comprehension import read_tsv_to_dataframe, process_single_row
+from get_pubmed_text import process_abstracts_data
+from abstract_comprehension import read_tsv_to_dataframe, process_single_row
 import json
 from guidance import models, gen, select, system, assistant, user
 
@@ -83,9 +83,9 @@ def main():
     a_term = km_output.a_term.unique().tolist()[0]
     b_terms = km_output.b_term.unique().tolist()
   
-    hypotheses = [getHypothesis(a_term, b_term) for b_term in b_terms]
+    hypotheses = [getHypothesis(config, b_term, a_term) for b_term in b_terms]
     ###################### Model Loading & Inference ############################
-    inference_config = config["JOB_SPECIFIC_SETTINGS"]["abstract_filter"]
+    inference_config = config["abstract_filter"]
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=inference_config["BNB_CONFIG"]["LOAD_IN_4BIT"],
         bnb_4bit_quant_type=inference_config["BNB_CONFIG"]["BNB_4BIT_QUANT_TYPE"],

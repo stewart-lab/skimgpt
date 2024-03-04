@@ -1,6 +1,10 @@
-openai
-pandas
-requests
-pyarrow
-paramiko
-scp
+numpy==1.26.4
+openai==1.12.0
+pandas==2.2.1
+Requests==2.31.0
+torch==2.2.0
+transformers==4.38.1
+guidance==0.1.10
+sentencepiece==0.2.0
+accelerate==0.27.2
+bitsandbytes==0.42.0

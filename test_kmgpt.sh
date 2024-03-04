@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Navigate to the /app directory where main.py and the input files are expected to be
-cd /app
+chmod +x main.py
 
 # Find the .tsv file for the --km_output argument
 km_output_file=$(find . -name "*.tsv" -print -quit)

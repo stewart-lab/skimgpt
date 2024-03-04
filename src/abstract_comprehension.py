@@ -9,11 +9,10 @@ import importlib
 import inspect
 import copy
 from datetime import datetime
-from . import skim_and_km_api as skim
-import test.test_abstract_comprehension as test
+import skim_and_km_api as skim
 import argparse
 import sys
-from . import get_pubmed_text as pubmed
+import get_pubmed_text as pubmed
 
 class Singleton(type):
     def __init__(cls, name, bases, dict):
