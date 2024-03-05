@@ -278,12 +278,17 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
 
+    # check if ab_pmid_intersection is [] and remove those rows
+    valid_rows = km_df[
+        km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")
+    ]
+
     # Save the filtered final_km_df to disk and return its path replacing any spaces with underscores
     filtered_file_path = os.path.join(
         output_directory,
         os.path.splitext(km_file_path)[0].replace(" ", "_") + "_filtered.tsv",
     )
-    km_df.to_csv(filtered_file_path, sep="\t", index=False)
+    valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
 
     print(f"Filtered KM query results saved to {filtered_file_path}")
 
@@ -314,6 +319,11 @@ def skim_run(config, output_directory):
         "SORT_COLUMN", "bc_sort_ratio"
     )
     skim_df = skim_df.sort_values(by=sort_column, ascending=False)
+    valid_rows = skim_df[
+        skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]")
+    ]
+    skim_df = valid_rows
+
     # assert the sort_column is in the skim_df
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     assert not skim_df.empty, "SKIM results are empty"

@@ -4,7 +4,6 @@
     "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "SKIM_hypothesis": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through its interaction with {b_term}.",
     "Evaluate_single_abstract": false,
-    "PROMPT_NAME": "skim_prompt",
     "GLOBAL_SETTINGS": {
         "A_TERM": "diabetes",
         "A_TERM_SUFFIX": "",
@@ -91,15 +90,15 @@
             }
         },
         "skim_with_gpt": {
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
-            "B_TERMS_FILE": "input_lists/skim_exp_b.txt",
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "input_lists/test/skim_a.txt",
+            "B_TERMS_FILE": "input_lists/test/skim_b.txt",
             "NUM_B_TERMS": 2,
-            "C_TERMS_FILE": "input_lists/skim_exp_c.txt",
+            "C_TERMS_FILE": "input_lists/test/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
-                "ab_fet_threshold": 0.01,
-                "bc_fet_threshold": 0.01,
+                "ab_fet_threshold": 1,
+                "bc_fet_threshold": 1,
                 "censor_year": 2024
             }
         }
