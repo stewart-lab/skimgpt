@@ -79,17 +79,11 @@
         },
         "abstract_filter": {
             "MODEL": "Mistral-7B-OpenOrca",
-            "BNB_CONFIG": {
-                "LOAD_IN_4BIT": true,
-                "BNB_4BIT_QUANT_TYPE": "nf4",
-                "BNB_4BIT_USE_DOUBLE_QUANT": true
-            },
-            "DEVICE": "cuda",
-            "DO_SAMPLE": true,
-            "MAX_OUTPUT_TOKENS": 500,
             "TEMPERATURE": 0.8,
             "TOP_K": 20,
-            "TOP_P": 0.95
+            "TOP_P": 0.95,
+            "REPETITION_PENALTY": 1.2,
+            "FREQUENCY_PENALTY": 1.2
         }
     },
     "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
