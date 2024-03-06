@@ -102,10 +102,10 @@ def analyze_abstract_with_gpt4(
     responses = []
     if not config["Evaluate_single_abstract"]:
         prompt = generate_prompt(
-            b_term,
-            a_term,
-            consolidated_abstracts,
-            config,
+            b_term=b_term,
+            a_term=a_term,
+            content=consolidated_abstracts,
+            config=config,
             c_term=c_term if c_term is not None else None,
         )
         response = call_openai(openai_client, prompt, config)
@@ -147,6 +147,7 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     
     # Dynamically import the prompts module
     prompts_module = importlib.import_module("src.prompt_library")
+    assert prompts_module, "Failed to import the prompts module."
 
     # Use job_type to fetch the corresponding prompt function
     prompt_function = getattr(prompts_module, job_type, None)
@@ -154,12 +155,20 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
         raise ValueError(
             f"Prompt function for '{job_type}' not found in the prompts module."
         )
-
-    # Call the prompt function with the appropriate parameters
-    if "c_term" in inspect.signature(prompt_function).parameters:
-        return prompt_function(b_term, a_term, content, config, c_term=c_term)
+    prompt_args = (b_term, a_term, content, config)
+    if "hypothesis_template" in inspect.signature(prompt_function).parameters:
+        # If the prompt function expects a hypothesis_template, adjust the arguments
+        prompt_args = (b_term, a_term, hypothesis_template, content)
+        if c_term is not None:
+            return prompt_function(*prompt_args, c_term=c_term)
+        else:
+            return prompt_function(*prompt_args)
     else:
-        return prompt_function(b_term, a_term, content, config)
+            # Fallback for functions not expecting a hypothesis_template directly
+        if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None:
+            return prompt_function(*prompt_args, c_term=c_term)
+        else:
+            return prompt_function(*prompt_args)
 
 
 def perform_analysis(job_type, row, config, abstracts_data):
