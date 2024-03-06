@@ -86,11 +86,10 @@
             },
             "DEVICE": "cuda",
             "DO_SAMPLE": true,
-            "NUM_RETURN_SEQUENCES": 1,
             "MAX_OUTPUT_TOKENS": 500,
             "TEMPERATURE": 0.8,
-            "REPETITION_PENALTY": 1.2,
-            "PENALTY_ALPHA": 0.6
+            "TOP_K": 20,
+            "TOP_P": 0.95
         }
     },
     "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
