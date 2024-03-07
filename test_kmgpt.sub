@@ -15,7 +15,7 @@ executable = test_kmgpt.sh
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
 transfer_input_files = ., ./src/, ./test/
-transfer_output_files
+transfer_output_files = file1, file2
 
 # Output, error, and log file settings
 output = test_kmgpt_$(Cluster)_$(Process).out
