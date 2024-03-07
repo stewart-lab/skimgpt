@@ -8,6 +8,7 @@ from lmformatenforcer.integrations.vllm import build_vllm_logits_processor, buil
 import argparse
 from src.get_pubmed_text import process_abstracts_data
 from src.abstract_comprehension import read_tsv_to_dataframe
+from tqdm import tqdm
 
 def getHypothesis(config, b_term: str, a_term: str) -> str:
     job_type = config.get("JOB_TYPE", "").lower()
@@ -111,38 +112,38 @@ def main():
 
 	b_terms_pmids = km_output.ab_pmid_intersection.map(lambda pmid_list: pmid_list.strip('][').split(', '))
 	# Grab only the abstract from each list of pmids in the TSV
-	abstracts = [process_abstracts_data(config, pmid_list)[0] for pmid_list in b_terms_pmids] # Fetch abstracts from each b_term's PMID list
+	abstracts = [process_abstracts_data(config, pmid_list)[0] for pmid_list in tqdm(b_terms_pmids, desc = "Fetching abstracts from PubMed")] # Fetch abstracts from each b_term's PMID list
 
 	# There should only be one a_term, so it's safe to grab the first index
 	a_term = km_output.a_term.unique().tolist()[0].split("&")[0]
 	b_terms = km_output.b_term.unique().tolist()
- 
-	sys_prompt = config['SYS_PROMPT']
-	hypotheses = [getHypothesis(a_term, b_term) for b_term in b_terms]
+
+	filter_config = config["abstract_filter"]
+	sys_prompt = filter_config['SYS_PROMPT']
+	hypotheses = [getHypothesis(config, a_term, b_term) for b_term in b_terms]
 
 	##################### Model Loading & Generation ############################ 
 	mistral = vllm.LLM(model="Mistral-7B-OpenOrca", max_model_len=16832)
-
-	##################### Generate Chains of Thought ############################ 
-	cot_prompts = getCoTPrompts(abstracts, sys_prompt, hypotheses)
-	cot_batches = get_batch(cot_prompts, config.batch_size)
-	sampling_cot = vllm.SamplingParams(
-				temperature=config.temperature, 
-				top_k = config.top_k, top_p=config.top_p, 
-				max_tokens=config.max_tokens, 
-				repetition_penalty=config.repetition_penalty)
-	cot_outputs = gen(cot_batches, mistral, sampling_cot)
-
-	##################### Generate Answers from Chain of Thought ############################ 
 	tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
 	logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
+ 
+	##################### Generate Chains of Thought ############################
+	cot_prompts = getCoTPrompts(abstracts, sys_prompt, hypotheses)
+	cot_batches = get_batch(cot_prompts, filter_config["BATCH_SIZE"])
+	sampling_cot = vllm.SamplingParams(
+				temperature=filter_config["TEMPERATURE"], 
+				top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
+				repetition_penalty=filter_config["REPETITION_PENALTY"])
+	cot_outputs = gen(cot_batches, mistral, sampling_cot)
+
+	##################### Generate Scores from Chain of Thought ############################ 
 	answer_prompts = getAnswerPrompts(abstracts, sys_prompt, hypotheses, cot_outputs)
-	answer_batches = get_batch(answer_prompts, config.batch_size)
+	answer_batches = get_batch(answer_prompts, filter_config["BATCH_SIZE"])
 	sampling_answer = vllm.SamplingParams(
-				temperature=config.temperature, 
-				top_k = config.top_k, top_p=config.top_p, 
-				max_tokens=config.max_tokens, 
-				repetition_penalty=config.repetition_penalty,
+				temperature=filter_config["TEMPERATURE"], 
+				top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
+				max_tokens=1,
+				repetition_penalty=filter_config["REPETITION_PENALTY"],
 				logits_processors=[logits_processor])
 	answers = gen(answer_batches, mistral, sampling_answer)
 
@@ -156,19 +157,20 @@ def main():
 
 	cot_tsv["scores"] = answers
 	cot_tsv["chain_of_thought"] = reshape(cot_outputs, shape)
-	cot_tsv.to_csv(f"{cot_tsv_name}.tsv", sep='\t')
+	cot_tsv.to_csv(f"{cot_tsv_name}", sep='\t')
 
+	# Filter out the abstracts according to the scores
 	filtered_abstracts = []
 	for i, abstract_list in enumerate(abstracts):
+		filtered = []
 		for j, score in enumerate(answers[i]):
-			filtered = []
 			if score == 1:
 				filtered.append(abstract_list[j])
 		filtered_abstracts.append(filtered)
 
 
 	filtered_tsv["ab_pmid_intersection"] = filtered_abstracts
-	filtered_tsv.to_csv("filtered_output.tsv", sep="\t")
+	filtered_tsv.to_csv(f"{filtered_tsv_name}", sep="\t")
 	return
     
 if __name__ == '__main__':
