@@ -33,7 +33,7 @@
         "remote_path": "/home/jfreeman23/kmGPT/"
     },
     "abstract_filter": {
-        "MODEL": "Mistral-7B-OpenOrca",
+        "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
         "TEMPERATURE": 0.8,
         "TOP_K": 20,
         "TOP_P": 0.95,

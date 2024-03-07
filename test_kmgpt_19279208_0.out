@@ -1,0 +1,23 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu4000.chtc.wisc.edu
+GPUs assigned: GPU-446491ee
+INFO 03-07 18:17:57 llm_engine.py:87] Initializing an LLM engine with config: model='Open-Orca/Mistral-7B-OpenOrca', tokenizer='Open-Orca/Mistral-7B-OpenOrca', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=16832, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 03-07 18:18:02 weight_utils.py:163] Using model weights format ['*.bin']
+INFO 03-07 18:18:49 llm_engine.py:357] # GPU blocks: 12146, # CPU blocks: 2048
+INFO 03-07 18:18:50 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 03-07 18:18:50 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 03-07 18:18:56 model_runner.py:756] Graph capturing finished in 6 secs.

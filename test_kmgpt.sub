@@ -5,7 +5,7 @@
 universe = docker
 
 # Specify the Docker image to use
-docker_image = docker://lexu27/kmgpt_filter:v0.4
+docker_image = docker://lexu27/kmgpt_filter:v0.5
 docker_pull_policy = missing
 
 # The executable is a script or command that resides in the current directory, which will be transferred to the Docker container
@@ -14,7 +14,8 @@ executable = test_kmgpt.sh
 # Specify file transfer behavior and the files to be transferred
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-transfer_input_files = ., ../src/
+transfer_input_files = ., ./src/, ./test/
+transfer_output_files
 
 # Output, error, and log file settings
 output = test_kmgpt_$(Cluster)_$(Process).out
@@ -23,13 +24,14 @@ log = test_kmgpt_$(Cluster).log
 
 # Request GPU resources
 request_gpus = 1
+requirements = (CUDACapability >= 8.0)
 +WantGPULab = true
-+GPUJobLength = "short"  
++GPUJobLength = "short"
 
 # It's recommended to request at least 1 CPU and suitable memory and disk for your task
 request_cpus = 1
 request_memory = 24GB
-request_disk = 50GB 
+request_disk = 50GB
 
 stream_error = true 
 stream_output = true

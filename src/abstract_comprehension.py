@@ -9,9 +9,9 @@ import importlib
 import inspect
 import copy
 from datetime import datetime
-from . import skim_and_km_api as skim
+import skim_and_km_api as skim
 import test.test_abstract_comprehension as test
-from . import get_pubmed_text as pubmed
+import get_pubmed_text as pubmed
 
 CONFIG_FILE = "./config.json"  # typically "./config.json"
 

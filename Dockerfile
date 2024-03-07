@@ -5,11 +5,11 @@ WORKDIR /app
 COPY --chmod=777 ./Mistral-7B-OpenOrca /app/Mistral-7B-OpenOrca
 
 COPY --chmod=777 requirements.txt /app
-COPY main.py /app/
-COPY config.json /app
-COPY ./src /app/src
-COPY ./test /app/test
-COPY ./data.tsv /app
+# COPY main.py /app/
+# COPY config.json /app
+# COPY ./src /app/src
+# COPY ./test /app/test
+# COPY ./data.tsv /app
 
 RUN pip install -r /app/requirements.txt
 

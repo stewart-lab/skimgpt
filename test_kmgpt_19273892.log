@@ -1,0 +1,17 @@
+000 (19273892.000.000) 2024-03-06 19:57:20 Job submitted from host: <128.104.101.92:9618?addrs=128.104.101.92-9618+[2607-f388-107c-501-a236-9fff-fe3c-caa8]-9618&alias=submit2.chtc.wisc.edu&noUDP&sock=schedd_2383549_eff7>
+...
+040 (19273892.000.000) 2024-03-06 19:57:42 Started transferring input files
+	Transferring to host: <128.104.103.46:9618?addrs=128.104.103.46-9618+[2607-f388-107c-501-ae1f-6bff-feac-5e02]-9618&alias=vetsigian0000.chtc.wisc.edu&noUDP&sock=interactive3_1_81176_95de_17048>
+...
+007 (19273892.000.000) 2024-03-06 19:57:43 Shadow exception!
+	Error from interactive3_1@vetsigian0000.chtc.wisc.edu: SHADOW at 128.104.101.92 failed to send file(s) to <128.104.103.46:40832>: |Error: reading from file /home/lpxu/kmGPT/../src/: (errno 2) No such file or directory; STARTER failed to receive file(s) from <128.104.101.92:9618>
+	0  -  Run Bytes Sent By Job
+	4932843  -  Run Bytes Received By Job
+...
+012 (19273892.000.000) 2024-03-06 19:57:43 Job was held.
+	Transfer input files failure at access point submit2 while sending files to execution point interactive3_1@vetsigian0000.chtc.wisc.edu. Details: reading from file /home/lpxu/kmGPT/../src/: (errno 2) No such file or directory
+	Code 13 Subcode 2
+...
+009 (19273892.000.000) 2024-03-06 20:11:30 Job was aborted.
+	via condor_rm (by user lpxu)
+...

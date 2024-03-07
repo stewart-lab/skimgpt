@@ -1,0 +1,30 @@
+000 (19273897.000.000) 2024-03-06 20:15:32 Job submitted from host: <128.104.101.92:9618?addrs=128.104.101.92-9618+[2607-f388-107c-501-a236-9fff-fe3c-caa8]-9618&alias=submit2.chtc.wisc.edu&noUDP&sock=schedd_2383549_eff7>
+...
+040 (19273897.000.000) 2024-03-06 20:24:55 Started transferring input files
+	Transferring to host: <128.104.103.46:9618?addrs=128.104.103.46-9618+[2607-f388-107c-501-ae1f-6bff-feac-5e02]-9618&alias=vetsigian0000.chtc.wisc.edu&noUDP&sock=interactive3_1_81176_95de_17104>
+...
+040 (19273897.000.000) 2024-03-06 20:24:55 Finished transferring input files
+...
+001 (19273897.000.000) 2024-03-06 20:24:56 Job executing on host: <128.104.103.46:9618?addrs=128.104.103.46-9618+[2607-f388-107c-501-ae1f-6bff-feac-5e02]-9618&alias=vetsigian0000.chtc.wisc.edu&noUDP&sock=startd_8362_3707>
+	SlotName: interactive3_1@vetsigian0000.chtc.wisc.edu
+	AvailableGPUs = { GPUs_GPU_ca63ff23 }
+	CondorScratchDir = "/var/lib/condor/execute/slot3/dir_49379"
+	Cpus = 1
+	Disk = 56434236
+	GPUs = 1
+	GPUs_GPU_ca63ff23 = [ GlobalMemoryMb = 10874; DeviceUuid = "ca63ff23-0ee1-f94a-ca17-123cf673002b"; Capability = 7.5; DeviceName = "NVIDIA GeForce RTX 2080 Ti"; DevicePciBusId = "0000:B2:00.0"; Id = "GPU-ca63ff23"; MaxSupportedVersion = 12010; DriverVersion = 12.1; ECCEnabled = false ]
+	IoHeavy = 0
+	Memory = 24576
+...
+007 (19273897.000.000) 2024-03-06 20:36:34 Shadow exception!
+	Error from interactive3_1@vetsigian0000.chtc.wisc.edu: Unable to find image 'lexu27/kmgpt_filter:v0.4' locally v0.4: Pulling from lexu27/kmgpt_filter 96d54c3075c9: Already exists 224fe954d725: Pulling fs layer 75722010b82e: Pulling fs layer d527cbbb87e3: Pulling fs layer b57676e46aee: Pulling fs layer a8c1e85b5e14: Pulling fs layer a41a8d1c11c8: Pulling fs layer 0c1227890755: Pulling fs layer d8d1234baab3: Pulling fs layer 7ed32bc8e469: Pulling fs layer ec1e7978c1fe: Pulling fs layer f852620135df: Pulling fs layer 6244cee14830: Pulling fs layer 101c304944c8: P
+	0  -  Run Bytes Sent By Job
+	5471896  -  Run Bytes Received By Job
+...
+012 (19273897.000.000) 2024-03-06 20:36:34 Job was held.
+	Error from interactive3_1@vetsigian0000.chtc.wisc.edu: Unable to find image 'lexu27/kmgpt_filter:v0.4' locally v0.4: Pulling from lexu27/kmgpt_filter 96d54c3075c9: Already exists 224fe954d725: Pulling fs layer 75722010b82e: Pulling fs layer d527cbbb87e3: Pulling fs layer b57676e46aee: Pulling fs layer a8c1e85b5e14: Pulling fs layer a41a8d1c11c8: Pulling fs layer 0c1227890755: Pulling fs layer d8d1234baab3: Pulling fs layer 7ed32bc8e469: Pulling fs layer ec1e7978c1fe: Pulling fs layer f852620135df: Pulling fs layer 6244cee14830: Pulling fs layer 101c304944c8: P
+	Code 35 Subcode 0
+...
+009 (19273897.000.000) 2024-03-07 06:27:01 Job was aborted.
+	via condor_rm (by user lpxu)
+...

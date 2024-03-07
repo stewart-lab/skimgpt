@@ -1,0 +1,27 @@
+/opt/venv/lib/python3.10/site-packages/transformers/utils/hub.py:124: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+Fetching abstracts from PubMed:   0%|          | 0/8 [00:00<?, ?it/s]Fetching abstracts from PubMed:  12%|█▎        | 1/8 [00:42<04:57, 42.43s/it]Fetching abstracts from PubMed:  25%|██▌       | 2/8 [01:25<04:18, 43.08s/it]Fetching abstracts from PubMed:  38%|███▊      | 3/8 [02:07<03:32, 42.53s/it]Fetching abstracts from PubMed:  50%|█████     | 4/8 [02:50<02:49, 42.48s/it]Fetching abstracts from PubMed:  62%|██████▎   | 5/8 [03:21<01:55, 38.53s/it]Fetching abstracts from PubMed:  75%|███████▌  | 6/8 [03:42<01:05, 32.64s/it]Fetching abstracts from PubMed:  88%|████████▊ | 7/8 [03:53<00:25, 25.42s/it]Fetching abstracts from PubMed: 100%|██████████| 8/8 [04:36<00:00, 30.92s/it]Fetching abstracts from PubMed: 100%|██████████| 8/8 [04:36<00:00, 34.53s/it]
+Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+Processed prompts:   0%|          | 0/32 [00:00<?, ?it/s]Processed prompts:   3%|▎         | 1/32 [00:01<00:37,  1.20s/it]Processed prompts: 100%|██████████| 32/32 [00:01<00:00, 26.77it/s]
+Processed prompts:   0%|          | 0/32 [00:00<?, ?it/s]Processed prompts:   3%|▎         | 1/32 [00:01<00:36,  1.18s/it]Processed prompts: 100%|██████████| 32/32 [00:01<00:00, 27.10it/s]
+Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s]Processed prompts: 100%|██████████| 1/1 [00:00<00:00,  2.83it/s]Processed prompts: 100%|██████████| 1/1 [00:00<00:00,  2.83it/s]
+Processed prompts:   0%|          | 0/32 [00:00<?, ?it/s]Processed prompts:   3%|▎         | 1/32 [00:00<00:09,  3.29it/s]Processed prompts:  12%|█▎        | 4/32 [00:00<00:03,  8.34it/s]Processed prompts:  19%|█▉        | 6/32 [00:00<00:03,  7.45it/s]Processed prompts:  28%|██▊       | 9/32 [00:01<00:02, 10.28it/s]Processed prompts:  34%|███▍      | 11/32 [00:01<00:02,  7.81it/s]Processed prompts:  44%|████▍     | 14/32 [00:01<00:01, 10.50it/s]Processed prompts:  50%|█████     | 16/32 [00:01<00:01, 10.35it/s]Processed prompts:  56%|█████▋    | 18/32 [00:02<00:01,  8.89it/s]Processed prompts:  62%|██████▎   | 20/32 [00:02<00:01,  7.95it/s]Processed prompts:  69%|██████▉   | 22/32 [00:02<00:01,  7.81it/s]Processed prompts:  75%|███████▌  | 24/32 [00:02<00:00,  8.51it/s]Processed prompts:  81%|████████▏ | 26/32 [00:02<00:00,  9.20it/s]Processed prompts:  88%|████████▊ | 28/32 [00:03<00:00,  8.83it/s]Processed prompts:  91%|█████████ | 29/32 [00:03<00:00,  7.95it/s]Processed prompts:  97%|█████████▋| 31/32 [00:03<00:00,  8.56it/s]Processed prompts: 100%|██████████| 32/32 [00:03<00:00,  8.83it/s]
+Processed prompts:   0%|          | 0/32 [00:00<?, ?it/s]Processed prompts:   3%|▎         | 1/32 [00:00<00:12,  2.57it/s]Processed prompts:  19%|█▉        | 6/32 [00:00<00:02, 10.36it/s]Processed prompts:  28%|██▊       | 9/32 [00:01<00:02,  9.44it/s]Processed prompts:  38%|███▊      | 12/32 [00:01<00:02,  8.83it/s]Processed prompts:  50%|█████     | 16/32 [00:01<00:01, 11.60it/s]Processed prompts:  56%|█████▋    | 18/32 [00:01<00:01, 11.36it/s]Processed prompts:  62%|██████▎   | 20/32 [00:01<00:00, 12.35it/s]Processed prompts:  69%|██████▉   | 22/32 [00:02<00:00, 11.64it/s]Processed prompts:  75%|███████▌  | 24/32 [00:02<00:00, 10.76it/s]Processed prompts:  81%|████████▏ | 26/32 [00:02<00:00,  9.85it/s]Processed prompts:  88%|████████▊ | 28/32 [00:02<00:00,  9.52it/s]Processed prompts:  91%|█████████ | 29/32 [00:03<00:00,  8.16it/s]Processed prompts:  97%|█████████▋| 31/32 [00:03<00:00,  9.54it/s]Processed prompts: 100%|██████████| 32/32 [00:03<00:00,  9.96it/s]
+Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s]Processed prompts: 100%|██████████| 1/1 [00:00<00:00,  8.40it/s]Processed prompts: 100%|██████████| 1/1 [00:00<00:00,  8.39it/s]
+Traceback (most recent call last):
+  File "/var/lib/condor/execute/slot1/dir_1548587/main.py", line 177, in <module>
+    main()
+  File "/var/lib/condor/execute/slot1/dir_1548587/main.py", line 173, in main
+    filtered_tsv.to_csv(f"{filtered_tsv_name}", sep="\t")
+  File "/opt/venv/lib/python3.10/site-packages/pandas/util/_decorators.py", line 333, in wrapper
+    return func(*args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/pandas/core/generic.py", line 3964, in to_csv
+    return DataFrameRenderer(formatter).to_csv(
+  File "/opt/venv/lib/python3.10/site-packages/pandas/io/formats/format.py", line 1014, in to_csv
+    csv_formatter.save()
+  File "/opt/venv/lib/python3.10/site-packages/pandas/io/formats/csvs.py", line 251, in save
+    with get_handle(
+  File "/opt/venv/lib/python3.10/site-packages/pandas/io/common.py", line 873, in get_handle
+    handle = open(
+FileNotFoundError: [Errno 2] No such file or directory: ''

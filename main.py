@@ -1,13 +1,13 @@
 import pandas as pd
 from transformers import set_seed
-from src.get_pubmed_text import process_abstracts_data
+from get_pubmed_text import process_abstracts_data
 import json
 import vllm
 from lmformatenforcer import RegexParser
 from lmformatenforcer.integrations.vllm import build_vllm_logits_processor, build_vllm_token_enforcer_tokenizer_data
 import argparse
-from src.get_pubmed_text import process_abstracts_data
-from src.abstract_comprehension import read_tsv_to_dataframe
+from get_pubmed_text import process_abstracts_data
+from abstract_comprehension import read_tsv_to_dataframe
 from tqdm import tqdm
 
 def getHypothesis(config, b_term: str, a_term: str) -> str:
@@ -123,7 +123,7 @@ def main():
 	hypotheses = [getHypothesis(config, a_term, b_term) for b_term in b_terms]
 
 	##################### Model Loading & Generation ############################ 
-	mistral = vllm.LLM(model="Mistral-7B-OpenOrca", max_model_len=16832)
+	mistral = vllm.LLM(model=filter_config["MODEL"], max_model_len=16832)
 	tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
 	logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
  
