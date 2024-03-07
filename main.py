@@ -29,8 +29,8 @@ def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
     {sys_prompt}
     <|im_end|>
     <|im_start|>user
-    Hypothesis: {{ hypothesis }}
-    Abstract: {{abstract}}
+    Hypothesis: {hyp}
+    Abstract: {abstract}
     
     Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
@@ -158,6 +158,7 @@ def main():
 
 	cot_tsv["scores"] = answers
 	cot_tsv["chain_of_thought"] = reshape(cot_outputs, shape)
+	cot_tsv["hypothesis"] = hypotheses
 	cot_tsv.to_csv(f"{cot_tsv_name}", sep='\t')
 
 	# Filter out the abstracts according to the scores
