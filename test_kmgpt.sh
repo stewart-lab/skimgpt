@@ -15,8 +15,8 @@ config_file="config.json"
 
 # Specify the output file name for the --output_file argument
 output_tsv="filtered.tsv"
-
 output_cot="cot.tsv"
+
 export TRANSFORMERS_CACHE=$_CONDOR_SCRATCH_DIR/models
 export HF_HOME=$_CONDOR_SCRATCH_DIR/models
 export HF_DATASETS_CACHE=$_CONDOR_SCRATCH_DIR/datasets
@@ -25,4 +25,4 @@ export HF_METRICS_CACHE=$_CONDOR_SCRATCH_DIR/metrics
 
 
 # Execute main.py with the required arguments
-python main.py --km_output "$km_output_file" --config "$config_file" --filtered_tsv_name "$output_file" --cot_tsv_name "$output_cot"
+python main.py --km_output "$km_output_file" --config "$config_file" --filtered_tsv_name "$output_tsv" --cot_tsv_name "$output_cot"

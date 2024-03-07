@@ -133,7 +133,8 @@ def main():
 	sampling_cot = vllm.SamplingParams(
 				temperature=filter_config["TEMPERATURE"], 
 				top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
-				repetition_penalty=filter_config["REPETITION_PENALTY"])
+				repetition_penalty=filter_config["REPETITION_PENALTY"],
+    			max_tokens = 1024)
 	cot_outputs = gen(cot_batches, mistral, sampling_cot)
 
 	##################### Generate Scores from Chain of Thought ############################ 
