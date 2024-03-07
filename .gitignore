@@ -5,3 +5,4 @@ output
 guidance
 *.log
 *.err
+*.out
