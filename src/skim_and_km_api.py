@@ -265,7 +265,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
     if os.path.getsize(full_km_file_path) <= 1:
-        print("KM results are empty. Returning a ZERO to indicate no KM results.")
+        print("KM results are empty. Returning None to indicate no KM results.")
         return None
    
     km_df = pd.read_csv(full_km_file_path, sep="\t")
@@ -282,7 +282,8 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     valid_rows = km_df[
         km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")
     ]
-
+    #print ("valid rows:", valid_rows)
+    #print("len valid rows:", len(valid_rows))
     # Save the filtered final_km_df to disk and return its path replacing any spaces with underscores
     filtered_file_path = os.path.join(
         output_directory,
@@ -291,7 +292,9 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
 
     print(f"Filtered KM query results saved to {filtered_file_path}")
-
+    if (len(valid_rows) == 0): 
+        print ("No KM results after filtering. Return None to indicate no KM results.")
+        return None
     return filtered_file_path
 
 
