@@ -35,7 +35,7 @@ def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
     Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
     Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Let's work this out in a step by step way to be sure we have the right answer.
-	<|im_end|>
+    <|im_end|>
     <|im_start|>assistant
     """
 
