@@ -1,0 +1,3 @@
+a_count	a_term	ab_count	ab_pmid_intersection	ab_pred_score	ab_pvalue	ab_sort_ratio	b_count	b_term	total_count
+31287	attention deficit hyperactivity disorder	3	[32355037, 19817272, 37138560]	0.0001200926971513	0.9999999412848324	3.572619444576764e-05	83972	heparin	36618932
+31287	attention deficit hyperactivity disorder	0	[]	0.0	1.0	0.0	5329	enoxaparin	36618932

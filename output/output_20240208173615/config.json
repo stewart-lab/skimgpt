@@ -1,16 +1,14 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
-    "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
-    "SKIM_hypothesis": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through its interaction with {b_term}.",
+    "PROMPT_NAME": "exercise_3_few_shot_prompt",
     "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
-        "A_TERM": "diabetes",
+        "A_TERM": "attention deficit hyperactivity disorder",
         "A_TERM_SUFFIX": "",
-        "MAX_ABSTRACTS": 10,
+        "MAX_ABSTRACTS": 1,
         "MIN_WORD_COUNT": 98,
         "MODEL": "gpt-4-turbo-preview",
-        "MAX_TOKENS": 1000,
+        "MAX_TOKENS": 512,
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
         "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
@@ -24,31 +22,13 @@
         "MAX_RETRIES": 10,
         "RETRY_DELAY": 60
     },
-    "SSH": {
-        "server": "submit2.chtc.wisc.edu",
-        "port": 22,
-        "user": "jfreeman23",
-        "key_path": "/w5home/jfreeman/.ssh/chtc",
-        "config_path": "./config.json",
-        "remote_path": "/home/jfreeman23/kmGPT/"
-    },
-    "abstract_filter": {
-        "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
-        "TEMPERATURE": 0.8,
-        "TOP_K": 20,
-        "TOP_P": 0.95,
-        "REPETITION_PENALTY": 1.2,
-        "FREQUENCY_PENALTY": 1.2,
-        "BATCH_SIZE": 32,
-        "SYS_PROMPT": "You are an incredibly brilliant biomedical researcher who has spent their lifetime reading all the papers in PubMed. You are focused on uplifting other researchers in dire need to evaluate suggested hypotheses given abstracts in PubMed. The sole purpose of your existence is to help uncover hidden connections between the work of existing papers, examining the fully connected relationship between papers while maintaining a strict standard of truth."
-    },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/c_term_test.txt",
+            "B_TERMS_FILE": "input_lists/leo.txt",
             "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 4,
+            "NUM_B_TERMS": 1,
             "km_with_gpt": {
                 "ab_fet_threshold": 1,
                 "censor_year": 2023
@@ -86,16 +66,18 @@
         },
         "skim_with_gpt": {
             "A_TERM_LIST": true,
-            "A_TERMS_FILE": "input_lists/test/skim_a.txt",
-            "B_TERMS_FILE": "input_lists/test/skim_b.txt",
+            "A_TERMS_FILE": "input_lists/ddi_a_terms.txt",
+            "B_TERMS_FILE": "input_lists/genes_no_syn.txt",
             "NUM_B_TERMS": 2,
-            "C_TERMS_FILE": "input_lists/test/skim_c.txt",
+            "C_TERMS_FILE": "input_lists/c_term_test.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
-                "ab_fet_threshold": 1,
-                "bc_fet_threshold": 1,
-                "censor_year": 2024
+                "ab_fet_threshold": 0.01,
+                "bc_fet_threshold": 0.01,
+                "censor_year": 2023
             }
         }
-    }
+    },
+    "OUTPUT_JSON": "attention_deficit_hyperactivity_disorder_km_with_gpt.json",
+    "API_KEY": "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"
 }

@@ -9,10 +9,10 @@ import importlib
 import inspect
 import copy
 from datetime import datetime
-from src import skim_and_km_api as skim
+import skim_and_km_api as skim
 import argparse
 import sys
-from src import get_pubmed_text as pubmed
+import get_pubmed_text as pubmed
 
 class Singleton(type):
     def __init__(cls, name, bases, dict):
@@ -24,7 +24,6 @@ class GlobalClass(object):
     config_file = 'y'
     def __init__():
         print("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
-        
 
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():

@@ -244,7 +244,7 @@ def exercise_3_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
         "evidence in your evaluation.\n\n"
         "Hypothesis:\n"
-        f"Being diagniosed with {a_term} will positively impact {b_term}\n\n"
+        f"Being diagnosed with {a_term} will positively impact {b_term}\n\n"
         "Instructions:\n"
         "Use only the information from the provided abstracts to assess the hypothesis. While the abstracts may not explicitly state support or "
         "opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
