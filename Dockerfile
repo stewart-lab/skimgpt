@@ -2,7 +2,7 @@ FROM jfreeman88/kmtest:latest
 
 WORKDIR /app
 
-COPY --chmod=777 ./Mistral-7B-OpenOrca /app/Mistral-7B-OpenOrca
+# COPY --chmod=777 ./Mistral-7B-OpenOrca /app/Mistral-7B-OpenOrca
 
 COPY --chmod=777 requirements.txt /app
 # COPY main.py /app/

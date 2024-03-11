@@ -2,15 +2,7 @@ from . import few_shot_library as fsl
 from . import scoring_guidelines as sg
 
 
-def km_prompt_template(b_term, a_term, consolidated_abstracts):
-    return "HELLO WORLD"
-
-
-def skim_prompt_template(b_term, a_term, consolidated_abstracts, c_term):
-    return "HELLO WORLD"
-
-
-def drug_disease_few_shot_prompt(b_term, a_term, consolidated_abstracts):
+def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
     return (
         "Assessment Task:\n"
         "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
@@ -19,12 +11,8 @@ def drug_disease_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
         "evidence in your evaluation.\n\n"
         "Hypothesis:\n"
-        f"{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.\n\n"
-        "Instructions:\n"
-        "Use only the information from the provided abstracts to assess the hypothesis. While the abstracts may not explicitly state support or "
-        "opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
-        "abstracts, as no single abstract will be conclusive. Provide a justification for your score in simple terms understandable to an "
-        "undergraduate biochemist.\n\n"
+        f"{hypothesis_template}\n\n"
+        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
         "Few-Shot Learning Examples:\n"
         "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
         
@@ -37,80 +25,45 @@ def drug_disease_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         "Format your response as:\n"
         "Score: [Number] - Reasoning: [Reasoning]\n\n"
         "Scoring Guidelines:\n"
-        f"{sg.gpt_customized_scoring_system(b_term, a_term)}\n"
+        f"{sg.original_scoring_guidelines()}\n"
         "Biomedical Abstracts for Analysis:\n"
         f"{consolidated_abstracts}"
     )
 
 
-def diabetes_few_shot_prompt(b_term, a_term, consolidated_abstracts):
+def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
     return (
         "Assessment Task:\n"
-        "Evaluate the support for the following hypothesis in the given biomedical texts, giving a score from -1 to 3.\n\n"
+        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
+        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
+        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
+        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
+        "evidence in your evaluation.\n\n"
         "Hypothesis:\n"
-        f"{b_term} may be a useful treatment for treating the underlying causes of {a_term}\n\n"
-        "Instructions:\n"
-        "Use only the information from the provided abstracts to assess the hypothesis. While the abstracts may not explicitly state support or "
-        "opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
-        "abstracts, as no single abstract will be conclusive. Provide a justification for your score in simple terms understandable to an "
-        "undergraduate biochemist.\n\n"
+        f"{hypothesis_template}\n\n"
+        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
         "Few-Shot Learning Examples:\n"
         "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
-        "Example 1: Hypothesis: Metformin may be a useful treatment for treating the underlying causes of Diabetes - Score: 3 - Reasoning: PMID 11832527 states that metformin reduces the incidence of type 2 diabetes. Elevated plasma glucose levels, being overweight, and having a sedentary lifestyle are reversible risk factors for diabetes. Metformin reduced the incidence of diabetes in high-risk prediabetic patients by 31%. Score: 3.\n"
-        "PMID 9742977 states that metformin slows the progression of diabetes by controlling blood glucose levels and reduces the incidence diabetes-related risks such as death in diabetic patients. Score: 3.\n"
-        "PMID 18784090 states that benefits from metformin treatment on diabetic patients were long-lasting. Score: 3.\n"
-        "PMID 11602624 investigates the mechanism by which metformin aids glucose control, concluding that metformin activates AMPK, which leads to reduced ACC activity, increased fatty acid oxidation, suppressed expression of lipogenic enzymes, and suppressed expression of SREBP-1. Score: 3.\n\n"
-        "Example 2: Hypothesis: Ezetimibe may be a useful treatment for treating the underlying causes of Diabetes - Score: -1 - Reasoning: PMID 23956253 discusses familial hypercholesterolaemia in relation to coronary heart disease (CHD). Low-density lipoprotein (LDL) levels are discussed; however, there is no obvious connection between diabetes, LDL, and ezetimibe presented. Score: 0.\n"
-        "PMID 23444397 implies that ezetimibe helps manage LDL levels. Diabetes is mentioned in passing. Score: 0.\n"
-        "PMID 28886926 implies that ezetimibe is useful for lowering LDL levels to lower atherosclerotic cardiovascular disease (ASCVD) risk. Diabetes is mentioned in passing. Score: 0.\n"
-        "PMID 27701660 found that LDL-lowering genetic variants were positively associated with a higher risk of type 2 diabetes. This implies that lowering LDL levels could possibly increase diabetes risk. “potential adverse effects of LDL-C-lowering therapy” is mentioned at the end. Score: -1.\n"
-        "PMID 19095139 examines the effects of lowering LDL-C with statins and ezetimibe in diabetic patients with regards to atherosclerosis. This article is not relevant to the hypothesis. Score: 0.\n"
-        "PMID 21095263 states that lowering LDL levels reduces the incidence of atherosclerotic events. This article is not relevant to the hypothesis. Score: 0.\n\n"
-        "Example 3: Hypothesis: bumetanide may be a useful treatment for treating the underlying causes of Diabetes - Score: 1 - Reasoning: PMID 32410463 indicates that empagliflozin synergized with bumetanide to help flush sodium and glucose via a diuretic effect. This is mostly discussed in relation to heart failure, but lowering blood glucose helps prevent diabetes. Score: 1.\n"
-        "PMID 29440005 discusses treatment with dapagliflozin to lower blood glucose levels in diabetic patients via inhibition of the sodium-glucose-linked transporter 2. Bumetanide is hypothesized to synergize with dapagliflozin to help flush sodium and glucose from the blood. Score: 1.\n"
-        "PMID 9185518 describes the BSC2 Na-K-Cl cotransporter as “bumetanide-sensitive”. The experiments described in this article suggest that BSC2 is regulated by inflammatory cytokines and fluid mechanical stimuli, implying a role for BSC2 in “vascular homeostasis and inflammation.” This is related to diabetes because blood glucose levels affect osmotic conditions.\n"
-        "PMID 12904328 states that diabetes is associated with water and sodium losses, and the authors hypothesize that the kidney compensates for this by upregulating sodium and water transporter proteins. Experiments show that the bumetanide-sensitive Na-K-2Cl cotransporter (NKCC2) correlate with blood glucose levels. It’s unclear from this text how bumetanide would affect blood glucose levels. Score: 0\n"
-        "Example 4: Hypothesis: sodium may be a useful treatment for treating the underlying causes of Diabetes - Score: 0 - Reasoning: The texts provided do not discuss sodium as a treatment, but rather in the context of the sodium-glucose cotransporter 2 (SGLT2). Several articles describe inhibiting SGLT2 in an effort to improve cardiovascular health in diabetic patients. Score: 0.\n\n"
+        
+        f"Example 1: {fsl.breast_cancer_example_1()}\n"
+        f"Example 2: {fsl.breast_cancer_example_2()}\n"
+        f"Example 3: {fsl.raynauds_disease_example_1()}\n"
+        f"Example 4: {fsl.raynauds_disease_example_2()}\n"
+        f"Example 5: {fsl.heart_failure_example_1()}\n"
+        f"Example 6: {fsl.heart_failure_example_2()}\n"
         "Format your response as:\n"
         "Score: [Number] - Reasoning: [Reasoning]\n\n"
         "Scoring Guidelines:\n"
-        "   - -1 Point: There is sufficient evidence in the provided texts to say that the hypothesis is probably not true. The evidence described in the texts directly contradict the hypothesis.\n"
-        "   - 0 Points: There is no evidence to support the hypothesis in the provided texts. The experiments described in the texts may or may not be well conducted, but they do not have any bearing on the hypothesis.\n"
-        "   - 1 Point: Evidence that supports the hypothesis is weak in the provided texts. The experiments seem poorly conducted, or there is mixed evidence that the hypothesis is true.\n"
-        "   - 2 Points: Evidence that supports the hypothesis is moderate in the provided texts. The experiments are well conducted, and there is a fair amount of evidence in the texts that the hypothesis may be true.\n"
-        "   - 3 Points: Evidence that supports the hypothesis is strong in the provided texts. There is a large amount of direct evidence in the texts that the hypothesis is true.\n\n"
+        f"{sg.original_scoring_guidelines()}\n"
         "Biomedical Abstracts for Analysis:\n"
         f"{consolidated_abstracts}"
     )
 
 
-def diabetes_drug_prompt(b_term, a_term, consolidated_abstracts):
-    return (
-        f"Assessment Task:\n"
-        f"Evaluate the support for the following hypothesis in the given biomedical texts, giving a score from -1 to 3.\n\n"
-        f"Hypothesis:\n"
-        f"{b_term} may be a useful treatment for treating the underlying causes of {a_term}\n\n"
-        f"Instructions:\n"
-        f"Use only the information from the provided abstracts to assess the hypothesis. While the abstracts may not explicitly state support or "
-        f"opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
-        f"abstracts, as no single abstract will be conclusive. Provide a justification for your score in simple terms understandable to an "
-        f"undergraduate biochemist.\n\n"
-        f"Format your response as:\n"
-        f"Score: [Number] - Reasoning: [Reasoning]\n\n"
-        f"Scoring Guidelines:\n"
-        f"   - -1 Point: There is sufficient evidence in the provided texts to say that the hypothesis is probably not true. The evidence described in the texts directly contradict the hypothesis.\n"
-        f"   - 0 Points: There is no evidence to support the hypothesis in the provided texts. The experiments described in the texts may or may not be well conducted, but they do not have any bearing on the hypothesis.\n"
-        f"   - 1 Point: Evidence that supports the hypothesis is weak in the provided texts. The experiments seem poorly conducted, or there is mixed evidence that the hypothesis is true.\n"
-        f"   - 2 Points: Evidence that supports the hypothesis is moderate in the provided texts. The experiments are well conducted, and there is a fair amount of evidence in the texts that the hypothesis may be true.\n"
-        f"   - 3 Points: Evidence that supports the hypothesis is strong in the provided texts. There is a large amount of direct evidence in the texts that the hypothesis is true.\n\n"
-        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}"
-    )
-
-
-def skim_prompt(b_term, a_term, consolidated_abstracts, c_term):
+def skim_with_gpt(b_term, a_term, hypothesis_template,consolidated_abstracts, c_term):
     return (
         f"Assessment Task: Critically evaluate the potential indirect relationship between '{a_term}' and '{c_term}' within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
-        f"Hypothesis: 'There exists an indirect link between '{a_term}' and '{c_term}' mediated through '{b_term} found in biomedical interactions.' \n"
+        f"Hypothesis: {hypothesis_template} \n"
         f"Instructions: Utilize the information within the provided abstracts to infer the potential indirect relationship. Employ analytical skills to deduce connections, ensuring your reasoning is accessible to an undergraduate biochemist. Format your response as 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
         f"Scoring Guidelines:\n"
         f"   - -1 Point: The evidence strongly negates any indirect relationship between '{a_term}' and '{c_term}'. Clear, direct information in the texts contradicts the existence of such a link, with no plausible alternative interpretations.\n"

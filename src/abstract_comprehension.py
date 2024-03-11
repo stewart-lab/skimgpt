@@ -10,11 +10,20 @@ import inspect
 import copy
 from datetime import datetime
 import skim_and_km_api as skim
-import test.test_abstract_comprehension as test
+import argparse
+import sys
 import get_pubmed_text as pubmed
 
-CONFIG_FILE = "./config.json"  # typically "./config.json"
+class Singleton(type):
+    def __init__(cls, name, bases, dict):
+        super(Singleton, cls).__init__(name, bases, dict)
+        cls.instance = None
 
+class GlobalClass(object):
+    __metaclass__ = Singleton
+    config_file = 'y'
+    def __init__():
+        print("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
 
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():
@@ -23,8 +32,8 @@ def initialize_workflow():
     output_directory = os.path.join("output", f"output_{timestamp}")
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
-        CONFIG_FILE,
-        os.path.join(output_directory, CONFIG_FILE),
+        GlobalClass.config_file,
+        os.path.join(output_directory, "config.json"),
     )
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
@@ -48,7 +57,8 @@ def get_output_json_filename(config, job_settings):
     return output_json.replace(" ", "_").replace("'", "")
 
 
-def get_config(output_directory, config_path=CONFIG_FILE):
+def get_config(output_directory):
+    config_path = os.path.join(output_directory, "config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
 
@@ -61,7 +71,7 @@ def get_config(output_directory, config_path=CONFIG_FILE):
 
     config["API_KEY"] = api_key
 
-    with open(os.path.join(output_directory, config_path), "w") as f:
+    with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
 
     return config
@@ -88,14 +98,13 @@ def analyze_abstract_with_gpt4(
     if not api_key:
         raise ValueError("OpenAI API key is not set.")
     openai_client = openai.OpenAI(api_key=api_key)
-    ensemble = {}
     responses = []
     if not config["Evaluate_single_abstract"]:
         prompt = generate_prompt(
-            b_term,
-            a_term,
-            consolidated_abstracts,
-            config,
+            b_term=b_term,
+            a_term=a_term,
+            content=consolidated_abstracts,
+            config=config,
             c_term=c_term if c_term is not None else None,
         )
         response = call_openai(openai_client, prompt, config)
@@ -121,24 +130,44 @@ def analyze_abstract_with_gpt4(
 
 
 def generate_prompt(b_term, a_term, content, config, c_term=None):
-    prompt_name = config.get("PROMPT_NAME")
-    if not prompt_name:
-        raise ValueError("PROMPT_NAME is not specified in the configuration.")
-
+    job_type = config.get("JOB_TYPE", "").lower()
+    
+    # Define hypothesis templates directly based on job_type
+    hypothesis_templates = {
+        "km_with_gpt": config.get("KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
+        "position_km_with_gpt": config.get("POSITION_KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
+        "skim_with_gpt": config.get("SKIM_hypothesis", "").format(c_term=c_term, a_term=a_term, b_term=b_term)
+    }
+    
+    # Fetch the hypothesis template for the given job_type
+    hypothesis_template = hypothesis_templates.get(job_type)
+    if not hypothesis_template:
+        return "No valid hypothesis for the provided JOB_TYPE."
+    
     # Dynamically import the prompts module
     prompts_module = importlib.import_module("src.prompt_library")
+    assert prompts_module, "Failed to import the prompts module."
 
-    # Retrieve the function based on the prompt name
-    prompt_function = getattr(prompts_module, prompt_name, None)
+    # Use job_type to fetch the corresponding prompt function
+    prompt_function = getattr(prompts_module, job_type, None)
     if not prompt_function:
         raise ValueError(
-            f"Prompt function '{prompt_name}' not found in the prompts module."
+            f"Prompt function for '{job_type}' not found in the prompts module."
         )
-
-    if "c_term" in inspect.signature(prompt_function).parameters:
-        return prompt_function(b_term, a_term, content, c_term)
+    prompt_args = (b_term, a_term, content, config)
+    if "hypothesis_template" in inspect.signature(prompt_function).parameters:
+        # If the prompt function expects a hypothesis_template, adjust the arguments
+        prompt_args = (b_term, a_term, hypothesis_template, content)
+        if c_term is not None:
+            return prompt_function(*prompt_args, c_term=c_term)
+        else:
+            return prompt_function(*prompt_args)
     else:
-        return prompt_function(b_term, a_term, content)
+            # Fallback for functions not expecting a hypothesis_template directly
+        if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None:
+            return prompt_function(*prompt_args, c_term=c_term)
+        else:
+            return prompt_function(*prompt_args)
 
 
 def perform_analysis(job_type, row, config, abstracts_data):
@@ -170,6 +199,10 @@ def perform_analysis(job_type, row, config, abstracts_data):
         publication_years,
     ) = pubmed.process_abstracts_data(config, pmids)
 
+    # if all three lists are empty, then we have no data to process
+    if not consolidated_abstracts and not paper_urls and not publication_years:
+        return None, None, None, None, None
+
     # Pass c_term to the analyze function
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
@@ -199,6 +232,10 @@ def process_single_row(row, config):
         publication_years,
     ) = perform_analysis(job_type, row, config, {})
 
+    # if everything is empty, then we have no data to process
+    if not result and not prompt and not paper_urls and not consolidated_abstracts and not publication_years:
+        return None
+
     return {
         "Term": row["b_term"],
         "Result": result,
@@ -208,6 +245,20 @@ def process_single_row(row, config):
         "Years": publication_years,
     }
 
+def test_openai_connection(config):
+    openai.api_key = os.getenv("OPENAI_API_KEY", "")
+    client = openai.OpenAI(api_key=openai.api_key)
+    try:
+        response = client.chat.completions.create(
+            model=config["GLOBAL_SETTINGS"]["MODEL"],
+            messages=[
+                {"role": "system", "content": "You are a medical research analyst."},
+                {"role": "user", "content": "Test connection to OpenAI."},
+            ],
+        )
+        print("Successfully connected to OpenAI!")
+    except Exception as e:
+        print(f"Failed to connect to OpenAI. Error: {e}")
 
 def call_openai(client, prompt, config):
     retry_delay = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
@@ -401,7 +452,7 @@ def drug_discovery_validation_workflow(config, output_directory):
             config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"].get("test")
             == "True"
         ):
-            df = test.test_gpt4_leakage()
+            return # Skip the workflow if the test flag is set to True
         else:
             df = read_tsv_to_dataframe(
                 skim.skim_no_km_workflow(config, output_directory)
@@ -411,7 +462,7 @@ def drug_discovery_validation_workflow(config, output_directory):
             return
 
         results_list = []
-        test.test_openai_connection()
+        test_openai_connection(config)
         for index, row in df.iterrows():
             result_dict = process_single_row(row, config)
             results_list.append(result_dict)
@@ -447,7 +498,6 @@ def extract_term_and_scoring_sentence(json_data):
                 extracted_data[term] = first_sentence
 
     return extracted_data
-
 
 def calculate_scores_by_term(json_data):
     scores_by_term = {}
@@ -507,33 +557,35 @@ def km_with_gpt_workflow(config, output_directory):
     km_file_path = skim.km_with_gpt_workflow(
         config=config, output_directory=output_directory
     )
-    df = read_tsv_to_dataframe(km_file_path)
-    df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
-    assert not df.empty, "The dataframe is empty"
-    results = {}
-    test.test_openai_connection()
-    for index, row in df.iterrows():
-        term = row["b_term"]
-        result_dict = process_single_row(row, config)
-        if term not in results:
-            results[term] = [result_dict]
-        else:
-            results[term].append(result_dict)
-        print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
-    assert results, "No results were processed"
-    write_to_json(results, config["OUTPUT_JSON"], output_directory)
-    print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
-    # if the prompt name ends in cc then we need to correct the file
-    if config.get("PROMPT_NAME", "").endswith("cc"):
-        print("Correcting the counts based off cc suffix...")
-        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
-        with open(json_file_path, "r") as f:
-            json_data = json.load(f)
-        scores_by_term = calculate_scores_by_term(json_data)
-        apply_scores_to_df(df, scores_by_term)
-        corrected_file_path = create_corrected_file_path(km_file_path)
-        df.to_csv(corrected_file_path, sep="\t", index=False)
-        print(f"Corrected file has been saved to {corrected_file_path}")
+    if km_file_path:  #Have KM results
+        df = read_tsv_to_dataframe(km_file_path)
+        df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
+        assert not df.empty, "The dataframe is empty"
+        results = {}
+        test_openai_connection(config)
+        for index, row in df.iterrows():
+            term = row["b_term"]
+            result_dict = process_single_row(row, config)
+            if term not in results:
+                results[term] = [result_dict]
+            else:
+                results[term].append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+        if not results:
+            print("No results were processed")
+        write_to_json(results, config["OUTPUT_JSON"], output_directory)
+        print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+        # if the prompt name ends in cc then we need to correct the file
+        if config.get("PROMPT_NAME", "").endswith("cc"):
+            print("Correcting the counts based off cc suffix...")
+            json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
+            with open(json_file_path, "r") as f:
+                json_data = json.load(f)
+            scores_by_term = calculate_scores_by_term(json_data)
+            apply_scores_to_df(df, scores_by_term)
+            corrected_file_path = create_corrected_file_path(km_file_path)
+            df.to_csv(corrected_file_path, sep="\t", index=False)
+            print(f"Corrected file has been saved to {corrected_file_path}")
 
 
 def position_km_with_gpt_workflow(config, output_directory):
@@ -565,12 +617,18 @@ def position_km_with_gpt_workflow(config, output_directory):
             "B_TERMS_FILE"
         ] = b_term_file
         km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
+        # if km_file_path is None, then the file was not created and we should skip to the next term
+        if km_file_path is None:
+            print(
+                f"KM file not found for {a_term} and {b_term}. Please lower fet or check the spelling"
+            )
+            continue
         base, extension = os.path.splitext(km_file_path)
         new_file_name = f"{base}_{b_term}{extension}"
         os.rename(km_file_path, new_file_name)
         df = pd.read_csv(new_file_name, sep="\t")
         assert not df.empty, "The dataframe is empty"
-        test.test_openai_connection()
+        test_openai_connection(config)
         result_dict = process_single_row(df.iloc[0], local_config)
         if a_term in results:
             results[a_term].append(result_dict)
@@ -624,7 +682,7 @@ def skim_with_gpt_workflow(config, output_directory):
             ]
             # Process the dataframe and gather results
             results_list = []
-            test.test_openai_connection()
+            test_openai_connection(config)
             for index, row in df.iterrows():
                 result_dict = process_single_row(row, local_config)
                 results_list.append(result_dict)
@@ -644,6 +702,10 @@ def skim_with_gpt_workflow(config, output_directory):
 
 
 def main_workflow():
+    parser = argparse.ArgumentParser("arg_parser")
+    parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
+    args = parser.parse_args()
+    GlobalClass.config_file = args.config_file
     config, output_directory = initialize_workflow()
     job_type = config.get("JOB_TYPE", "")
 
