@@ -6,3 +6,4 @@ guidance
 *.log
 *.err
 *.out
+__pycache__/*

@@ -99,7 +99,7 @@ def configure_job(
             **job_specific_settings,
             "b_terms": b_terms,
             "c_terms": c_terms_filtered,
-            "top_n_articles": 20,
+            "top_n_articles": 10,
         }
     elif job_type in [
         "first_km",
@@ -110,7 +110,8 @@ def configure_job(
         return {
             **common_settings,
             **job_specific_settings,
-            "b_terms": c_terms,  # Use c_terms as b_terms for all these job types
+            "b_terms": c_terms,
+            "top_n_articles": 50,
         }
     else:
         raise ValueError(f"Invalid job type: {job_type}")
