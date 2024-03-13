@@ -28,8 +28,8 @@ class GlobalClass(object):
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    os.makedirs("output", exist_ok=True)
-    output_directory = os.path.join("output", f"output_{timestamp}")
+    os.makedirs("../output", exist_ok=True)
+    output_directory = os.path.join("../output", f"output_{timestamp}")
     os.makedirs(output_directory, exist_ok=True)
     shutil.copy(
         GlobalClass.config_file,
@@ -133,19 +133,21 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     job_type = config.get("JOB_TYPE", "").lower()
     
     # Define hypothesis templates directly based on job_type
+    abc_hypothesis = config.get("SKIM_hypotheses")["ABC"].format(c_term=c_term, a_term=a_term, b_term=b_term)
+
+    # Now, incorporate this into your hypothesis_templates dictionary
     hypothesis_templates = {
         "km_with_gpt": config.get("KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
         "position_km_with_gpt": config.get("POSITION_KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
-        "skim_with_gpt": config.get("SKIM_hypothesis", "").format(c_term=c_term, a_term=a_term, b_term=b_term)
+        "skim_with_gpt": abc_hypothesis  # Using the formatted ABC hypothesis directly
     }
-    
     # Fetch the hypothesis template for the given job_type
     hypothesis_template = hypothesis_templates.get(job_type)
     if not hypothesis_template:
         return "No valid hypothesis for the provided JOB_TYPE."
     
     # Dynamically import the prompts module
-    prompts_module = importlib.import_module("src.prompt_library")
+    prompts_module = importlib.import_module("prompt_library")
     assert prompts_module, "Failed to import the prompts module."
 
     # Use job_type to fetch the corresponding prompt function
@@ -648,7 +650,6 @@ def skim_with_gpt_workflow(config, output_directory):
         config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
     )
     assert c_terms, "C terms are empty"
-    print(f"Processing {len(c_terms)} c_terms")
     if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
         # Read a_terms from file
         a_terms = skim.read_terms_from_file(
@@ -703,7 +704,7 @@ def skim_with_gpt_workflow(config, output_directory):
 
 def main_workflow():
     parser = argparse.ArgumentParser("arg_parser")
-    parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
+    parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="../config.json", type=str)
     args = parser.parse_args()
     GlobalClass.config_file = args.config_file
     config, output_directory = initialize_workflow()

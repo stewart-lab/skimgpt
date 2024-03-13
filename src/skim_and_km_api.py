@@ -90,7 +90,6 @@ def configure_job(
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][job_type]
 
     if job_type == "skim" or job_type == "skim_with_gpt":
-        print("we are in skim")
         c_terms_filtered = c_terms
         if config["JOB_TYPE"] == "km_skim_no_km":
             c_terms_filtered = list(set(c_terms) - set(filtered_terms))

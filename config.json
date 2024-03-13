@@ -1,8 +1,12 @@
 {
-    "JOB_TYPE": "km_with_gpt",
+    "JOB_TYPE": "skim_with_gpt",
     "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
-    "SKIM_hypothesis": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through its interaction with {b_term}.",
+    "SKIM_hypotheses": {
+        "BC": "There exsists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
+        "AB": "There exsists an interaction facilitated by {b_term} that offers therapeutic benefits or slowes the disease progression of {a_term}.",
+        "ABC": "There exsists an interaction facilitated by {c_term} that modulates the expression of {b_term} and offers therapeutic benefits or slowes the disease progression of {a_term}."
+    },
     "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
         "A_TERM": "diabetes",
@@ -87,10 +91,10 @@
         },
         "skim_with_gpt": {
             "A_TERM_LIST": true,
-            "A_TERMS_FILE": "input_lists/test/skim_a.txt",
-            "B_TERMS_FILE": "input_lists/test/skim_b.txt",
-            "NUM_B_TERMS": 2,
-            "C_TERMS_FILE": "input_lists/test/skim_c.txt",
+            "A_TERMS_FILE": "../input_lists/test/skim_a.txt",
+            "B_TERMS_FILE": "../input_lists/test/skim_b.txt",
+            "NUM_B_TERMS": 20000,
+            "C_TERMS_FILE": "../input_lists/test/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
                 "ab_fet_threshold": 1,
