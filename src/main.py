@@ -10,6 +10,7 @@ import argparse
 from get_pubmed_text import process_abstracts_data
 from abstract_comprehension import read_tsv_to_dataframe
 from tqdm import tqdm
+from classifier import process_single_row, write_to_json, test_openai_connection
 
 def getHypothesis(config, b_term: str, a_term: str) -> str:
     job_type = config.get("JOB_TYPE", "").lower()
@@ -111,8 +112,8 @@ def main():
     if not os.path.exists(km_output_dir) and km_output_dir != '':
         os.makedirs(km_output_dir)
 
-    cot_tsv_name = os.path.join(km_output_dir, f"cot_{km_output_base_name}.tsv")
-    filtered_tsv_name = os.path.join(km_output_dir, f"filtered_{km_output_base_name}.tsv")
+    cot_df_name = os.path.join(km_output_dir, f"cot_{km_output_base_name}.tsv")
+    filtered_df_name = os.path.join(km_output_dir, f"filtered_{km_output_base_name}.tsv")
 
 
     ###################### Data Loading & Processing ############################
@@ -158,17 +159,17 @@ def main():
     answers = gen(answer_batches, mistral, sampling_answer)
 
     ##################### Post process answers ############################ 
-    cot_tsv = km_output.copy(deep = True)
-    filtered_tsv = km_output.copy(deep = True)
+    cot_df = km_output.copy(deep = True)
+    filtered_df = km_output.copy(deep = True)
 
     answers = [eval(answer) for answer in answers] # Turn answers into list of ints
     shape = [len(abstract_list) for abstract_list in abstracts] # Get the shape of the abstracts
     answers = reshape(answers, shape)
 
-    cot_tsv["scores"] = answers
-    cot_tsv["chain_of_thought"] = reshape(cot_outputs, shape)
-    cot_tsv["hypothesis"] = hypotheses
-    cot_tsv.to_csv(cot_tsv_name, sep='\t')
+    cot_df["scores"] = answers
+    cot_df["chain_of_thought"] = reshape(cot_outputs, shape)
+    cot_df["hypothesis"] = hypotheses
+    cot_df.to_csv(cot_df_name, sep='\t')
 
     # Filter out the abstracts according to the scores
     filtered_abstracts = []
@@ -179,9 +180,35 @@ def main():
                 filtered.append(abstract_list[j])
         filtered_abstracts.append(filtered)
 
-    filtered_tsv["ab_pmid_intersection"] = filtered_abstracts
-    filtered_tsv.to_csv(filtered_tsv_name, sep="\t")
-    return
-    
+    filtered_df["ab_pmid_intersection"] = filtered_abstracts
+    filtered_df.to_csv(filtered_df_name, sep="\t")
+    results = {}
+
+    # Test OpenAI connection if necessary
+    test_openai_connection(config)  # Ensure this function exists in the classifier module
+
+    # Process each row in the DataFrame
+    for index, row in filtered_df.iterrows():
+        term = row["b_term"]
+        result_dict = process_single_row(row, config)
+        if result_dict:  # Ensure that result_dict is not None
+            if term not in results:
+                results[term] = [result_dict]
+            else:
+                results[term].append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
+        else:
+            print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
+
+    # Check if results were processed
+    if not results:
+        print("No results were processed.")
+    else:
+        # Save the results to a JSON file
+        output_json_path = os.path.join(km_output_dir, config["OUTPUT_JSON"])
+        write_to_json(results, output_json_path, km_output_dir)
+        print(f"Analysis results have been saved to {km_output_dir}")
+
+
 if __name__ == '__main__':
     main()
