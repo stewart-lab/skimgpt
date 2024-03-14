@@ -3,6 +3,7 @@ import logging
 import time
 from xml.etree import ElementTree
 import requests
+from tqdm import tqdm
 
 
 def extract_text_from_xml(element):
@@ -61,7 +62,7 @@ def abstract_quality_control(config, pmids, rate_limit, delay):
 
     pmid_batches = [pmids[i : i + rate_limit] for i in range(0, len(pmids), rate_limit)]
 
-    for batch in pmid_batches:
+    for batch in tqdm(pmid_batches, desc = "Getting PMIDs"):
         for pmid in batch:
             try:
                 abstract, url, year = fetch_abstract_from_pubmed(config, pmid)

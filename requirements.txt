@@ -90,3 +90,4 @@ urllib3==2.2.1
 yarl==1.9.4
 vllm==0.3.3
 lm-format-enforcer==0.9.1
+biopython==1.83

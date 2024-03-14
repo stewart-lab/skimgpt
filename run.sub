@@ -5,7 +5,7 @@
 universe = docker
 
 # Specify the Docker image to use
-docker_image = docker://lexu27/kmgpt_filter:v0.5
+docker_image = docker://lexu27/kmgpt_filter:v0.6
 docker_pull_policy = missing
 
 # The executable is a script or command that resides in the current directory, which will be transferred to the Docker container

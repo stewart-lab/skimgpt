@@ -264,12 +264,12 @@ def main_workflow():
                     
                     # Transfer the file
                     ssh.transfer_files(ssh_client, local_file, remote_file_path)
-                    remote_sub_file = os.path.join(ssh_config['remote_path'], "test_kmgpt.sub")
-                    remote_executable_file = os.path.join(ssh_config['remote_path'], "test_kmgpt.sh")
+                    remote_sub_file = os.path.join(ssh_config['remote_path'], "run.sub")
+                    remote_executable_file = os.path.join(ssh_config['remote_path'], "run.sh")
 
                     # Paths for the files in the remote subdirectory
-                    remote_subdir_sub_file = os.path.join(remote_subdir_path, "test_kmgpt.sub")
-                    remote_subdir_executable_file = os.path.join(remote_subdir_path, "test_kmgpt.sh")
+                    remote_subdir_sub_file = os.path.join(remote_subdir_path, "run.sub")
+                    remote_subdir_executable_file = os.path.join(remote_subdir_path, "run.sh")
 
                     # Copy the .sub file to the remote subdirectory
                     ssh.execute_remote_command(ssh_client, f"cp {remote_sub_file} {remote_subdir_sub_file}")
@@ -280,7 +280,7 @@ def main_workflow():
                     # Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
                     remote_config_path = os.path.join(remote_subdir_path, "config.json")
                     ssh.transfer_files(ssh_client, config_path , remote_config_path)
-                    ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit test_kmgpt.sub")
+                    ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit run.sub")
             
             # Execute a command if needed, e.g., to process files in the remote subdirectory
             # ssh.execute_remote_command(ssh_client, "your_command_here")
