@@ -66,7 +66,7 @@ def initialize_workflow():
 def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     output_json_map = {
-        "km_with_gpt": f"{a_term}_km_with_gpt.json",
+        "km_with_gpt": f"km_with_gpt_{a_term}_output.json",
         "post_km_analysis": f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json",
         "drug_discovery_validation": f"{a_term}_censorYear{job_settings.get('skim', {}).get('censor_year', '')}_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
         "position_km_with_gpt": "position_km_with_gpt.json",
@@ -275,11 +275,24 @@ def main_workflow():
                     ssh.execute_remote_command(ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
                     ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
                     # Dynamically create the list of files to wait for, based on the current file_path
-                    dynamic_file_names = [f"filtered_{safe_file_name}", f"cot_{safe_file_name}"]
-                    # Wait for the dynamically specified files
-                    ssh.monitor_files_and_extensions(ssh_client, remote_subdir_path, output_directory, dynamic_file_names, ['.log', '.err', '.out'])
+                    # add a wildcard .json to dynamically wait for the JSON file
+                    base_name = safe_file_name[:-13]  # This removes the last 13 characters, assuming "filtered.tsv" is always the ending
+                    json_file_name = f"{base_name}.json"
 
+                    # Update the dynamic_file_names list to include the json file with the dynamically generated name
+                    dynamic_file_names = [
+                        f"filtered_{safe_file_name}", 
+                        f"cot_{safe_file_name}", 
+                        json_file_name  # Use the dynamically generated name for the json file
+                    ]
+                    # Informative print to know what files are being waited on
+                    print(f"Waiting for files: {dynamic_file_names}")
+                    # Wait for the dynamically specified files
+                    ssh.monitor_files_and_extensions(ssh_client, remote_subdir_path, output_directory, dynamic_file_names, ['.log', '.err', '.out', ])
             print("Files transferred successfully.")
+            # cleanup
+            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
+            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
         finally:
             # Close the SSH connection
             ssh_client.close()
