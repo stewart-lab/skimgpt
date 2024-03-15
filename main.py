@@ -80,14 +80,8 @@ def expand(inputs: list, shape_list: list) -> list:
     assert(len(inputs) == len(shape_list))
     expanded = []
     for idx, inp in enumerate(inputs):
-        expanded.append([inp] * shape_list[idx])
+        expanded.extend([inp] * shape_list[idx])
     return expanded
-        
-def flatten(inputs: list) -> list:
-    output = []
-    for lst in inputs:
-        output.extend(lst)
-    return output
 
 def getCoTPrompts(abstracts: list[str], sys_prompt: str, hypotheses: list[str]) -> list[str]:
 	return [cot_prompt(sys_prompt, hypotheses[i], abstract) for i, abstract in enumerate(abstracts)]
@@ -152,7 +146,7 @@ def main():
 	filter_config = config["abstract_filter"]
 	sys_prompt = filter_config['SYS_PROMPT']
 	hypotheses = [getHypothesis(config, a_term, b_term) for b_term in b_terms]  # Done to make creating prompts easier
-	expanded_hypotheses = flatten(expand(hypotheses, shape))
+	expanded_hypotheses = expand(hypotheses, shape)
 
 	##################### Model Loading & Generation ############################ 
 	mistral = vllm.LLM(model=filter_config["MODEL"], max_model_len=16832)
