@@ -1,4 +1,3 @@
-from get_pubmed_text import process_abstracts_data
 import pandas as pd
 import pandas as pd
 from transformers import set_seed
@@ -63,7 +62,7 @@ def answer_prompt(sys_prompt: str, hypothesis: str, abstract: str, chain_of_thou
 
 def gen(prompts: list[str], model: any, sampling_config: vllm.SamplingParams) -> list[str]:
 	generated = model.generate(prompts, sampling_params = sampling_config)
-	outputs = generated.output.outputs[0].text
+	outputs = [output.outputs[0].text for output in generated]
 	return outputs
 
 # Redefined reshape function to work with ragged string arrays
@@ -104,6 +103,7 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     global_config = config["GLOBAL_SETTINGS"]
     pmid_config = global_config["PUBMED_PARAMS"]
     
+    Entrez.email = 'leoxu27@gmail.com'
     Entrez.api_key = pmid_config["api_key"]
     Entrez.max_tries = global_config["MAX_RETRIES"]
     Entrez.sleep_between_tries = global_config["RETRY_DELAY"]
@@ -142,7 +142,7 @@ def main():
 		ab_intersection.extend(eval(intersection))
 		shape.append(len(eval(intersection)))
   
-	abstract_map = process_abstracts_data(config, ab_intersection)
+	abstract_map = getAbstractMap(config, ab_intersection)
 	abstracts = [abstract_map.get(str(pmid), "") for pmid in ab_intersection]
 
 	# There should only be one a_term, so it's safe to grab the first index
@@ -152,7 +152,7 @@ def main():
 	filter_config = config["abstract_filter"]
 	sys_prompt = filter_config['SYS_PROMPT']
 	hypotheses = [getHypothesis(config, a_term, b_term) for b_term in b_terms]  # Done to make creating prompts easier
-	expanded_hypotheses = expand(flatten(hypotheses), shape)
+	expanded_hypotheses = flatten(expand(hypotheses, shape))
 
 	##################### Model Loading & Generation ############################ 
 	mistral = vllm.LLM(model=filter_config["MODEL"], max_model_len=16832)
@@ -182,9 +182,9 @@ def main():
 	cot_tsv = km_output.copy(deep = True)
 	filtered_tsv = km_output.copy(deep = True)
  
-	answers = reshape(eval(answers), shape)
+	answers = reshape([eval(answer) for answer in answers], shape)
 	cot_outputs = reshape(cot_outputs, shape)
-	abstracts = reshape(abstracts)
+	abstracts = reshape(abstracts, shape)
 
 	cot_tsv["scores"] = answers
 	cot_tsv["chain_of_thought"] = cot_outputs
