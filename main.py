@@ -72,7 +72,7 @@ def reshape(inp: list, shape: list) -> list:
     running_length = 0;
     for length in shape:
         output.append(inp[running_length: running_length + length])
-        running_length = length
+        running_length += length
         
     return output
 
