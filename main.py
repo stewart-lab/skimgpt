@@ -137,7 +137,7 @@ def main():
 		shape.append(len(eval(intersection)))
   
 	abstract_map = getAbstractMap(config, ab_intersection)
-	abstracts = [abstract_map.get(str(pmid), "") for pmid in ab_intersection]
+	abstracts = [f"PMID {PMID}: {abstract_map.get(str(pmid), '')}" for pmid in ab_intersection]
 
 	# There should only be one a_term, so it's safe to grab the first index
 	a_term = km_output.a_term.unique().tolist()[0].split("&")[0]
