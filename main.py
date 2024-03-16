@@ -152,24 +152,25 @@ def main():
     mistral = vllm.LLM(model=filter_config["MODEL"], max_model_len=16832)
     tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
     logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
-
-    ##################### Generate Chains of Thought ############################
-    cot_prompts = getCoTPrompts(abstracts, sys_prompt, expanded_hypotheses)
+    
     sampling_cot = vllm.SamplingParams(
             temperature=filter_config["TEMPERATURE"], 
             top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
             repetition_penalty=filter_config["REPETITION_PENALTY"],
             max_tokens = 1024)
-    cot_outputs = gen(cot_prompts, mistral, sampling_cot)
-
-    ##################### Generate Scores from Chain of Thought ############################ 
-    answer_prompts = getAnswerPrompts(abstracts, sys_prompt, expanded_hypotheses, cot_outputs)
+    
     sampling_answer = vllm.SamplingParams(
             temperature=filter_config["TEMPERATURE"], 
             top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
             max_tokens=1,
             repetition_penalty=filter_config["REPETITION_PENALTY"],
             logits_processors=[logits_processor])
+
+    ##################### LLM Inference ############################
+    cot_prompts = getCoTPrompts(abstracts, sys_prompt, expanded_hypotheses)
+    cot_outputs = gen(cot_prompts, mistral, sampling_cot)
+
+    answer_prompts = getAnswerPrompts(abstracts, sys_prompt, expanded_hypotheses, cot_outputs)
     answers = gen(answer_prompts, mistral, sampling_answer)
 
     ##################### Post process answers ############################ 
