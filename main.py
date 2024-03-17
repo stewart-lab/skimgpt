@@ -187,24 +187,29 @@ def main():
     ##################### Post process AB answers ############################ 
     ab_answers, bc_answers = answers.split()
     ab_abstracts, bc_abstracts = abstracts.split()
+    ab_cot, bc_cot = cot_outputs.split()
     
     ab_answers.reshape(ab_pmids.shape)
     ab_abstracts.reshape(ab_pmids.shape)
     ab_abstracts.applyFilter(ab_answers)
-
-    cot_tsv["ab_hypothesis"] = ab_hypotheses.data
-    cot_tsv["ab_scores"] = ab_answers.data
+    ab_cot.reshape(ab_pmids.shape)
+    
     filtered_tsv["ab_pmid_intersection"] = ab_abstracts.data
+    cot_tsv["ab_scores"] = ab_answers.data
+    cot_tsv["ab_cot"] = ab_cot.data
+    cot_tsv["ab_hypothesis"] = ab_hypotheses.data
 
     ##################### Post process BC answers ############################ 
     if config.is_skim_gpt:
         bc_answers.reshape(bc_pmids.shape)
         bc_abstracts.reshape(bc_pmids.shape)
         bc_abstracts.applyFilter(bc_answers)
+        bc_cot.reshape(bc_pmids.shape)
     
         filtered_tsv["bc_pmid_intersection"] = bc_abstracts.data
+        cot_tsv["bc_scores"] = bc_answers.data
+        cot_tsv["bc_cot"] = bc_cot.data
         cot_tsv["bc_hypothesis"] = bc_hypotheses.data
-        cot_tsv["bc_score"] = bc_answers.data
     
     filtered_tsv.to_csv(f"{config.filtered_tsv_name}", sep="\t")
     cot_tsv.to_csv(f"{config.cot_tsv_name}", sep="\t")
