@@ -147,7 +147,7 @@ def main():
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
     ###################### BC Data Loading & Processsing ############################ 
-    if config.has_c_term:
+    if config.is_skim_gpt:
         c_term = config.data.c_term.unique().tolist()[0]
         bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
         bc_hypotheses = RaggedTensor([getHypothesis(config.job_config, c_term = c_term, b_term = b_term) for b_term in b_terms])
@@ -196,7 +196,7 @@ def main():
     filtered_tsv["ab_pmid_intersection"] = ab_abstracts.data
 
     ##################### Post process BC answers ############################ 
-    if config.has_c_term:
+    if config.is_skim_gpt:
         bc_answers.reshape(bc_pmids.shape)
         bc_abstracts.reshape(bc_pmids.shape)
         bc_abstracts.applyFilter(bc_answers)
