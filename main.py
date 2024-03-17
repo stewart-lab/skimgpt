@@ -75,7 +75,7 @@ def answer_prompt(sys_prompt: str, hypothesis: str, abstract: str, chain_of_thou
     Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
     {chain_of_thought}
 
-    Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis. If an abstract is only somewhat relevant, consider it to be relevant.
+    Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
     Answer: 
     <|im_end|>
     <|im_start|>assistant
@@ -182,6 +182,7 @@ def main():
     
     answer_prompts = getAnswerPrompts(abstracts, config.sys_prompt, all_hypotheses, cot_outputs)
     answers = gen(answer_prompts, mistral, sampling_answer)
+    answers = answers.map(lambda x: eval(x))
 
     ##################### Post process AB answers ############################ 
     ab_answers, bc_answers = answers.split()
