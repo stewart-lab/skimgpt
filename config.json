@@ -1,5 +1,5 @@
 {
-    "JOB_TYPE": "skim_with_gpt",
+    "JOB_TYPE": "km_with_gpt",
     "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "SKIM_hypotheses": {
