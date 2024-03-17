@@ -1,4 +1,4 @@
-import pandas as pd
+from __future__ import annotations
 import pandas as pd
 from transformers import set_seed
 import json
@@ -8,21 +8,42 @@ from lmformatenforcer import RegexParser
 from lmformatenforcer.integrations.vllm import build_vllm_logits_processor, build_vllm_token_enforcer_tokenizer_data
 import argparse
 from abstract_comprehension import read_tsv_to_dataframe
+from utils import Config, RaggedTensor
 from tqdm import tqdm
 import numpy as np
-
-def getHypothesis(config, b_term: str, a_term: str) -> str:
+        
+# Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis. 
+# Only two arguements should be specified at once.
+def getHypothesis(config, a_term: str = None, b_term: str = None, c_term: str = None) -> str:
     job_type = config.get("JOB_TYPE", "").lower()
+    
     if job_type == "km_with_gpt":
+        assert a_term and b_term and not c_term
         hypothesis_template = config.get("KM_hypothesis", "")
+        
+        return hypothesis_template.format(a_term=a_term, b_term=b_term)
+    
     elif job_type == "position_km_with_gpt":
+        assert a_term and b_term and not c_term
+        
         hypothesis_template = config.get("POSITION_KM_hypothesis", "")
+        return hypothesis_template.format(a_term=a_term, b_term=b_term), None
+    
     elif job_type == "skim_with_gpt":
-        hypothesis_template = config.get("SKIM_hypothesis", "")
+        assert (a_term and b_term and not c_term) or (b_term and c_term and not a_term)
+        
+        if a_term and b_term and not c_term:
+            hypothesis_template = config.get("SKIM_hypotheses", "").get("AB")
+            return hypothesis_template.format(a_term=a_term, b_term=b_term)
+        
+        elif b_term and c_term and not a_term:
+            hypothesis_template = config.get("SKIM_hypotheses", "").get("BC")
+            return hypothesis_template.format(b_term=b_term, c_term = c_term)
+
     else:
         return "No valid hypothesis for the provided JOB_TYPE."
-
-    return hypothesis_template.format(a_term=a_term, b_term=b_term)
+    
+    
 
 def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
     return f"""
@@ -59,36 +80,23 @@ def answer_prompt(sys_prompt: str, hypothesis: str, abstract: str, chain_of_thou
     <|im_end|>
     <|im_start|>assistant
     """
+    
+def gen(prompts: RaggedTensor, model: any, sampling_config: vllm.SamplingParams) -> RaggedTensor:
+	generated = model.generate(prompts.data, sampling_params = sampling_config)
+	outputs = RaggedTensor([output.outputs[0].text for output in generated], prompts.break_point)
+	return outputs
 
-def gen(prompts: list[str], model: any, sampling_config: vllm.SamplingParams) -> list[str]:
-    generated = model.generate(prompts, sampling_params = sampling_config)
-    outputs = [output.outputs[0].text for output in generated]
-    return outputs
+def getCoTPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor) -> RaggedTensor:
+    assert not abstracts.is2D(), "abstracts should be flattened."
+    assert not hypotheses.is2D(), "hypotheses should be flattened."
+    return RaggedTensor([cot_prompt(sys_prompt, hypotheses[i], abstracts[i]) for i in range(abstracts.shape)], hypotheses.break_point)
 
-# Redefined reshape function to work with ragged string arrays
-def reshape(inp: list, shape: list) -> list:
-    assert(len(inp) == sum(shape))
-    output = []
-    running_length = 0;
-    for length in shape:
-        output.append(inp[running_length: running_length + length])
-        running_length += length
-
-    return output
-
-def expand(inputs: list, shape_list: list) -> list:
-    assert(len(inputs) == len(shape_list))
-    expanded = []
-    for idx, inp in enumerate(inputs):
-        expanded.extend([inp] * shape_list[idx])
-    return expanded
-
-def getCoTPrompts(abstracts: list[str], sys_prompt: str, hypotheses: list[str]) -> list[str]:
-    return [cot_prompt(sys_prompt, hypotheses[i], abstracts[i]) for i in range(len(abstracts))]
-
-def getAnswerPrompts(abstracts: list[str], sys_prompt: str, hypotheses: list[str], cot_outputs: list[str]) -> list[str]:
-    return [answer_prompt(sys_prompt, hypotheses[i], abstracts[i], cot_outputs[i]) for i in range(len(abstracts))]
-
+def getAnswerPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor, cot_outputs: RaggedTensor) -> RaggedTensor:
+    assert not abstracts.is2D(), "abstracts should be flattened."
+    assert not hypotheses.is2D(), "hypotheses should be flattened."
+    assert not cot_outputs.is2D(), "cot outputs should be flattened"
+    return RaggedTensor([answer_prompt(sys_prompt, hypotheses[i], abstracts[i], cot_outputs[i]) for i in range(abstracts.shape)], hypotheses.break_point)
+    
 # Returns a dictionary for each PMID & Abstract Pair
 # This method is needed since Entrez automatically removes duplicates in the pmid list
 def getAbstractMap(config: json, pmids: list[str]) -> dict:
@@ -96,16 +104,16 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     returned_abstracts = []
     global_config = config["GLOBAL_SETTINGS"]
     pmid_config = global_config["PUBMED_PARAMS"]
-
+    
     Entrez.email = 'leoxu27@gmail.com'
     Entrez.api_key = pmid_config["api_key"]
     Entrez.max_tries = global_config["MAX_RETRIES"]
     Entrez.sleep_between_tries = global_config["RETRY_DELAY"]
     efetch = Entrez.efetch(db=pmid_config["db"], id=pmids, rettype=pmid_config["rettype"])
-
+    
     output = Entrez.read(efetch)
     efetch.close()
-
+    
     for paper in output["PubmedArticle"]:
         returned_pmids.append(str(paper["MedlineCitation"]["PMID"]))
         abstract_text = " ".join(paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
@@ -124,77 +132,82 @@ def main():
     parser.add_argument('--cot_tsv_name', type = str, required = True, help='Name of TSV file hold CoT outputs for testing.')
     args = parser.parse_args()
 
-    ###################### Data Loading & Processsing ############################ 
-    km_output = read_tsv_to_dataframe(args.km_output)
-    config = json.load(args.config)
-    filtered_tsv_name = args.filtered_tsv_name
-    cot_tsv_name = args.cot_tsv_name
+    ###################### AB Data Loading & Processsing ############################ 
+    config = Config(args)
+    cot_tsv = config.data.copy(deep = True)
+    filtered_tsv = config.data.copy(deep = True)
 
-    ab_intersection = []
-    shape = []
-    for intersection in km_output.ab_pmid_intersection:
-        ab_intersection.extend(eval(intersection))
-        shape.append(len(eval(intersection)))
+    a_term = config.data.a_term.unique().tolist()[0].split("&")[0]
+    b_terms = config.data.b_term.unique().tolist()
+    
+    ab_pmids = RaggedTensor([eval(lst) for lst in config.data.ab_pmid_intersection])
+    ab_hypotheses = RaggedTensor([getHypothesis(config.job_config, a_term = a_term, b_term = b_term) for b_term in b_terms])
 
-    abstract_map = getAbstractMap(config, ab_intersection)
-    abstracts = [f"PMID {pmid}: {abstract_map.get(str(pmid), '')}" for pmid in ab_intersection]
+    all_pmids = ab_pmids.flatten()
+    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
-    # There should only be one a_term, so it's safe to grab the first index
-    a_term = km_output.a_term.unique().tolist()[0].split("&")[0]
-    b_terms = km_output.b_term.unique().tolist()
-
-    filter_config = config["abstract_filter"]
-    sys_prompt = filter_config['SYS_PROMPT']
-    hypotheses = [getHypothesis(config, a_term, b_term) for b_term in b_terms]  # Done to make creating prompts easier
-    expanded_hypotheses = expand(hypotheses, shape)
+    ###################### BC Data Loading & Processsing ############################ 
+    if config.has_c_term:
+        c_term = config.data.c_term.unique().tolist()[0]
+        bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
+        bc_hypotheses = RaggedTensor([getHypothesis(config.job_config, c_term = c_term, b_term = b_term) for b_term in b_terms])
+    
+        all_pmids += bc_pmids.flatten()
+        all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
+        
+    abstract_map = getAbstractMap(config.job_config, all_pmids)
+    abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
 
     ##################### Model Loading & Generation ############################ 
-    mistral = vllm.LLM(model=filter_config["MODEL"], max_model_len=16832)
+    mistral = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=16832)
     tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
     logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
     
     sampling_cot = vllm.SamplingParams(
-            temperature=filter_config["TEMPERATURE"], 
-            top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
-            repetition_penalty=filter_config["REPETITION_PENALTY"],
+            temperature = config.filter_config["TEMPERATURE"], 
+            top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
+            repetition_penalty = config.filter_config["REPETITION_PENALTY"],
             max_tokens = 1024)
     
     sampling_answer = vllm.SamplingParams(
-            temperature=filter_config["TEMPERATURE"], 
-            top_k = filter_config["TOP_K"], top_p=filter_config["TOP_P"], 
-            max_tokens=1,
-            repetition_penalty=filter_config["REPETITION_PENALTY"],
-            logits_processors=[logits_processor])
+            temperature=config.filter_config["TEMPERATURE"], 
+            top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
+            max_tokens = 1,
+            repetition_penalty = config.filter_config["REPETITION_PENALTY"],
+            logits_processors = [logits_processor])
 
     ##################### LLM Inference ############################
-    cot_prompts = getCoTPrompts(abstracts, sys_prompt, expanded_hypotheses)
+    cot_prompts = getCoTPrompts(abstracts, config.sys_prompt, all_hypotheses)
     cot_outputs = gen(cot_prompts, mistral, sampling_cot)
-
-    answer_prompts = getAnswerPrompts(abstracts, sys_prompt, expanded_hypotheses, cot_outputs)
+    
+    answer_prompts = getAnswerPrompts(abstracts, config.sys_prompt, all_hypotheses, cot_outputs)
     answers = gen(answer_prompts, mistral, sampling_answer)
 
-    ##################### Post process answers ############################ 
-    cot_tsv = km_output.copy(deep = True)
-    filtered_tsv = km_output.copy(deep = True)
+    ##################### Post process AB answers ############################ 
+    ab_answers, bc_answers = answers.split()
+    ab_abstracts, bc_abstracts = abstracts.split()
+    
+    ab_answers.reshape(ab_pmids.shape)
+    ab_abstracts.reshape(ab_pmids.shape)
+    ab_abstracts.applyFilter(ab_answers)
 
-    answers = reshape([eval(answer) for answer in answers], shape)
-    cot_outputs = reshape(cot_outputs, shape)
-    abstracts = reshape(abstracts, shape)
+    cot_tsv["ab_hypothesis"] = ab_hypotheses.data
+    cot_tsv["ab_scores"] = ab_answers.data
+    filtered_tsv["ab_pmid_intersection"] = ab_abstracts.data
 
-    cot_tsv["scores"] = answers
-    cot_tsv["chain_of_thought"] = cot_outputs
-    cot_tsv["hypothesis"] = hypotheses
-    cot_tsv.to_csv(f"{cot_tsv_name}", sep='\t')
-
-    # Filter out the abstracts according to the scores
-    filtered_abstracts = []
-    for i, abstract_list in tqdm(enumerate(abstracts), desc = "Post-processing abstracts..."):
-        mask = np.array(answers[i]) == 1
-        filtered = list(np.array(abstract_list)[mask])
-        filtered_abstracts.append(filtered)
-
-    filtered_tsv["ab_pmid_intersection"] = filtered_abstracts
-    filtered_tsv.to_csv(f"{filtered_tsv_name}", sep="\t")
+    ##################### Post process BC answers ############################ 
+    if config.has_c_term:
+        bc_answers.reshape(bc_pmids.shape)
+        bc_abstracts.reshape(bc_pmids.shape)
+        bc_abstracts.applyFilter(bc_answers)
+    
+        filtered_tsv["bc_pmid_intersection"] = bc_abstracts.data
+        cot_tsv["bc_hypothesis"] = bc_hypotheses.data
+        cot_tsv["bc_score"] = bc_answers.data
+    
+    filtered_tsv.to_csv(f"{config.filtered_tsv_name}", sep="\t")
+    cot_tsv.to_csv(f"{config.cot_tsv_name}", sep="\t")
+    
     return
 
 if __name__ == '__main__':
