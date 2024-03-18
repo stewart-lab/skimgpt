@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import json
 from abstract_comprehension import read_tsv_to_dataframe
+import os
 
 class RaggedTensor:
     def __init__(self, data, break_point = None):
@@ -103,8 +104,16 @@ class Config:
     def __init__(self, args: dict):
         self.data = read_tsv_to_dataframe(args.km_output)
         self.job_config = json.load(args.config)
-        self.filtered_tsv_name = args.filtered_tsv_name
-        self.cot_tsv_name = args.cot_tsv_name
+        # Extract base name and directory from km_output
+        self.km_output_dir = os.path.dirname(args.km_output)
+        self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
+
+        # Ensure the directory exists
+        if not os.path.exists(self.km_output_dir) and self.km_output_dir != '':
+            os.makedirs(self.km_output_dir)
+        
+        self.filtered_tsv_name = os.path.join(self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv")
+        self.cot_tsv_name = os.path.join(self.km_output_dir, f"cot_{self.km_output_base_name}.tsv")
         self.job_type = self.job_config.get('JOB_TYPE')
         self.filter_config = self.job_config["abstract_filter"]
         self.sys_prompt = self.filter_config['SYS_PROMPT']
