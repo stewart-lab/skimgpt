@@ -12,12 +12,11 @@ import importlib
 import inspect
 import copy
 from datetime import datetime
-from src import skim_and_km_api as skim
-import test.test_abstract_comprehension as test
+import skim_and_km_api as skim
 import argparse
 import sys
-from src import get_pubmed_text as pubmed
-from src import ssh_helper as ssh
+import get_pubmed_text as pubmed
+import ssh_helper as ssh
 
 class Singleton(type):
     def __init__(cls, name, bases, dict):
@@ -37,7 +36,7 @@ def initialize_workflow():
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     
     # Define the base output directory and ensure it exists
-    base_output_dir = "output"
+    base_output_dir = "../output"
     os.makedirs(base_output_dir, exist_ok=True)
     
     # Define the name of the timestamped output directory
@@ -67,7 +66,7 @@ def initialize_workflow():
 def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     output_json_map = {
-        "km_with_gpt": f"{a_term}_km_with_gpt.json",
+        "km_with_gpt": f"km_with_gpt_{a_term}_output.json",
         "post_km_analysis": f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json",
         "drug_discovery_validation": f"{a_term}_censorYear{job_settings.get('skim', {}).get('censor_year', '')}_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
         "position_km_with_gpt": "position_km_with_gpt.json",
@@ -79,6 +78,9 @@ def get_output_json_filename(config, job_settings):
         raise ValueError(f"Invalid job type: {config['JOB_TYPE']}")
 
     return output_json.replace(" ", "_").replace("'", "")
+
+
+
 
 
 def get_config(output_directory):
@@ -216,7 +218,7 @@ def skim_with_gpt_workflow(config, output_directory):
 
 def main_workflow():
     parser = argparse.ArgumentParser("arg_parser")
-    parser.add_argument("-config", "--config_file", dest='config_file', help="Config file. Default=config.json.", default="config.json", type=str)
+    parser.add_argument("-config", "--config_file", dest='config_file', help="Config file. Default=config.json.", default="../config.json", type=str)
     args = parser.parse_args()
     GlobalClass.config_file = args.config_file
 
@@ -246,6 +248,8 @@ def main_workflow():
         
         # Create the subdirectory in the remote path
         remote_subdir_path = os.path.join(ssh_config['remote_path'], timestamp_output_path)
+        remote_src_path = os.path.join(ssh_config['remote_path'], 'src')
+        ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_src_path}")
         ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_subdir_path}")
         config_path = os.path.join(output_directory, "config.json")
         try:
@@ -254,42 +258,47 @@ def main_workflow():
                 # Normalize handling for both individual path items and lists
                 if not isinstance(path_item, list):
                     path_item = [path_item]  # Make it a list for uniform processing
-                    
                 for file_path in path_item:
                     local_file = os.path.abspath(file_path)  # Get the absolute path of the file
                     file_name = os.path.basename(file_path)  # Extract the file name
                     # Make a safe file name
-                    file_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', file_name)
-                    remote_file_path = os.path.join(remote_subdir_path, file_name)  # Construct the remote path with file name
-                    
+                    safe_file_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', file_name)
+                    remote_file_path = os.path.join(remote_subdir_path, safe_file_name)  # Construct the remote path with file name
+                                    
                     # Transfer the file
                     ssh.transfer_files(ssh_client, local_file, remote_file_path)
-                    remote_sub_file = os.path.join(ssh_config['remote_path'], "run.sub")
-                    remote_executable_file = os.path.join(ssh_config['remote_path'], "run.sh")
-
-                    # Paths for the files in the remote subdirectory
-                    remote_subdir_sub_file = os.path.join(remote_subdir_path, "run.sub")
-                    remote_subdir_executable_file = os.path.join(remote_subdir_path, "run.sh")
-
-                    # Copy the .sub file to the remote subdirectory
-                    ssh.execute_remote_command(ssh_client, f"cp {remote_sub_file} {remote_subdir_sub_file}")
-
-                    # Copy the .sh file to the remote subdirectory
-                    ssh.execute_remote_command(ssh_client, f"cp {remote_executable_file} {remote_subdir_executable_file}")
-
+                    ssh.transfer_files(ssh_client, ssh_config["src_path"], remote_src_path)
                     # Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
                     remote_config_path = os.path.join(remote_subdir_path, "config.json")
-                    ssh.transfer_files(ssh_client, config_path , remote_config_path)
-                    ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit run.sub")
-            
-            # Execute a command if needed, e.g., to process files in the remote subdirectory
-            # ssh.execute_remote_command(ssh_client, "your_command_here")
+                    ssh.transfer_files(ssh_client, config_path, remote_config_path)
+                    ssh.execute_remote_command(ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
+                    ssh.execute_remote_command(ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
+                    ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
+                    # Dynamically create the list of files to wait for, based on the current file_path
+                    # add a wildcard .json to dynamically wait for the JSON file
+                    base_name = safe_file_name[:-13]  # This removes the last 13 characters, assuming "filtered.tsv" is always the ending
+                    json_file_name = f"{base_name}.json"
+
+                    # Update the dynamic_file_names list to include the json file with the dynamically generated name
+                    dynamic_file_names = [
+                        f"filtered_{safe_file_name}", 
+                        f"cot_{safe_file_name}", 
+                        json_file_name  # Use the dynamically generated name for the json file
+                    ]
+                    # Informative print to know what files are being waited on
+                    print(f"Waiting for files: {dynamic_file_names}")
+                    # Wait for the dynamically specified files
+                    ssh.monitor_files_and_extensions(ssh_client, remote_subdir_path, output_directory, dynamic_file_names, ['.log', '.err', '.out', ])
+            print("Files transferred successfully.")
+            # cleanup
+            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
+            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
         finally:
             # Close the SSH connection
             ssh_client.close()
-
-
-
+    else:
+        print("SSH configuration not found or no files to transfer.")
+        return
 
 if __name__ == "__main__":
     main_workflow()

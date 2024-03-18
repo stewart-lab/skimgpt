@@ -1,5 +1,5 @@
-from . import few_shot_library as fsl
-from . import scoring_guidelines as sg
+import few_shot_library as fsl
+import scoring_guidelines as sg
 
 
 def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
@@ -60,7 +60,7 @@ def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstr
     )
 
 
-def skim_with_gpt(b_term, a_term, hypothesis_template,consolidated_abstracts, c_term):
+def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
     return (
         f"Assessment Task: Critically evaluate the potential indirect relationship between '{a_term}' and '{c_term}' within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
         f"Hypothesis: {hypothesis_template} \n"

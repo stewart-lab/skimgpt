@@ -90,7 +90,6 @@ def configure_job(
         job_specific_settings = config["JOB_SPECIFIC_SETTINGS"][job_type]
 
     if job_type == "skim" or job_type == "skim_with_gpt":
-        print("we are in skim")
         c_terms_filtered = c_terms
         if config["JOB_TYPE"] == "km_skim_no_km":
             c_terms_filtered = list(set(c_terms) - set(filtered_terms))
@@ -99,7 +98,7 @@ def configure_job(
             **job_specific_settings,
             "b_terms": b_terms,
             "c_terms": c_terms_filtered,
-            "top_n_articles": 20,
+            "top_n_articles": 10,
         }
     elif job_type in [
         "first_km",
@@ -110,7 +109,8 @@ def configure_job(
         return {
             **common_settings,
             **job_specific_settings,
-            "b_terms": c_terms,  # Use c_terms as b_terms for all these job types
+            "b_terms": c_terms,
+            "top_n_articles": 50,
         }
     else:
         raise ValueError(f"Invalid job type: {job_type}")

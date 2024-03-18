@@ -135,12 +135,13 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     # Define hypothesis templates directly based on job_type
     abc_hypothesis = config.get("SKIM_hypotheses")["ABC"].format(c_term=c_term, a_term=a_term, b_term=b_term)
 
-    # Now, incorporate this into your hypothesis_templates dictionary
+    # Incorporate this into your hypothesis_templates dictionary
     hypothesis_templates = {
         "km_with_gpt": config.get("KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
         "position_km_with_gpt": config.get("POSITION_KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
         "skim_with_gpt": abc_hypothesis  # Using the formatted ABC hypothesis directly
     }
+
     # Fetch the hypothesis template for the given job_type
     hypothesis_template = hypothesis_templates.get(job_type)
     if not hypothesis_template:
@@ -153,69 +154,38 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     # Use job_type to fetch the corresponding prompt function
     prompt_function = getattr(prompts_module, job_type, None)
     if not prompt_function:
-        raise ValueError(
-            f"Prompt function for '{job_type}' not found in the prompts module."
-        )
+        raise ValueError(f"Prompt function for '{job_type}' not found in the prompts module.")
+
     prompt_args = (b_term, a_term, content, config)
     if "hypothesis_template" in inspect.signature(prompt_function).parameters:
-        # If the prompt function expects a hypothesis_template, adjust the arguments
         prompt_args = (b_term, a_term, hypothesis_template, content)
-        if c_term is not None:
-            return prompt_function(*prompt_args, c_term=c_term)
-        else:
-            return prompt_function(*prompt_args)
+        return prompt_function(*prompt_args, c_term=c_term) if c_term is not None else prompt_function(*prompt_args)
     else:
-            # Fallback for functions not expecting a hypothesis_template directly
-        if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None:
-            return prompt_function(*prompt_args, c_term=c_term)
-        else:
-            return prompt_function(*prompt_args)
+        return prompt_function(*prompt_args, c_term=c_term) if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None else prompt_function(*prompt_args)
 
-
-def perform_analysis(job_type, row, config, abstracts_data):
-    max_abstracts = config["GLOBAL_SETTINGS"].get("MAX_ABSTRACTS", 10)
+def perform_analysis(job_type, row, config):
+    # Directly use abstracts from the row's "ab_pmid_intersection"
+    consolidated_abstracts = row["ab_pmid_intersection"]
+    
     b_term = row["b_term"]
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
-    c_term = None  # Initialize c_term with a default value of None
+    c_term = row.get("c_term", None)  # Handle c_term dynamically
 
-    # Set c_term if job_type is "skim_with_gpt"
-    if job_type == "skim_with_gpt":
-        c_term = row.get("c_term")  # Use .get to avoid KeyError if "c_term" is missing
+    # If there are no abstracts, return None for all fields
+    if not consolidated_abstracts:
+        return None, None, None
 
-    pmids = []
-    if job_type in [
-        "drug_discovery_validation",
-        "km_with_gpt",
-        "position_km_with_gpt",
-    ]:
-        pmids = pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
-    elif job_type == "skim_with_gpt":
-        pmids = (
-            pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
-            + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
-        )
-
-    (
-        consolidated_abstracts,
-        paper_urls,
-        publication_years,
-    ) = pubmed.process_abstracts_data(config, pmids)
-
-    # if all three lists are empty, then we have no data to process
-    if not consolidated_abstracts and not paper_urls and not publication_years:
-        return None, None, None, None, None
-
-    # Pass c_term to the analyze function
+    # Call analyze_abstract_with_gpt4 or a similar function you have defined
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
     )
 
-    return result, prompt, paper_urls, consolidated_abstracts, publication_years
-
+    return result, prompt, consolidated_abstracts
 
 def process_single_row(row, config):
     job_type = config.get("JOB_TYPE")
 
+    # Validate job_type
     if job_type not in [
         "drug_discovery_validation",
         "pathway_augmentation",
@@ -226,25 +196,17 @@ def process_single_row(row, config):
         print("Invalid job type (caught in process_single_row)")
         return None
 
-    (
-        result,
-        prompt,
-        paper_urls,
-        consolidated_abstracts,
-        publication_years,
-    ) = perform_analysis(job_type, row, config, {})
+    result, prompt, consolidated_abstracts = perform_analysis(job_type, row, config)
 
-    # if everything is empty, then we have no data to process
-    if not result and not prompt and not paper_urls and not consolidated_abstracts and not publication_years:
+    # If all fields are None, there's no data to process
+    if not result and not prompt and not consolidated_abstracts:
         return None
 
     return {
         "Term": row["b_term"],
         "Result": result,
-        "Prompt": prompt,  # Added prompt here
-        "URLs": paper_urls,
+        "Prompt": prompt,
         "Abstracts": consolidated_abstracts,
-        "Years": publication_years,
     }
 
 def test_openai_connection(config):

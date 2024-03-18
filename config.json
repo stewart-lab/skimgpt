@@ -30,12 +30,13 @@
         "RETRY_DELAY": 5
     },
     "SSH": {
-        "server": "submit2.chtc.wisc.edu",
+        "server": "ap2002.chtc.wisc.edu",
         "port": 22,
         "user": "jfreeman23",
-        "key_path": "/w5home/jfreeman/.ssh/chtc",
-        "config_path": "./config.json",
-        "remote_path": "/home/jfreeman23/kmGPT/"
+        "key_path": "/w5home/jfreeman/.ssh/chtc2",
+        "config_path": "../config.json",
+        "src_path": "./",
+        "remote_path": "/home/jfreeman23/kmtest/"
     },
     "abstract_filter": {
         "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
@@ -50,9 +51,9 @@
         "km_with_gpt": {
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "input_lists/c_term_test.txt",
+            "B_TERMS_FILE": "../input_lists/ddi_b_terms.txt",
             "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 4,
+            "NUM_B_TERMS": 8,
             "km_with_gpt": {
                 "ab_fet_threshold": 1,
                 "censor_year": 2023
@@ -90,10 +91,10 @@
         },
         "skim_with_gpt": {
             "A_TERM_LIST": true,
-            "A_TERMS_FILE": "input_lists/test/skim_a.txt",
-            "B_TERMS_FILE": "input_lists/test/skim_b.txt",
-            "NUM_B_TERMS": 2,
-            "C_TERMS_FILE": "input_lists/test/skim_c.txt",
+            "A_TERMS_FILE": "../input_lists/test/skim_a.txt",
+            "B_TERMS_FILE": "../input_lists/test/skim_b.txt",
+            "NUM_B_TERMS": 20000,
+            "C_TERMS_FILE": "../input_lists/test/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
                 "ab_fet_threshold": 1,
