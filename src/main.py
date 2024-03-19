@@ -77,7 +77,7 @@ def answer_prompt(sys_prompt: str, hypothesis: str, abstract: str, chain_of_thou
     Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
     {chain_of_thought}
 
-    Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
+    Classify the given abstract between 0 (Not relevant for scientifically assessing the hypothesis) and 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
     Answer: 
     <|im_end|>
     <|im_start|>assistant
@@ -159,7 +159,7 @@ def main():
     ##################### Model Loading & Generation ############################ 
     mistral = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=16832)
     tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
-    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
+    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r'^(0(?:\.\d+)?|1(?:\.0+)?)$'))
     
     sampling_cot = vllm.SamplingParams(
             temperature = config.filter_config["TEMPERATURE"], 
@@ -170,7 +170,7 @@ def main():
     sampling_answer = vllm.SamplingParams(
             temperature=config.filter_config["TEMPERATURE"], 
             top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
-            max_tokens = 1,
+            max_tokens = 5,
             repetition_penalty = config.filter_config["REPETITION_PENALTY"],
             logits_processors = [logits_processor])
 
@@ -189,7 +189,7 @@ def main():
     
     ab_answers.reshape(ab_pmids.shape)
     ab_abstracts.reshape(ab_pmids.shape)
-    ab_abstracts.applyFilter(ab_answers)
+    # ab_abstracts.applyFilter(ab_answers)
     ab_cot.reshape(ab_pmids.shape)
     
     filtered_df["ab_pmid_intersection"] = ab_abstracts.data
@@ -201,7 +201,7 @@ def main():
     if config.is_skim_gpt:
         bc_answers.reshape(bc_pmids.shape)
         bc_abstracts.reshape(bc_pmids.shape)
-        bc_abstracts.applyFilter(bc_answers)
+        # bc_abstracts.applyFilter(bc_answers)
         bc_cot.reshape(bc_pmids.shape)
     
         filtered_df["bc_pmid_intersection"] = bc_abstracts.data

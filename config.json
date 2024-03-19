@@ -1,5 +1,5 @@
 {
-    "JOB_TYPE": "km_with_gpt",
+    "JOB_TYPE": "skim_with_gpt",
     "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "SKIM_hypotheses": {
@@ -31,11 +31,11 @@
     "SSH": {
         "server": "ap2002.chtc.wisc.edu",
         "port": 22,
-        "user": "jfreeman23",
-        "key_path": "/w5home/jfreeman/.ssh/chtc2",
+        "user": "lpxu",
+        "key_path": "/w5home/lxu3/.ssh/id_rsa",
         "config_path": "../config.json",
         "src_path": "./",
-        "remote_path": "/home/jfreeman23/kmtest/"
+        "remote_path": "/home/lpxu/kmtest/"
     },
     "abstract_filter": {
         "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
