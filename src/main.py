@@ -108,7 +108,7 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     pmid_config = global_config["PUBMED_PARAMS"]
     
     Entrez.email = 'leoxu27@gmail.com'
-    Entrez.api_key = pmid_config["api_key"]
+    Entrez.api_key = config["PUBMED_API_KEY"]
     Entrez.max_tries = global_config["MAX_RETRIES"]
     Entrez.sleep_between_tries = global_config["RETRY_DELAY"]
     efetch = Entrez.efetch(db=pmid_config["db"], id=pmids, rettype=pmid_config["rettype"])
@@ -126,13 +126,9 @@ def main():
     ###################### Argument Parsing ############################ 
     parser = argparse.ArgumentParser(description='Mistral7B Inference')
 
-    parser.add_argument('--km_output', type = argparse.FileType('r'), required = True,
-            help='Path to the TSV file holding a km run output.')
-    parser.add_argument('--config', type = argparse.FileType('r'),
-            help='Config file for kmGPT run.', required = True)
-
+    parser.add_argument('--km_output', type=str, required=True, help='Path to the TSV file holding a km run output.')
+    parser.add_argument('--config', type=str, required=True, help='Config file for kmGPT run.')
     args = parser.parse_args()
-
     ###################### AB Data Loading & Processsing ############################ 
     config = Config(args)
     cot_df = config.data.copy(deep = True)
@@ -243,7 +239,6 @@ def main():
         output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
         write_to_json(results, output_json_path, config.km_output_dir)
         print(f"Analysis results have been saved to {config.km_output_dir}")
-    
     return
 
 if __name__ == '__main__':

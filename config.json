@@ -21,8 +21,7 @@
         "PUBMED_PARAMS": {
             "db": "pubmed",
             "retmode": "xml",
-            "rettype": "abstract",
-            "api_key": "8bfe67116f93cedbee9e4f31a1e65b7e1d09"
+            "rettype": "abstract"
         },
         "RATE_LIMIT": 3,
         "DELAY": 10,

@@ -103,8 +103,8 @@ class RaggedTensor:
 class Config:
     def __init__(self, args: dict):
         self.data = read_tsv_to_dataframe(args.km_output)
-        self.job_config = json.load(args.config)
-        # Extract base name and directory from km_output
+        with open(args.config, 'r') as config_file:
+            self.job_config = json.load(config_file)
         self.km_output_dir = os.path.dirname(args.km_output)
         self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
 

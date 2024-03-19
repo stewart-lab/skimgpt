@@ -164,9 +164,13 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
         return prompt_function(*prompt_args, c_term=c_term) if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None else prompt_function(*prompt_args)
 
 def perform_analysis(job_type, row, config):
-    # Directly use abstracts from the row's "ab_pmid_intersection"
-    consolidated_abstracts = row["ab_pmid_intersection"]
-    
+    if job_type == "km_with_gpt" or job_type == "position_km_with_gpt":
+        consolidated_abstracts = row["ab_pmid_intersection"]
+    elif job_type == "skim_with_gpt":
+        consolidated_abstracts = row["bc_pmid_intersection"] + row["ab_pmid_intersection"]
+    else:
+        print("Invalid job type (caught in perform_analysis)")
+        return None, None, None
     b_term = row["b_term"]
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     c_term = row.get("c_term", None)  # Handle c_term dynamically

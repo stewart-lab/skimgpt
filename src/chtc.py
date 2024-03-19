@@ -79,10 +79,6 @@ def get_output_json_filename(config, job_settings):
 
     return output_json.replace(" ", "_").replace("'", "")
 
-
-
-
-
 def get_config(output_directory):
     config_path = os.path.join(output_directory, "config.json")
     with open(config_path, "r") as f:
@@ -96,6 +92,11 @@ def get_config(output_directory):
         raise ValueError("OPENAI_API_KEY environment variable not set.")
 
     config["API_KEY"] = api_key
+
+    pubmed_api_key = os.getenv("PUBMED_API_KEY", "")
+    if not pubmed_api_key:
+        raise ValueError("PUBMED_API_KEY environment variable not set.")
+    config["PUBMED_API_KEY"] = pubmed_api_key
 
     with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
@@ -206,14 +207,14 @@ def skim_with_gpt_workflow(config, output_directory):
             with open(c_term_file, "w") as f:
                 f.write(c_term)
             local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"] = c_term_file
-
+            # set the [OUTPUT_JSON] key in the config to its current name with the a_term and c_term appended
             skim_file_path = skim.skim_run(local_config, output_directory)
             if skim_file_path:
                 skim_file_paths.append(skim_file_path)
-
+                config["OUTPUT_JSON"] = os.path.basename(skim_file_path)
             os.remove(c_term_file)
 
-    return skim_file_paths
+    return skim_file_paths, config
 
 
 def main_workflow():
@@ -235,11 +236,10 @@ def main_workflow():
     elif job_type == "position_km_with_gpt":
         generated_file_paths.extend(position_km_with_gpt_workflow(config, output_directory))
     elif job_type == "skim_with_gpt":
-        generated_file_paths.extend(skim_with_gpt_workflow(config, output_directory))
+        generated_file_paths, config = skim_with_gpt_workflow(config, output_directory)
     else:
         print("JOB_TYPE does not match known workflows.")
         return
-    
     # SSH configurations are assumed to be stored under the "SSH" key in the config
     ssh_config = config.get("SSH", {})
     if ssh_config and generated_file_paths:
@@ -252,6 +252,7 @@ def main_workflow():
         ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_src_path}")
         ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_subdir_path}")
         config_path = os.path.join(output_directory, "config.json")
+
         try:
             # Transfer generated files to the newly created subdirectory
             for path_item in generated_file_paths:
@@ -263,8 +264,13 @@ def main_workflow():
                     file_name = os.path.basename(file_path)  # Extract the file name
                     # Make a safe file name
                     safe_file_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', file_name)
+                    base_name = safe_file_name.replace("_output_filtered.tsv", "")
+                    json_file_name = f"{base_name}.json"
+                    config["OUTPUT_JSON"] = json_file_name
+                    with open(os.path.join(output_directory, "config.json"), "w") as f:
+                        json.dump(config, f, indent=4)
                     remote_file_path = os.path.join(remote_subdir_path, safe_file_name)  # Construct the remote path with file name
-                                    
+
                     # Transfer the file
                     ssh.transfer_files(ssh_client, local_file, remote_file_path)
                     ssh.transfer_files(ssh_client, ssh_config["src_path"], remote_src_path)
@@ -274,12 +280,6 @@ def main_workflow():
                     ssh.execute_remote_command(ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
                     ssh.execute_remote_command(ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
                     ssh.execute_remote_command(ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
-                    # Dynamically create the list of files to wait for, based on the current file_path
-                    # add a wildcard .json to dynamically wait for the JSON file
-                    base_name = safe_file_name[:-13]  # This removes the last 13 characters, assuming "filtered.tsv" is always the ending
-                    json_file_name = f"{base_name}.json"
-
-                    # Update the dynamic_file_names list to include the json file with the dynamically generated name
                     dynamic_file_names = [
                         f"filtered_{safe_file_name}", 
                         f"cot_{safe_file_name}", 

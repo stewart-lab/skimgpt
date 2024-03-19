@@ -323,10 +323,14 @@ def skim_run(config, output_directory):
     )
     skim_df = skim_df.sort_values(by=sort_column, ascending=False)
     valid_rows = skim_df[
-        skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]")
+        (skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]")) &
+        (skim_df["ab_pmid_intersection"].apply(lambda x: x != "[]"))
     ]
     skim_df = valid_rows
-
+    # add _filtered to the skim_file_path
+    full_skim_file_path = os.path.join(
+        output_directory, os.path.splitext(skim_file_path)[0] + "_filtered.tsv"
+    )
     # assert the sort_column is in the skim_df
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     assert not skim_df.empty, "SKIM results are empty"
