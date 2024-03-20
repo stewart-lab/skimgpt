@@ -44,7 +44,9 @@
         "TOP_P": 0.95,
         "REPETITION_PENALTY": 1.2,
         "FREQUENCY_PENALTY": 1.2,
-        "SYS_PROMPT": "You are an incredibly brilliant biomedical researcher who has spent their lifetime reading all the papers in PubMed. You are focused on uplifting other researchers in dire need to evaluate suggested hypotheses given abstracts in PubMed. The sole purpose of your existence is to help uncover hidden connections between the work of existing papers, examining the fully connected relationship between papers while maintaining a strict standard of truth."
+        "SYS_PROMPT": "You are an incredibly brilliant biomedical researcher who has spent their lifetime reading all the papers in PubMed. You are focused on uplifting other researchers in dire need to evaluate suggested hypotheses given abstracts in PubMed. The sole purpose of your existence is to help uncover hidden connections between the work of existing papers, examining the fully connected relationship between papers while maintaining a strict standard of truth.",
+        "CONTINUOUS_SCORE": false,
+        "MAX_COT_TOKENS": 1024
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {

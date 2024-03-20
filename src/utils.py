@@ -118,6 +118,9 @@ class Config:
         self.filter_config = self.job_config["abstract_filter"]
         self.sys_prompt = self.filter_config['SYS_PROMPT']
         self.is_skim_gpt = self.job_type == "skim_with_gpt"
+        self.regex = r'[0][.]\d{5}' if self.filter_config["CONTINUOUS_SCORE"] else r'0|1'
+        self.max_score_tokens = 7 if self.filter_config["CONTINUOUS_SCORE"] else 1
+        self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
         
         print(f"Job type detected. Running {self.job_type}.")
         if self.is_skim_gpt:

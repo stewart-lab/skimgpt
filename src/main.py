@@ -159,18 +159,18 @@ def main():
     ##################### Model Loading & Generation ############################ 
     mistral = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=16832)
     tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
-    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r'^(0(?:\.\d+)?|1(?:\.0+)?)$'))
+    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(config.regex))
     
     sampling_cot = vllm.SamplingParams(
             temperature = config.filter_config["TEMPERATURE"], 
             top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
             repetition_penalty = config.filter_config["REPETITION_PENALTY"],
-            max_tokens = 1024)
+            max_tokens = config.max_cot_tokens)
     
     sampling_answer = vllm.SamplingParams(
             temperature=config.filter_config["TEMPERATURE"], 
             top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
-            max_tokens = 5,
+            max_tokens = config.max_score_tokens,
             repetition_penalty = config.filter_config["REPETITION_PENALTY"],
             logits_processors = [logits_processor])
 
@@ -213,32 +213,32 @@ def main():
     cot_df.to_csv(f"{config.cot_tsv_name}", sep="\t")
     
     ###################### Open AI Call #####################################
-    results = {}
+    # results = {}
 
-    # Test OpenAI connection if necessary
-    test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
+    # # Test OpenAI connection if necessary
+    # test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
 
-    # Process each row in the DataFrame
-    for index, row in filtered_df.iterrows():
-        term = row["b_term"]
-        result_dict = process_single_row(row, config.job_config)
-        if result_dict:  # Ensure that result_dict is not None
-            if term not in results:
-                results[term] = [result_dict]
-            else:
-                results[term].append(result_dict)
-            print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
-        else:
-            print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
+    # # Process each row in the DataFrame
+    # for index, row in filtered_df.iterrows():
+    #     term = row["b_term"]
+    #     result_dict = process_single_row(row, config.job_config)
+    #     if result_dict:  # Ensure that result_dict is not None
+    #         if term not in results:
+    #             results[term] = [result_dict]
+    #         else:
+    #             results[term].append(result_dict)
+    #         print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
+    #     else:
+    #         print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
 
-    # Check if results were processed
-    if not results:
-        print("No results were processed.")
-    else:
-        # Save the results to a JSON file
-        output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
-        write_to_json(results, output_json_path, config.km_output_dir)
-        print(f"Analysis results have been saved to {config.km_output_dir}")
+    # # Check if results were processed
+    # if not results:
+    #     print("No results were processed.")
+    # else:
+    #     # Save the results to a JSON file
+    #     output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
+    #     write_to_json(results, output_json_path, config.km_output_dir)
+    #     print(f"Analysis results have been saved to {config.km_output_dir}")
     return
 
 if __name__ == '__main__':
