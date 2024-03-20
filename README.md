@@ -1,22 +1,14 @@
 # GPT4-based Abstract Analysis for co-occurence-identified Relationships
 This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given A_TERM and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. We also accept A_TERM lists to perfrom multiple queries agaisnt a B_TERM list. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
-NOTE NEED SCP AND PARAMIKO set env variables and define user and key_path better 
 
 
-
-This pipeline consists of three modules:
-- [`skim_and_km_api` Module Overview](#skim-and-km-api-overview)
-- [`abstract_comprehension` Module Overview](#abstract-comprehension-overview)
-- [`prompt_and_scoring`Module Overview](#prompt-and-scoring-overview)
-And a config.json file required to structure and execute the job type:
-- [`config` Module Overview](#config-overview)
 ## Directory Structure
 
  ```bash
- ├── abstract_comprehension.py
- ├── prompt_library.py
+ ├── src/
+ ├── exampleConfigs/
  ├── requirements.txt
- ├── skim_and_km_api.py
+ ├── Dockerfile
  ├── input_lists/(A, B and C terms)
  ├── config.json
  └── test/
@@ -27,6 +19,7 @@ And a config.json file required to structure and execute the job type:
  - Python 3.11
  - Libraries specified in `requirements.txt`
  - OpenAI API key
+ - Pubmed API key
 
  ## Getting Started
 
@@ -49,13 +42,33 @@ And a config.json file required to structure and execute the job type:
    Before running the script, ensure you have set up your OpenAI API key in your environment. You can set it using:
   ```bash
     export OPENAI_API_KEY=your_api_key_here
+    export PUBMED_API_KEY=your_api_key_here
 ```
+4. **Setting up SSH Key pair**
+  ```bash
+    ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+    chmod 600 ~/.ssh/<your_key>
+    chmod 600 ~/.ssh/<your_key>.pub
+    ssh-copy-id -i /path/to/.ssh/<your_key>.pub <chtc_username>@ap2002.chtc.wisc.edu
+    
+```
+   
+
 4. **Configuring Parameters**
-The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job
-5. **Running the script**
+The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job. Additionally, we need to set up:
    ```bash
-   python -m src.abstract_comprehension
+    "SSH": {
+        "server": "ap2002.chtc.wisc.edu",
+        "port": 22,
+        "user": "jfreeman23",
+        "key_path": "/w5home/jfreeman/.ssh/chtc2",
+        "config_path": "../config.json",
+        "src_path": "./",
+        "remote_path": "/home/jfreeman23/kmtest/"
+    },
    ```
+
+5. **Running the script**
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 <a name="skim-and-km-api-overview"></a>
 # `skim_and_km_api` Module Overview
