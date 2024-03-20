@@ -36,7 +36,7 @@ stream_error = true
 stream_output = true
 
 # Custom requirements for a specific type of GPU, if needed
-# require_gpus = (Capability >= 8.0) && (GlobalMemoryMb >= 40000)
+# require_gpus = (Capability >= 8.0) && (GlobalMemoryMb >= 41000)
 
 # Job queueing
 queue 1

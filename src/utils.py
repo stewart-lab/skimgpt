@@ -85,6 +85,31 @@ class RaggedTensor:
     def map(self, func: callable, *args) -> RaggedTensor:
         assert not self.is2D(), "Map only works with 1D tensors"
         return RaggedTensor([func(i, *args) for i in self.data], self.break_point)
+    
+    # Helper method to mask the top values in data
+    def getTopKMask(self, array, k: int) -> list:
+        top_k_indices = np.argsort(array, axis=None)[-k:]
+
+        # Create a binary mask with the top 5 values set to True.
+        mask = np.zeros_like(array, dtype=bool)
+        mask[top_k_indices] = True
+        return mask.tolist()
+    
+    # Creates a mask of the data with the top k values in each row of the data
+    def getFullKArgMax(self, k: int) -> RaggedTensor:
+        output = []
+        if self.is2D():
+            for array in self.data:
+                mask = self.getTopKMask(array, k)
+                output.append(mask)
+        else:
+            output = self.getTopKMask(self.data, k)
+            
+        output = RaggedTensor(output, self.break_point)
+        assert output.shape == self.shape
+        
+        return output
+            
         
     def __add__(self, other: RaggedTensor) -> RaggedTensor:
         assert not self.is2D(), "Adding only works with flattened tensors"
@@ -105,6 +130,10 @@ class Config:
         self.data = read_tsv_to_dataframe(args.km_output)
         with open(args.config, 'r') as config_file:
             self.job_config = json.load(config_file)
+        
+        self.global_settings = self.job_config["GLOBAL_SETTINGS"]
+        self.k = self.global_settings["MAX_ABSTRACTS"]
+        assert self.k > 0
         self.km_output_dir = os.path.dirname(args.km_output)
         self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
 
@@ -116,10 +145,13 @@ class Config:
         self.cot_tsv_name = os.path.join(self.km_output_dir, f"cot_{self.km_output_base_name}.tsv")
         self.job_type = self.job_config.get('JOB_TYPE')
         self.filter_config = self.job_config["abstract_filter"]
+        
         self.sys_prompt = self.filter_config['SYS_PROMPT']
         self.is_skim_gpt = self.job_type == "skim_with_gpt"
-        self.regex = r'[0][.]\d{5}' if self.filter_config["CONTINUOUS_SCORE"] else r'0|1'
-        self.max_score_tokens = 7 if self.filter_config["CONTINUOUS_SCORE"] else 1
+        self.continuous = self.filter_config["CONTINUOUS_SCORE"]
+        
+        self.regex = r'[0][.]\d{5}' if self.continuous else r'0|1'
+        self.max_score_tokens = 7 if self.continuous else 1
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
         
         print(f"Job type detected. Running {self.job_type}.")
