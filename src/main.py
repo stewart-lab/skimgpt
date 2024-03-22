@@ -12,6 +12,7 @@ from utils import Config, RaggedTensor
 from tqdm import tqdm
 import numpy as np
 import os
+import jinja2
 from classifier import process_single_row, write_to_json, test_openai_connection
         
 # Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis. 
@@ -48,40 +49,62 @@ def getHypothesis(config, a_term: str = None, b_term: str = None, c_term: str = 
     
 
 def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
-    return f"""
-    <|im_start|>system
-    {sys_prompt}
-    <|im_end|>
-    <|im_start|>user
-    Hypothesis: {hyp}
-    Abstract: {abstract}
+    context = {
+        "sys_prompt": sys_prompt,
+        "hyp": hyp,
+        "abstract": abstract,
+    }
+    
+    template = jinja2.Template("""
+        <|im_start|>system
+        {{sys_prompt}}
+        <|im_end|>
+        <|im_start|>user
+        Hypothesis: {{hyp}}
+        Abstract: {{abstract}}
 
-    Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
+        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
-    Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
-    <|im_end|>
-    <|im_start|>assistant
-    """
+        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
+        <|im_end|>
+        <|im_start|>assistant                           
+    """)
+    
+    return template.render(context)
 
-def answer_prompt(sys_prompt: str, hypothesis: str, abstract: str, chain_of_thought: str) -> str:
-    return f"""
-    <|im_start|>system
-    {sys_prompt}
-    <|im_end|>
-    <|im_start|>user
-    Hypothesis: {hypothesis}
-    Abstract: {abstract}
+def answer_prompt(sys_prompt: str, hyp: str, abstract: str, chain_of_thought: str, continuous: bool) -> str:
+    context = {
+        "sys_prompt": sys_prompt,
+        "hyp": hyp,
+        "abstract": abstract,
+        "chain_of_thought": chain_of_thought,
+        "continuous": continuous
+    }
+    
+    template = jinja2.Template("""
+        <|im_start|>system
+        {{sys_prompt}}
+        <|im_end|>
+        <|im_start|>user
+        Hypothesis: {{hyp}}
+        Abstract: {{abstract}}
 
-    Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
+        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
-    Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
-    {chain_of_thought}
-
-    Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
-    Answer: 
-    <|im_end|>
-    <|im_start|>assistant
-    """
+        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
+        {{chain_of_thought}}
+        
+        {% if continuous %}
+        Classify the given abstract with a score between 0 (Not relevant for scientifically assessing the hypothesis) and 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
+        {% else %}
+        Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
+        {% endif %}
+        Answer: 
+        <|im_end|>
+        <|im_start|>assistant
+    """)
+    
+    return template.render(context)
     
 def gen(prompts: RaggedTensor, model: any, sampling_config: vllm.SamplingParams) -> RaggedTensor:
 	generated = model.generate(prompts.data, sampling_params = sampling_config)
@@ -93,11 +116,11 @@ def getCoTPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTe
     assert not hypotheses.is2D(), "hypotheses should be flattened."
     return RaggedTensor([cot_prompt(sys_prompt, hypotheses[i], abstracts[i]) for i in range(abstracts.shape)], hypotheses.break_point)
 
-def getAnswerPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor, cot_outputs: RaggedTensor) -> RaggedTensor:
+def getAnswerPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor, cot_outputs: RaggedTensor, continuous: bool) -> RaggedTensor:
     assert not abstracts.is2D(), "abstracts should be flattened."
     assert not hypotheses.is2D(), "hypotheses should be flattened."
     assert not cot_outputs.is2D(), "cot outputs should be flattened"
-    return RaggedTensor([answer_prompt(sys_prompt, hypotheses[i], abstracts[i], cot_outputs[i]) for i in range(abstracts.shape)], hypotheses.break_point)
+    return RaggedTensor([answer_prompt(sys_prompt, hypotheses[i], abstracts[i], cot_outputs[i], continuous) for i in range(abstracts.shape)], hypotheses.break_point)
     
 # Returns a dictionary for each PMID & Abstract Pair
 # This method is needed since Entrez automatically removes duplicates in the pmid list
@@ -117,10 +140,12 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     efetch.close()
     
     for paper in output["PubmedArticle"]:
-        returned_pmids.append(str(paper["MedlineCitation"]["PMID"]))
-        abstract_text = " ".join(paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
+        pmid = paper["MedlineCitation"]["PMID"]
+        returned_pmids.append(str(pmid))
+        abstract_text = f'PMID {pmid}: {" ".join(paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])}'
         returned_abstracts.append(abstract_text)
     return dict(zip(returned_pmids, returned_abstracts))
+
 
 def main():
     ###################### Argument Parsing ############################ 
@@ -143,7 +168,6 @@ def main():
     all_pmids = ab_pmids.flatten()
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
-    
     ###################### BC Data Loading & Processsing ############################ 
     if config.is_skim_gpt:
         c_term = config.data.c_term.unique().tolist()[0]
@@ -159,18 +183,18 @@ def main():
     ##################### Model Loading & Generation ############################ 
     mistral = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=16832)
     tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
-    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(r"0|1"))
+    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(config.regex))
     
     sampling_cot = vllm.SamplingParams(
             temperature = config.filter_config["TEMPERATURE"], 
             top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
             repetition_penalty = config.filter_config["REPETITION_PENALTY"],
-            max_tokens = 1024)
+            max_tokens = config.max_cot_tokens)
     
     sampling_answer = vllm.SamplingParams(
             temperature=config.filter_config["TEMPERATURE"], 
             top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
-            max_tokens = 1,
+            max_tokens = config.max_score_tokens,
             repetition_penalty = config.filter_config["REPETITION_PENALTY"],
             logits_processors = [logits_processor])
 
@@ -178,34 +202,46 @@ def main():
     cot_prompts = getCoTPrompts(abstracts, config.sys_prompt, all_hypotheses)
     cot_outputs = gen(cot_prompts, mistral, sampling_cot)
     
-    answer_prompts = getAnswerPrompts(abstracts, config.sys_prompt, all_hypotheses, cot_outputs)
+    answer_prompts = getAnswerPrompts(abstracts, config.sys_prompt, all_hypotheses, cot_outputs, config.continuous)
     answers = gen(answer_prompts, mistral, sampling_answer)
     answers = answers.map(lambda x: eval(x))
 
-    ##################### Post process AB answers ############################ 
-    ab_answers, bc_answers = answers.split()
+    ##################### Post process AB answers ############################
+    ab_raw_scores, bc_raw_scores = answers.split()
     ab_abstracts, bc_abstracts = abstracts.split()
     ab_cot, bc_cot = cot_outputs.split()
     
-    ab_answers.reshape(ab_pmids.shape)
+    ab_raw_scores.reshape(ab_pmids.shape)
+    
+    ab_answer_masks = ab_raw_scores
+    if config.continuous:
+        ab_answer_masks = ab_raw_scores.getFullKArgMax(k = config.k)
     ab_abstracts.reshape(ab_pmids.shape)
-    ab_abstracts.applyFilter(ab_answers)
+    
+    ab_abstracts.applyFilter(ab_answer_masks)
     ab_cot.reshape(ab_pmids.shape)
     
     filtered_df["ab_pmid_intersection"] = ab_abstracts.data
-    cot_df["ab_scores"] = ab_answers.data
+    cot_df["ab_mask"] = ab_answer_masks.data
+    cot_df["ab_score"] = ab_raw_scores.data
     cot_df["ab_cot"] = ab_cot.data
     cot_df["ab_hypothesis"] = ab_hypotheses.data
 
     ##################### Post process BC answers ############################ 
     if config.is_skim_gpt:
-        bc_answers.reshape(bc_pmids.shape)
+        bc_raw_scores.reshape(bc_pmids.shape)
+        
+        bc_answer_masks = bc_raw_scores
+        if config.continuous:
+            bc_answer_masks = bc_raw_scores.getFullKArgMax(k = config.k)
+    
         bc_abstracts.reshape(bc_pmids.shape)
-        bc_abstracts.applyFilter(bc_answers)
+        bc_abstracts.applyFilter(bc_answer_masks)
         bc_cot.reshape(bc_pmids.shape)
     
         filtered_df["bc_pmid_intersection"] = bc_abstracts.data
-        cot_df["bc_scores"] = bc_answers.data
+        cot_df["bc_mask"] = bc_answer_masks.data
+        cot_df["bc_score"] = bc_raw_scores.data
         cot_df["bc_cot"] = bc_cot.data
         cot_df["bc_hypothesis"] = bc_hypotheses.data
     
