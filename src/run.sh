@@ -13,4 +13,4 @@ export HF_DATASETS_CACHE=$_CONDOR_SCRATCH_DIR/datasets
 export HF_MODULES_CACHE=$_CONDOR_SCRATCH_DIR/modules
 export HF_METRICS_CACHE=$_CONDOR_SCRATCH_DIR/metrics
 # Execute main.py with the required arguments
-python main.py --km_output "$km_output_file" --config "$config_file" 
+python relevance.py --km_output "$km_output_file" --config "$config_file" 
