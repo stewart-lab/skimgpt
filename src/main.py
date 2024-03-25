@@ -144,6 +144,7 @@ def main():
   
 	terms = itertools.product(a_terms, c_terms)
 	workflow = partial(main_workflow, config, output_directory, timestamp_output_path)
+ 
 	with multiprocessing.Pool() as p:
 		p.map(workflow, terms)
   
