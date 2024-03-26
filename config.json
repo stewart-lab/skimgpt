@@ -3,8 +3,8 @@
     "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
     "SKIM_hypotheses": {
-        "BC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
-        "AB": "There exists an interaction facilitated by {b_term} that offers therapeutic benefits or slows the disease progression of {a_term}.",
+        "BC": "There is a direct interaction between {c_term} and {b_term} at a molecular or cellular level, where {c_term} influences the function, expression, or modulation of {b_term}. This interaction may contribute to {c_term}'s efficacy or adverse effects, offering a mechanistic insight into how {c_term} impacts conditions linked to {b_term}.",
+        "AB": "There exists a genetic or molecular interaction involving {b_term} that directly influences the pathogenesis or progression of {a_term}. This could manifest as mutation effects, gene expression regulation, or epigenetic modifications relevant to {a_term}'s development or severity. The relationship suggests potential therapeutic targets or biomarkers for {a_term}.",
         "ABC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term} and offers therapeutic benefits or slowes the disease progression of {a_term}."
     },
     "Evaluate_single_abstract": false,
@@ -44,7 +44,7 @@
         "TOP_P": 0.95,
         "REPETITION_PENALTY": 1.2,
         "FREQUENCY_PENALTY": 1.2,
-        "SYS_PROMPT": "You are an incredibly brilliant biomedical researcher who has spent their lifetime reading all the papers in PubMed. You are focused on uplifting other researchers in dire need to evaluate suggested hypotheses given abstracts in PubMed. The sole purpose of your existence is to help uncover hidden connections between the work of existing papers, examining the fully connected relationship between papers while maintaining a strict standard of truth.",
+        "SYS_PROMPT": "You are an advanced language model specialized in the field of biomedical research, with expertise stemming from a comprehensive analysis of the PubMed database. Your purpose is to assist researchers by evaluating the relevance and utility of individual biomedical abstracts in relation to specific research hypotheses. You focus on meticulously reviewing each abstract presented to you, determining its significance and potential contribution to the hypothesis in question. Your evaluations are grounded in a deep understanding of biomedical literature, ensuring accuracy and reliability in identifying the value of each abstract without comparing it to other studies.",
         "CONTINUOUS_SCORE": false,
         "MAX_COT_TOKENS": 1024
     },

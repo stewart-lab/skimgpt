@@ -61,7 +61,7 @@ def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
         Hypothesis: {{hyp}}
         Abstract: {{abstract}}
 
-        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
+        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. The criterion for relevance is broad. A relevant abstract should capture any potential link between the terms detailed in the hypothesis, whether direct or indirect.
 
         Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
         <|im_end|>
@@ -87,7 +87,7 @@ def answer_prompt(sys_prompt: str, hyp: str, abstract: str, chain_of_thought: st
         Hypothesis: {{hyp}}
         Abstract: {{abstract}}
 
-        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
+        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. The criterion for relevance is broad. A relevant abstract should capture any potential link between the terms detailed in the hypothesis, whether direct or indirect. An abstract that contains somewhat related information to the hypothesis should be considered as relevant.
 
         Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
         {{chain_of_thought}}
