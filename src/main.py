@@ -32,9 +32,7 @@ def getHypothesis(config, a_term: str = None, b_term: str = None, c_term: str = 
         hypothesis_template = config.get("POSITION_KM_hypothesis", "")
         return hypothesis_template.format(a_term=a_term, b_term=b_term), None
     
-    elif job_type == "skim_with_gpt":
-        assert (a_term and b_term and not c_term) or (b_term and c_term and not a_term)
-        
+    elif job_type == "skim_with_gpt":        
         if a_term and b_term and not c_term:
             hypothesis_template = config.get("SKIM_hypotheses", "").get("AB")
             return hypothesis_template.format(a_term=a_term, b_term=b_term)
@@ -249,32 +247,32 @@ def main():
     cot_df.to_csv(f"{config.cot_tsv_name}", sep="\t")
     
     ###################### Open AI Call #####################################
-    results = {}
+    # results = {}
 
-    # Test OpenAI connection if necessary
-    test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
+    # # Test OpenAI connection if necessary
+    # test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
 
-    # Process each row in the DataFrame
-    for index, row in filtered_df.iterrows():
-        term = row["b_term"]
-        result_dict = process_single_row(row, config.job_config)
-        if result_dict:  # Ensure that result_dict is not None
-            if term not in results:
-                results[term] = [result_dict]
-            else:
-                results[term].append(result_dict)
-            print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
-        else:
-            print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
+    # # Process each row in the DataFrame
+    # for index, row in filtered_df.iterrows():
+    #     term = row["b_term"]
+    #     result_dict = process_single_row(row, config.job_config)
+    #     if result_dict:  # Ensure that result_dict is not None
+    #         if term not in results:
+    #             results[term] = [result_dict]
+    #         else:
+    #             results[term].append(result_dict)
+    #         print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
+    #     else:
+    #         print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
 
-    # Check if results were processed
-    if not results:
-        print("No results were processed.")
-    else:
-        # Save the results to a JSON file
-        output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
-        write_to_json(results, output_json_path, config.km_output_dir)
-        print(f"Analysis results have been saved to {config.km_output_dir}")
+    # # Check if results were processed
+    # if not results:
+    #     print("No results were processed.")
+    # else:
+    #     # Save the results to a JSON file
+    #     output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
+    #     write_to_json(results, output_json_path, config.km_output_dir)
+    #     print(f"Analysis results have been saved to {config.km_output_dir}")
     return
 
 if __name__ == '__main__':
