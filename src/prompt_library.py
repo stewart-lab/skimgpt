@@ -62,13 +62,19 @@ def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstr
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
     return (
-        f"Assessment Task: Critically evaluate the potential indirect relationship between '{a_term}' and '{c_term}' within the provided biomedical texts, assigning a score of -1, 0, or 1. \n"
-        f"Hypothesis: {hypothesis_template} \n"
-        f"Instructions: Utilize the information within the provided abstracts to infer the potential indirect relationship. Employ analytical skills to deduce connections, ensuring your reasoning is accessible to an undergraduate biochemist. Format your response as 'Score: [Number] - Reasoning: [Your Reasoning]'.\n"
-        f"Scoring Guidelines:\n"
-        f"   - -1 Point: The evidence strongly negates any indirect relationship between '{a_term}' and '{c_term}'. Clear, direct information in the texts contradicts the existence of such a link, with no plausible alternative interpretations.\n"
-        f"   - 0 Points: The evidence neither strongly supports nor negates the indirect relationship. This includes cases where the evidence is neutral, inconclusive, or not directly relevant to the hypothesized link. Evidence that does not explicitly negate or support the relationship falls here, even if substantial extrapolation or inference is needed.\n"
-        f"   - 1 Point: The evidence suggests a plausible indirect relationship between '{a_term}' and '{c_term}'. This includes cases where the evidence, though perhaps indirect or requiring some inference, supports the existence of a connection via '{b_term}'.\n"
+        "Assessment Task:\n"
+        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
+        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
+        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
+        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
+        "evidence in your evaluation.\n\n"
+        "Hypothesis:\n"
+        f"{hypothesis_template}\n\n"
+        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
+        "Format your response as:\n"
+        "Score: [Number] - Reasoning: [Reasoning]\n\n"
+        "Scoring Guidelines:\n"
+        f"{sg.skim(b_term, a_term, c_term)}\n" 
         f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}"
     )
 
