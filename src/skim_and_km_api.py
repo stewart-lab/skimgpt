@@ -60,22 +60,19 @@ def run_and_save_query(
     a_term,
     c_terms,
     b_terms=None,
-    filtered_terms=None,
-    username="username",
-    password="password",
     config=None,
     output_directory=None,
 ):
     """Run a query, save the results, and return the saved file path."""
     job_config = configure_job(
-        job_type, a_term, c_terms, b_terms, filtered_terms, config
+        job_type, a_term, c_terms, b_terms, config
     )
     # Accessing API_URL from the updated config structure
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
     # Utilizing the APIClient class
-    api_client = APIClient(username, password)
+    api_client = APIClient()
     result = api_client.run_api_query(job_config, api_url)
     
     if not result or result is None:
@@ -92,7 +89,7 @@ def run_and_save_query(
 
 # Job Configuration
 def configure_job(
-    job_type, a_term, c_terms, b_terms=None, filtered_terms=None, config=None
+    job_type, a_term, c_terms, b_terms=None, config=None
 ):
     """Configure a job based on the provided type and terms."""
     assert config, "No configuration provided"
