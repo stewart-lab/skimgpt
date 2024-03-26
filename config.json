@@ -34,8 +34,9 @@
         "port": 22,
         "user": "jfreeman23",
         "key_path": "/w5home/jfreeman/.ssh/chtc2",
-        "config_path": "./config.json",
-        "remote_path": "/home/jfreeman23/kmGPT/"
+        "config_path": "../config.json",
+        "remote_path": "/home/jfreeman23/kmGPT/",
+        "src_path": "./"
     },
     "abstract_filter": {
         "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
