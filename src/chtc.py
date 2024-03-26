@@ -207,8 +207,24 @@ def skim_with_gpt_workflow(config, output_directory):
             with open(c_term_file, "w") as f:
                 f.write(c_term)
             local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"] = c_term_file
-            # set the [OUTPUT_JSON] key in the config to its current name with the a_term and c_term appended
-            skim_file_path = skim.skim_run(local_config, output_directory)
+            skim_file_path = skim.skim_with_gpt_workflow(local_config, output_directory)
+            local_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"] = c_term_file
+            km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
+            if km_file_path and skim_file_path:
+                # take the ab_pmid_intersection column from the km_file_path, rename it to ac_pmid_intersection and append it to the skim_file_path
+                km_df = read_tsv_to_dataframe(km_file_path)
+                skim_df = read_tsv_to_dataframe(skim_file_path)
+                km_df.rename(columns={"ab_pmid_intersection": "ac_pmid_intersection"}, inplace=True)
+
+                # Assuming you want to use the 'ac_pmid_intersection' values from the first row of km_df
+                if not km_df.empty and "ac_pmid_intersection" in km_df.columns:
+                    ac_pmid_intersection_values = km_df.iloc[0]["ac_pmid_intersection"]
+                    
+                    # Add this as a new column to skim_df, repeating it for every row
+                    skim_df["ac_pmid_intersection"] = [ac_pmid_intersection_values] * len(skim_df)
+                    
+                    # Save the updated skim_df back to a TSV file
+                    skim_df.to_csv(skim_file_path, sep='\t', index=False)
             if skim_file_path:
                 skim_file_paths.append(skim_file_path)
                 config["OUTPUT_JSON"] = os.path.basename(skim_file_path)
