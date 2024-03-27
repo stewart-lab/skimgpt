@@ -1,3 +1,9 @@
 Fish oil
 
+<<<<<<< HEAD
 Tumeric
+=======
+Tumeric
+
+
+>>>>>>> main
