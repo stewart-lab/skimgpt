@@ -4,7 +4,7 @@ echo "GPUs assigned: $CUDA_VISIBLE_DEVICES"
 # Navigate to the /app directory where main.py and the input files are expected to be
 chmod +x main.py
 # Find the .tsv file for the --km_output argument
-km_output_file=$(find . -name "*_filtered.tsv" -print -quit)
+km_output_file=$1
 # Find the .json file for the --config argument
 config_file="config.json"
 export TRANSFORMERS_CACHE=$_CONDOR_SCRATCH_DIR/models

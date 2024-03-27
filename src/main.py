@@ -14,7 +14,7 @@ import itertools
 import time
 import pandas as pd
 import multiprocessing
-from atomic_chtc import main_workflow
+from jobs import main_workflow
 # add parent directory to path
 from tqdm import tqdm
 import sys
@@ -176,6 +176,8 @@ def main():
 
 		try:
 			# Transfer generated files to the newly created subdirectory
+			remote_file_paths = []
+			dynamic_file_names = []
 			for path_item in generated_file_paths:
 				# Normalize handling for both individual path items and lists
 				if not isinstance(path_item, list):
@@ -199,7 +201,11 @@ def main():
 					remote_file_path = os.path.join(
 						remote_subdir_path, safe_file_name)
 
-					# Transfer the file
+					remote_file_paths.append(remote_file_path.split("/")[-1])
+					dynamic_file_names.append(f"filtered_{safe_file_name}")
+					dynamic_file_names.append(f"cot_{safe_file_name}")
+					dynamic_file_names.append(json_file_name)
+					# Transfer the filex
 					ssh.transfer_files(
 						ssh_client, local_file, remote_file_path)
 					ssh.transfer_files(
@@ -209,22 +215,24 @@ def main():
 						remote_subdir_path, "config.json")
 					ssh.transfer_files(
 						ssh_client, config_path, remote_config_path)
-					ssh.execute_remote_command(
-						ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
-					ssh.execute_remote_command(
-						ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
-					ssh.execute_remote_command(
-						ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
-					dynamic_file_names = [
-						f"filtered_{safe_file_name}",
-						f"cot_{safe_file_name}",
-						json_file_name  # Use the dynamically generated name for the json file
-					]
-					# Informative print to know what files are being waited on
-					print(f"Waiting for files: {dynamic_file_names}")
-					# Wait for the dynamically specified files
-					ssh.monitor_files_and_extensions(
-						ssh_client, remote_subdir_path, output_directory, dynamic_file_names, ['.log', '.err', '.out', ])
+	 
+			with open("./files.txt", "w+") as f:
+				for remote_file in remote_file_paths:
+					f.write(f"{remote_file}\n")
+	 
+			ssh.transfer_files(
+						ssh_client, "./files.txt", remote_subdir_path)
+			ssh.execute_remote_command(
+				ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
+			ssh.execute_remote_command(
+				ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
+			ssh.execute_remote_command(
+				ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
+			# Informative print to know what files are being waited on
+			print(f"Waiting for files: {dynamic_file_names}")
+			# Wait for the dynamically specified files
+			ssh.monitor_files_and_extensions(
+				ssh_client, remote_subdir_path, f"{output_directory}/filtered", dynamic_file_names, ['.log', '.err', '.out', ])
 			print("Files transferred successfully.")
 			# cleanup
 			ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
