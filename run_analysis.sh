@@ -11,7 +11,7 @@ cd src
 if [[ "$answer" == "y" ]]; then
     echo "Running CHTC analysis..."
     # Run chtc.py
-    python chtc.py
+    python main.py
 
     cd ..
 

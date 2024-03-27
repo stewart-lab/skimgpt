@@ -1,0 +1,2 @@
+a_count	a_term	ab_count	ab_pmid_intersection	ab_pred_score	ab_pvalue	ab_sort_ratio	b_count	b_term	bc_count	bc_pmid_intersection	bc_pred_score	bc_pvalue	bc_sort_ratio	c_count	c_term	total_count
+657735	Heart Disease	646	[20538833, 22717317, 26028594, 36179951, 36691956]	0.0614487510800821	0.5372071064802428	0.0178704805112174	36149	EGFR	96	[22285168, 17463250, 15329413, 31568888, 30609789]	0.20775012657002	7.080303933178968e-58	0.0091254752851711	10520	erlotinib	36691282

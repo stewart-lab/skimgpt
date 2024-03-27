@@ -1,0 +1,2 @@
+a_count	a_term	ab_count	ab_pmid_intersection	ab_pred_score	ab_pvalue	ab_sort_ratio	b_count	b_term	bc_count	bc_pmid_intersection	bc_pred_score	bc_pvalue	bc_sort_ratio	c_count	c_term	total_count
+657735	pancreatic cancer	646	[25889214, 28697764, 35408691, 36367161, 38058810]	0.0614487510800821	0.5372071064802428	0.0178704805112174	36149	CCK	96	[27894350, 27601167, 30268354, 32677544, 35933378]	0.20775012657002	7.080303933178968e-58	0.0091254752851711	10520	gant61	36691282
