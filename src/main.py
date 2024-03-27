@@ -250,7 +250,7 @@ def main():
 					remote_file_paths.append(remote_file_path.split("/")[-1])
 					dynamic_file_names.append(f"filtered_{safe_file_name}")
 					dynamic_file_names.append(f"cot_{safe_file_name}")
-					dynamic_file_names.append(json_file_name)
+					# dynamic_file_names.append(json_file_name)
 					# Transfer the filex
 					ssh.transfer_files(
 						ssh_client, local_file, remote_file_path)

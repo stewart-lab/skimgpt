@@ -65,7 +65,7 @@ def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
 
         Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
-        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
+        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Ignore redacted terms and make sure to look at the terms provided. Let's work this out in a step by step way to be sure we have the right answer. As a first step, use context clues to figure out the meaning of the terms given.
         <|im_end|>
         <|im_start|>assistant                           
     """)
@@ -91,7 +91,7 @@ def answer_prompt(sys_prompt: str, hyp: str, abstract: str, chain_of_thought: st
 
         Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
-        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
+        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Ignore redacted terms and make sure to look at the terms provided. Let's work this out in a step by step way to be sure we have the right answer. As a first step, use context clues to figure out the meaning of the terms given.
         {{chain_of_thought}}
         
         {% if continuous %}
