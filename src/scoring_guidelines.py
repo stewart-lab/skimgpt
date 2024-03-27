@@ -135,7 +135,7 @@ def skim(b_term, a_term, c_term):
         f"negative interactions between {a_term} and {b_term}, {b_term} and {c_term}, or insufficient co-occurrence of {a_term} and {c_term} in relevant contexts, albeit with some "
         f"methodological limitations or biases.\n"
         
-        f"   - 0 Points: The evidence is inconclusive or neutral. Research may show mixed results "
+        f"   - 0 Points: The evidence is inconclusive, neutral or irrelevant. Research may show mixed results "
         f"for the interactions between {a_term} and {b_term}, {b_term} and {c_term}, or, when present, of {a_term} and {c_term}, indicating gaps in the literature "
         f"and the need for further, targeted research.\n"
         

@@ -190,10 +190,13 @@ def perform_analysis(job_type, row, config, abstracts_data):
     ]:
         pmids = pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
     elif job_type == "skim_with_gpt":
-        pmids = (
-            pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
-            + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
-        )
+        if row["ac_pmid_intersection"] != "[]":
+            pmids = (
+                pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
+                + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
+                + pubmed.parse_pmids(row, "ac_pmid_intersection")[:max_abstracts]
+            )
+        pmids = (pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts] + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts] )
 
     (
         consolidated_abstracts,
@@ -650,6 +653,67 @@ def skim_with_gpt_workflow(config, output_directory):
         config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
     )
     assert c_terms, "C terms are empty"
+    b_terms = skim.read_terms_from_file(
+        config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
+    )
+    if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
+        # Read a_terms from file
+        a_terms = skim.read_terms_from_file(
+            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
+        )
+    else:
+        a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
+    for i, a_term in enumerate(a_terms):
+        c_term = c_terms[i]
+        b_term = b_terms[i]
+        local_config = copy.deepcopy(config)
+        local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
+        c_term_file = os.path.join(output_directory, f"{c_term}.txt")
+        with open(c_term_file, "w") as f:
+            f.write(c_term)
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
+            "C_TERMS_FILE"
+        ] = c_term_file
+        b_term_file = os.path.join(output_directory, f"{b_term}.txt")
+        with open(b_term_file, "w") as f:
+            f.write(b_term)
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
+            "B_TERMS_FILE"
+        ] = b_term_file
+
+        skim_file_path = skim.skim_with_gpt_workflow(local_config, output_directory)
+        if skim_file_path is None:
+            print(
+                f"Skim file not found for {a_term} and {c_term}. Please lower fet or check the spelling"
+             )
+            continue
+        df = read_tsv_to_dataframe(skim_file_path)
+        assert not df.empty, "The dataframe is empty"
+        df = df.iloc[
+            : config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["NUM_B_TERMS"]
+        ]
+        # Process the dataframe and gather results
+        results_list = []
+        test_openai_connection(config)
+        for index, row in df.iterrows():
+            result_dict = process_single_row(row, local_config)
+            results_list.append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+            assert results_list, "No results were processed"
+            # Generate a unique output JSON file name for each a_term and c_term combination
+            output_json = f"{a_term}_{c_term}_skim_with_gpt.json"
+            write_to_json(results_list, output_json, output_directory)
+            print(f"Analysis results have been saved to {output_json}")
+            # delete the temporary file
+            os.remove(c_term_file)
+
+
+def skim_with_gpt_workflow_old(config, output_directory):
+    # Read c_terms from file
+    c_terms = skim.read_terms_from_file(
+        config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+    )
+    assert c_terms, "C terms are empty"
     if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
         # Read a_terms from file
         a_terms = skim.read_terms_from_file(
@@ -697,7 +761,6 @@ def skim_with_gpt_workflow(config, output_directory):
             print(f"Analysis results have been saved to {output_json}")
             # delete the temporary file
             os.remove(c_term_file)
-
 
 # TODO add time
 

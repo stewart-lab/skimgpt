@@ -204,10 +204,15 @@ def skim_with_gpt_workflow(config, output_directory):
         config=config,
         output_directory=output_directory,
     )
-    if skim_file_path is None:
-        raise ValueError("SKIM results are empty. Exiting the workflow.")
+    km_file_path = run_and_save_query("km_with_gpt", config["GLOBAL_SETTINGS"]["A_TERM"], read_terms_from_file(config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+        ), config=config, output_directory=output_directory)
     full_skim_file_path = os.path.join(output_directory, skim_file_path)
+    full_km_file_path = os.path.join(output_directory, km_file_path)
     skim_df = pd.read_csv(full_skim_file_path, sep="\t")
+    km_df = pd.read_csv(full_km_file_path, sep="\t")
+    km_df.rename(columns={"ab_pmid_intersection": "ac_pmid_intersection"}, inplace=True)
+    ac_pmid_intersection_values = km_df.iloc[0]["ac_pmid_intersection"]
+    skim_df["ac_pmid_intersection"] = [ac_pmid_intersection_values] * len(skim_df)
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get(
         "SORT_COLUMN", "bc_sort_ratio"
     )
