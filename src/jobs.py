@@ -103,7 +103,7 @@ def skim_with_gpt_workflow(config, output_directory, a_term, c_term):
 		f.write(c_term)
 	local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"] = c_term_file
 	# set the [OUTPUT_JSON] key in the config to its current name with the a_term and c_term appended
-	skim_file_path = skim.skim_run(local_config, output_directory)
+	skim_file_path = skim.skim_with_gpt_workflow(local_config, output_directory)
 	if skim_file_path:
 		skim_file_paths.append(skim_file_path)
 		config["OUTPUT_JSON"] = os.path.basename(skim_file_path)
