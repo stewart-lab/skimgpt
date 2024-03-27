@@ -12,3 +12,4 @@ src/__pycache__/few_shot_library.cpython-311.pyc
 src/__pycache__/prompt_library.cpython-311.pyc
 src/__pycache__/scoring_guidelines.cpython-311.pyc
 src/__pycache__/skim_and_km_api.cpython-311.pyc
+relevance_tests

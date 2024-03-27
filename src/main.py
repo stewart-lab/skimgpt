@@ -16,6 +16,7 @@ import pandas as pd
 import multiprocessing
 from jobs import main_workflow
 # add parent directory to path
+from glob import glob
 from tqdm import tqdm
 import sys
 import os
@@ -71,6 +72,45 @@ def initialize_workflow():
 
 	# Return the configuration, the full path to the output directory, and the lowest level directory name
 	return config, output_directory, timestamp_output_path
+
+def initialize_eval_workflow():
+	# Generate a timestamp string
+	timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+	# Define the base output directory and ensure it exists
+	base_output_dir = "../relevance_tests"
+	os.makedirs(base_output_dir, exist_ok=True)
+
+	# Define the name of the timestamped output directory
+	timestamp_dir_name = f"eval_{timestamp}"
+
+	# Create the timestamped output directory within 'output'
+	output_directory = os.path.join(base_output_dir, timestamp_dir_name)
+	os.makedirs(output_directory, exist_ok=True)
+
+	# Set timestamp_output_path to just the name of the timestamped directory
+	# This holds just the directory name, not the full path
+	timestamp_output_path = timestamp_dir_name
+
+	# Copy the config file into the timestamped output directory
+	shutil.copy(
+		GlobalClass.config_file,  # Assuming GlobalClass.config_file is defined elsewhere
+		os.path.join(output_directory, "config.json"),
+	)
+
+	generated_file_paths = []
+	for test_file in glob("../test_tsvs/*.tsv"):
+		output_path = os.path.join(output_directory, test_file.split("/")[-1])
+		shutil.copy(test_file, output_path)
+		generated_file_paths.append(output_path)
+
+	# Assuming get_config is a function that reads and returns the configuration
+	# Use the full path here for reading the config
+	config = get_config(output_directory)
+	assert config, "Configuration is empty or invalid"
+
+	# Return the configuration, the full path to the output directory, and the lowest level directory name
+	return config, output_directory, timestamp_output_path, generated_file_paths
 
 
 def get_output_json_filename(config, job_settings):
@@ -137,27 +177,32 @@ def main():
 	parser = argparse.ArgumentParser("arg_parser")
 	parser.add_argument("-config", "--config_file", dest='config_file',
 						help="Config file. Default=config.json.", default="../config.json", type=str)
+	parser.add_argument("-eval_dir", default=None, type=str)
 	args = parser.parse_args()
+ 
+	
 	GlobalClass.config_file = args.config_file
+	if not args.eval_dir:
+		# Assuming initialize_workflow loads the config file and sets up the output directory
+		config, output_directory, timestamp_output_path = initialize_workflow()
 
-	# Assuming initialize_workflow loads the config file and sets up the output directory
-	config, output_directory, timestamp_output_path = initialize_workflow()
+		c_terms = skim.read_terms_from_file(
+			config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+		)
 
-	c_terms = skim.read_terms_from_file(
-		config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
-	)
+		a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
+		if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
+			a_terms = skim.read_terms_from_file(
+				config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"])
 
-	a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
-	if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
-		a_terms = skim.read_terms_from_file(
-			config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"])
+		terms = itertools.product(a_terms, c_terms)
+		workflow = partial(main_workflow, config,
+						output_directory, timestamp_output_path)
 
-	terms = itertools.product(a_terms, c_terms)
-	workflow = partial(main_workflow, config,
-					   output_directory, timestamp_output_path)
-
-	with multiprocessing.Pool() as p:
-		generated_file_paths = p.map(workflow, terms)
+		with multiprocessing.Pool() as p:
+			generated_file_paths = p.map(workflow, terms)
+	else:
+		config, output_directory, timestamp_output_path, generated_file_paths = initialize_eval_workflow()
  
 	ssh_config = config.get("SSH", {})
 	if ssh_config and generated_file_paths:
@@ -173,6 +218,7 @@ def main():
 		ssh.execute_remote_command(
 			ssh_client, f"mkdir -p {remote_subdir_path}")
 		config_path = os.path.join(output_directory, "config.json")
+		files_path = os.path.join(output_directory, "files.txt")
 
 		try:
 			# Transfer generated files to the newly created subdirectory
@@ -216,12 +262,12 @@ def main():
 					ssh.transfer_files(
 						ssh_client, config_path, remote_config_path)
 	 
-			with open("./files.txt", "w+") as f:
+			with open(files_path, "w+") as f:
 				for remote_file in remote_file_paths:
 					f.write(f"{remote_file}\n")
 	 
 			ssh.transfer_files(
-						ssh_client, "./files.txt", remote_subdir_path)
+						ssh_client, files_path, remote_subdir_path)
 			ssh.execute_remote_command(
 				ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
 			ssh.execute_remote_command(

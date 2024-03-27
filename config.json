@@ -3,9 +3,9 @@
 	"KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
 	"POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
 	"SKIM_hypotheses": {
-		"BC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
-		"AB": "There exists an interaction facilitated by {b_term} that offers therapeutic benefits or slows the disease progression of {a_term}.",
-		"ABC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term} and offers therapeutic benefits or slowes the disease progression of {a_term}."
+		"BC": "There exists an interaction facilitated by C_TERM={c_term} that modulates the expression of B_TERM={b_term}.",
+		"AB": "There exists an interaction facilitated by B_TERM={b_term} that offers therapeutic benefits or slows the disease progression of A_TERM={a_term}.",
+		"ABC": "There exists an interaction facilitated by C_TERM={c_term} that modulates the expression of B_TERM={b_term} and offers therapeutic benefits or slowes the disease progression of A_TERM={a_term}."
 	},
 	"Evaluate_single_abstract": false,
 	"GLOBAL_SETTINGS": {
