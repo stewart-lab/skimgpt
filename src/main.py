@@ -1,279 +1,250 @@
-from __future__ import annotations
-import pandas as pd
-from transformers import set_seed
-import json
-from Bio import Entrez
-import vllm
-from lmformatenforcer import RegexParser
-from lmformatenforcer.integrations.vllm import build_vllm_logits_processor, build_vllm_token_enforcer_tokenizer_data
+import ssh_helper as ssh
+import get_pubmed_text as pubmed
 import argparse
-from abstract_comprehension import read_tsv_to_dataframe
-from utils import Config, RaggedTensor
+import skim_and_km_api as skim
+from datetime import datetime
+from functools import partial
+import copy
+import inspect
+import importlib
+import re
+import shutil
+import json
+import itertools
+import time
+import pandas as pd
+import multiprocessing
+from jobs import main_workflow
+# add parent directory to path
 from tqdm import tqdm
-import numpy as np
+import sys
 import os
-import jinja2
-from classifier import process_single_row, write_to_json, test_openai_connection
-        
-# Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis. 
-# Only two arguements should be specified at once.
-def getHypothesis(config, a_term: str = None, b_term: str = None, c_term: str = None) -> str:
-    job_type = config.get("JOB_TYPE", "").lower()
-    
-    if job_type == "km_with_gpt":
-        assert a_term and b_term and not c_term
-        hypothesis_template = config.get("KM_hypothesis", "")
-        
-        return hypothesis_template.format(a_term=a_term, b_term=b_term)
-    
-    elif job_type == "position_km_with_gpt":
-        assert a_term and b_term and not c_term
-        
-        hypothesis_template = config.get("POSITION_KM_hypothesis", "")
-        return hypothesis_template.format(a_term=a_term, b_term=b_term), None
-    
-    elif job_type == "skim_with_gpt":        
-        if a_term and b_term and not c_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("AB")
-            return hypothesis_template.format(a_term=a_term, b_term=b_term)
-        
-        elif b_term and c_term and not a_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("BC")
-            return hypothesis_template.format(b_term=b_term, c_term = c_term)
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# import openai
 
-    else:
-        return "No valid hypothesis for the provided JOB_TYPE."
-    
-    
 
-def cot_prompt(sys_prompt: str, hyp: str, abstract: str) -> str:
-    context = {
-        "sys_prompt": sys_prompt,
-        "hyp": hyp,
-        "abstract": abstract,
-    }
-    
-    template = jinja2.Template("""
-        <|im_start|>system
-        {{sys_prompt}}
-        <|im_end|>
-        <|im_start|>user
-        Hypothesis: {{hyp}}
-        Abstract: {{abstract}}
+class Singleton(type):
+	def __init__(cls, name, bases, dict):
+		super(Singleton, cls).__init__(name, bases, dict)
+		cls.instance = None
 
-        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. The criterion for relevance is broad. A relevant abstract should capture any potential link between the terms detailed in the hypothesis, whether direct or indirect.
 
-        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
-        <|im_end|>
-        <|im_start|>assistant                           
-    """)
-    
-    return template.render(context)
+class GlobalClass(object):
+	__metaclass__ = Singleton
+	config_file = 'y'
 
-def answer_prompt(sys_prompt: str, hyp: str, abstract: str, chain_of_thought: str, continuous: bool) -> str:
-    context = {
-        "sys_prompt": sys_prompt,
-        "hyp": hyp,
-        "abstract": abstract,
-        "chain_of_thought": chain_of_thought,
-        "continuous": continuous
-    }
-    
-    template = jinja2.Template("""
-        <|im_start|>system
-        {{sys_prompt}}
-        <|im_end|>
-        <|im_start|>user
-        Hypothesis: {{hyp}}
-        Abstract: {{abstract}}
+	def __init__():
+		print("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
 
-        Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. The criterion for relevance is broad. A relevant abstract should capture any potential link between the terms detailed in the hypothesis, whether direct or indirect. An abstract that contains somewhat related information to the hypothesis should be considered as relevant.
+# Ron is using: "./configRMS_needSpecialTunnel.json"
 
-        Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer.
-        {{chain_of_thought}}
-        
-        {% if continuous %}
-        Classify the given abstract with a score between 0 (Not relevant for scientifically assessing the hypothesis) and 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
-        {% else %}
-        Classify the given abstract as either 0 (Not relevant for scientifically assessing the hypothesis) or 1 (Relevant for scientifically assessing the hypothesis) based on the reasoning above and other useful pieces of information in the abstract and hypothesis.
-        {% endif %}
-        Answer: 
-        <|im_end|>
-        <|im_start|>assistant
-    """)
-    
-    return template.render(context)
-    
-def gen(prompts: RaggedTensor, model: any, sampling_config: vllm.SamplingParams) -> RaggedTensor:
-	generated = model.generate(prompts.data, sampling_params = sampling_config)
-	outputs = RaggedTensor([output.outputs[0].text for output in generated], prompts.break_point)
-	return outputs
 
-def getCoTPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor) -> RaggedTensor:
-    assert not abstracts.is2D(), "abstracts should be flattened."
-    assert not hypotheses.is2D(), "hypotheses should be flattened."
-    return RaggedTensor([cot_prompt(sys_prompt, hypotheses[i], abstracts[i]) for i in range(abstracts.shape)], hypotheses.break_point)
+def initialize_workflow():
+	# Generate a timestamp string
+	timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
-def getAnswerPrompts(abstracts: RaggedTensor, sys_prompt: str, hypotheses: RaggedTensor, cot_outputs: RaggedTensor, continuous: bool) -> RaggedTensor:
-    assert not abstracts.is2D(), "abstracts should be flattened."
-    assert not hypotheses.is2D(), "hypotheses should be flattened."
-    assert not cot_outputs.is2D(), "cot outputs should be flattened"
-    return RaggedTensor([answer_prompt(sys_prompt, hypotheses[i], abstracts[i], cot_outputs[i], continuous) for i in range(abstracts.shape)], hypotheses.break_point)
-    
-# Returns a dictionary for each PMID & Abstract Pair
-# This method is needed since Entrez automatically removes duplicates in the pmid list
-def getAbstractMap(config: json, pmids: list[str]) -> dict:
-    returned_pmids = []
-    returned_abstracts = []
-    global_config = config["GLOBAL_SETTINGS"]
-    pmid_config = global_config["PUBMED_PARAMS"]
-    
-    Entrez.email = 'leoxu27@gmail.com'
-    Entrez.api_key = config["PUBMED_API_KEY"]
-    Entrez.max_tries = global_config["MAX_RETRIES"]
-    Entrez.sleep_between_tries = global_config["RETRY_DELAY"]
-    efetch = Entrez.efetch(db=pmid_config["db"], id=pmids, rettype=pmid_config["rettype"])
-    
-    output = Entrez.read(efetch)
-    efetch.close()
-    
-    for paper in output["PubmedArticle"]:
-        pmid = paper["MedlineCitation"]["PMID"]
-        returned_pmids.append(str(pmid))
-        abstract_text = f'PMID {pmid}: {" ".join(paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])}'
-        returned_abstracts.append(abstract_text)
-    return dict(zip(returned_pmids, returned_abstracts))
+	# Define the base output directory and ensure it exists
+	base_output_dir = "../output"
+	os.makedirs(base_output_dir, exist_ok=True)
+
+	# Define the name of the timestamped output directory
+	timestamp_dir_name = f"output_{timestamp}"
+
+	# Create the timestamped output directory within 'output'
+	output_directory = os.path.join(base_output_dir, timestamp_dir_name)
+	os.makedirs(output_directory, exist_ok=True)
+
+	# Set timestamp_output_path to just the name of the timestamped directory
+	# This holds just the directory name, not the full path
+	timestamp_output_path = timestamp_dir_name
+
+	# Copy the config file into the timestamped output directory
+	shutil.copy(
+		GlobalClass.config_file,  # Assuming GlobalClass.config_file is defined elsewhere
+		os.path.join(output_directory, "config.json"),
+	)
+
+	# Assuming get_config is a function that reads and returns the configuration
+	# Use the full path here for reading the config
+	config = get_config(output_directory)
+	assert config, "Configuration is empty or invalid"
+
+	# Return the configuration, the full path to the output directory, and the lowest level directory name
+	return config, output_directory, timestamp_output_path
+
+
+def get_output_json_filename(config, job_settings):
+	a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
+	output_json_map = {
+		"km_with_gpt": f"km_with_gpt_{a_term}_output.json",
+		"post_km_analysis": f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json",
+		"drug_discovery_validation": f"{a_term}_censorYear{job_settings.get('skim', {}).get('censor_year', '')}_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
+		"position_km_with_gpt": "position_km_with_gpt.json",
+		"skim_with_gpt": "skim_with_gpt.json",
+	}
+
+	output_json = output_json_map.get(config["JOB_TYPE"])
+	if output_json is None:
+		raise ValueError(f"Invalid job type: {config['JOB_TYPE']}")
+
+	return output_json.replace(" ", "_").replace("'", "")
+
+
+def get_config(output_directory):
+	config_path = os.path.join(output_directory, "config.json")
+	with open(config_path, "r") as f:
+		config = json.load(f)
+
+	job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
+	config["OUTPUT_JSON"] = get_output_json_filename(config, job_settings)
+
+	api_key = os.getenv("OPENAI_API_KEY", "")
+	if not api_key:
+		raise ValueError("OPENAI_API_KEY environment variable not set.")
+
+	config["API_KEY"] = api_key
+
+	pubmed_api_key = os.getenv("PUBMED_API_KEY", "")
+	if not pubmed_api_key:
+		raise ValueError("PUBMED_API_KEY environment variable not set.")
+	config["PUBMED_API_KEY"] = pubmed_api_key
+
+	with open(os.path.join(output_directory, "config.json"), "w") as f:
+		json.dump(config, f, indent=4)
+
+	return config
+
+
+def read_tsv_to_dataframe(file_path):
+	return pd.read_csv(file_path, sep="\t")
+
+
+def write_to_json(data, file_path, output_directory):
+	full_path = os.path.join(output_directory, file_path)
+	with open(full_path, "w") as outfile:
+		json.dump(data, outfile, indent=4)
+
+
+def create_corrected_file_path(original_path):
+	# Split the original path into name and extension
+	file_name, file_extension = os.path.splitext(original_path)
+	# Create a new path with "corrected" appended
+	new_path = f"{file_name}_corrected{file_extension}"
+	return new_path
 
 
 def main():
-    ###################### Argument Parsing ############################ 
-    parser = argparse.ArgumentParser(description='Mistral7B Inference')
+	parser = argparse.ArgumentParser("arg_parser")
+	parser.add_argument("-config", "--config_file", dest='config_file',
+						help="Config file. Default=config.json.", default="../config.json", type=str)
+	args = parser.parse_args()
+	GlobalClass.config_file = args.config_file
 
-    parser.add_argument('--km_output', type=str, required=True, help='Path to the TSV file holding a km run output.')
-    parser.add_argument('--config', type=str, required=True, help='Config file for kmGPT run.')
-    args = parser.parse_args()
-    ###################### AB Data Loading & Processsing ############################ 
-    config = Config(args)
-    cot_df = config.data.copy(deep = True)
-    filtered_df = config.data.copy(deep = True)
+	# Assuming initialize_workflow loads the config file and sets up the output directory
+	config, output_directory, timestamp_output_path = initialize_workflow()
 
-    a_term = config.data.a_term.unique().tolist()[0].split("&")[0]
-    b_terms = config.data.b_term.unique().tolist()
-    
-    ab_pmids = RaggedTensor([eval(lst) for lst in config.data.ab_pmid_intersection])
-    ab_hypotheses = RaggedTensor([getHypothesis(config.job_config, a_term = a_term, b_term = b_term) for b_term in b_terms])
+	c_terms = skim.read_terms_from_file(
+		config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+	)
 
-    all_pmids = ab_pmids.flatten()
-    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
+	a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
+	if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
+		a_terms = skim.read_terms_from_file(
+			config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"])
 
-    ###################### BC Data Loading & Processsing ############################ 
-    if config.is_skim_gpt:
-        c_term = config.data.c_term.unique().tolist()[0]
-        bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
-        bc_hypotheses = RaggedTensor([getHypothesis(config.job_config, c_term = c_term, b_term = b_term) for b_term in b_terms])
-    
-        all_pmids += bc_pmids.flatten()
-        all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
-        
-    abstract_map = getAbstractMap(config.job_config, all_pmids)
-    abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
+	terms = itertools.product(a_terms, c_terms)
+	workflow = partial(main_workflow, config,
+					   output_directory, timestamp_output_path)
 
-    ##################### Model Loading & Generation ############################ 
-    mistral = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=16832)
-    tokenizer_data = build_vllm_token_enforcer_tokenizer_data(mistral)
-    logits_processor = build_vllm_logits_processor(tokenizer_data, RegexParser(config.regex))
-    
-    sampling_cot = vllm.SamplingParams(
-            temperature = config.filter_config["TEMPERATURE"], 
-            top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
-            repetition_penalty = config.filter_config["REPETITION_PENALTY"],
-            max_tokens = config.max_cot_tokens)
-    
-    sampling_answer = vllm.SamplingParams(
-            temperature=config.filter_config["TEMPERATURE"], 
-            top_k = config.filter_config["TOP_K"], top_p = config.filter_config["TOP_P"], 
-            max_tokens = config.max_score_tokens,
-            repetition_penalty = config.filter_config["REPETITION_PENALTY"],
-            logits_processors = [logits_processor])
+	with multiprocessing.Pool() as p:
+		generated_file_paths = p.map(workflow, terms)
+ 
+	ssh_config = config.get("SSH", {})
+	if ssh_config and generated_file_paths:
+		# Create SSH client using the key for authentication
+		ssh_client = ssh.create_ssh_client(
+			ssh_config['server'], ssh_config['port'], ssh_config['user'], ssh_config.get('key_path'))
 
-    ##################### LLM Inference ############################
-    cot_prompts = getCoTPrompts(abstracts, config.sys_prompt, all_hypotheses)
-    cot_outputs = gen(cot_prompts, mistral, sampling_cot)
-    
-    answer_prompts = getAnswerPrompts(abstracts, config.sys_prompt, all_hypotheses, cot_outputs, config.continuous)
-    answers = gen(answer_prompts, mistral, sampling_answer)
-    answers = answers.map(lambda x: eval(x))
+		# Create the subdirectory in the remote path
+		remote_subdir_path = os.path.join(
+			ssh_config['remote_path'], timestamp_output_path)
+		remote_src_path = os.path.join(ssh_config['remote_path'], 'src')
+		ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_src_path}")
+		ssh.execute_remote_command(
+			ssh_client, f"mkdir -p {remote_subdir_path}")
+		config_path = os.path.join(output_directory, "config.json")
 
-    ##################### Post process AB answers ############################
-    ab_raw_scores, bc_raw_scores = answers.split()
-    ab_abstracts, bc_abstracts = abstracts.split()
-    ab_cot, bc_cot = cot_outputs.split()
-    
-    ab_raw_scores.reshape(ab_pmids.shape)
-    
-    ab_answer_masks = ab_raw_scores
-    if config.continuous:
-        ab_answer_masks = ab_raw_scores.getFullKArgMax(k = config.k)
-    ab_abstracts.reshape(ab_pmids.shape)
-    
-    ab_abstracts.applyFilter(ab_answer_masks)
-    ab_cot.reshape(ab_pmids.shape)
-    
-    filtered_df["ab_pmid_intersection"] = ab_abstracts.data
-    cot_df["ab_mask"] = ab_answer_masks.data
-    cot_df["ab_score"] = ab_raw_scores.data
-    cot_df["ab_cot"] = ab_cot.data
-    cot_df["ab_hypothesis"] = ab_hypotheses.data
+		try:
+			# Transfer generated files to the newly created subdirectory
+			remote_file_paths = []
+			dynamic_file_names = []
+			for path_item in generated_file_paths:
+				# Normalize handling for both individual path items and lists
+				if not isinstance(path_item, list):
+					# Make it a list for uniform processing
+					path_item = [path_item]
+				for file_path in path_item:
+					# Get the absolute path of the file
+					local_file = os.path.abspath(file_path)
+					file_name = os.path.basename(
+						file_path)  # Extract the file name
+					# Make a safe file name
+					safe_file_name = re.sub(
+						r'[^a-zA-Z0-9_\-\.]', '_', file_name)
+					base_name = safe_file_name.replace(
+						"_output_filtered.tsv", "")
+					json_file_name = f"{base_name}.json"
+					config["OUTPUT_JSON"] = json_file_name
+					with open(os.path.join(output_directory, "config.json"), "w") as f:
+						json.dump(config, f, indent=4)
+					# Construct the remote path with file name
+					remote_file_path = os.path.join(
+						remote_subdir_path, safe_file_name)
 
-    ##################### Post process BC answers ############################ 
-    if config.is_skim_gpt:
-        bc_raw_scores.reshape(bc_pmids.shape)
-        
-        bc_answer_masks = bc_raw_scores
-        if config.continuous:
-            bc_answer_masks = bc_raw_scores.getFullKArgMax(k = config.k)
-    
-        bc_abstracts.reshape(bc_pmids.shape)
-        bc_abstracts.applyFilter(bc_answer_masks)
-        bc_cot.reshape(bc_pmids.shape)
-    
-        filtered_df["bc_pmid_intersection"] = bc_abstracts.data
-        cot_df["bc_mask"] = bc_answer_masks.data
-        cot_df["bc_score"] = bc_raw_scores.data
-        cot_df["bc_cot"] = bc_cot.data
-        cot_df["bc_hypothesis"] = bc_hypotheses.data
-    
-    filtered_df.to_csv(f"{config.filtered_tsv_name}", sep="\t")
-    cot_df.to_csv(f"{config.cot_tsv_name}", sep="\t")
-    
-    ###################### Open AI Call #####################################
-    # results = {}
+					remote_file_paths.append(remote_file_path.split("/")[-1])
+					dynamic_file_names.append(f"filtered_{safe_file_name}")
+					dynamic_file_names.append(f"cot_{safe_file_name}")
+					dynamic_file_names.append(json_file_name)
+					# Transfer the filex
+					ssh.transfer_files(
+						ssh_client, local_file, remote_file_path)
+					ssh.transfer_files(
+						ssh_client, ssh_config["src_path"], remote_src_path)
+					# Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
+					remote_config_path = os.path.join(
+						remote_subdir_path, "config.json")
+					ssh.transfer_files(
+						ssh_client, config_path, remote_config_path)
+	 
+			with open("./files.txt", "w+") as f:
+				for remote_file in remote_file_paths:
+					f.write(f"{remote_file}\n")
+	 
+			ssh.transfer_files(
+						ssh_client, "./files.txt", remote_subdir_path)
+			ssh.execute_remote_command(
+				ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}")
+			ssh.execute_remote_command(
+				ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}")
+			ssh.execute_remote_command(
+				ssh_client, f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub")
+			# Informative print to know what files are being waited on
+			print(f"Waiting for files: {dynamic_file_names}")
+			# Wait for the dynamically specified files
+			ssh.monitor_files_and_extensions(
+				ssh_client, remote_subdir_path, f"{output_directory}/filtered", dynamic_file_names, ['.log', '.err', '.out', ])
+			print("Files transferred successfully.")
+			# cleanup
+			ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
+			ssh.execute_remote_command(
+				ssh_client, f"rm -rf {remote_subdir_path}")
+		finally:
+			# Close the SSH connection
+			ssh_client.close()
+	else:
+		print("SSH configuration not found or no files to transfer.")
+		return
 
-    # # Test OpenAI connection if necessary
-    # test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
 
-    # # Process each row in the DataFrame
-    # for index, row in filtered_df.iterrows():
-    #     term = row["b_term"]
-    #     result_dict = process_single_row(row, config.job_config)
-    #     if result_dict:  # Ensure that result_dict is not None
-    #         if term not in results:
-    #             results[term] = [result_dict]
-    #         else:
-    #             results[term].append(result_dict)
-    #         print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
-    #     else:
-    #         print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
-
-    # # Check if results were processed
-    # if not results:
-    #     print("No results were processed.")
-    # else:
-    #     # Save the results to a JSON file
-    #     output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
-    #     write_to_json(results, output_json_path, config.km_output_dir)
-    #     print(f"Analysis results have been saved to {config.km_output_dir}")
-    return
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+	main()
