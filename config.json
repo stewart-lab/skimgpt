@@ -5,6 +5,7 @@
 	"SKIM_hypotheses": {
 		"BC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
 		"AB": "There exists an interaction facilitated by {b_term} that offers therapeutic benefits or slows the disease progression of {a_term}.",
+		"AC": "{c_term} may be useful in treating {a_term}.",
 		"ABC": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through an indirect relationship moudulated by {b_term}."
 	},
 	"Evaluate_single_abstract": false,
@@ -84,5 +85,7 @@
 				"censor_year": 2024
 			}
 		}
-	}
+	},
+	"PUBMED_API_KEY": "8bfe67116f93cedbee9e4f31a1e65b7e1d09",
+	"OPENAI_API_KEY": "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"
 }
