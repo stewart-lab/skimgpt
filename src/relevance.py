@@ -96,7 +96,7 @@ def answer_prompt(sys_prompt: str, hyp: str, abstract: str, chain_of_thought: st
 
 		Determine whether or not this abstract is relevant for scientifically evaluating the provided hypothesis. A relevant abstract must directly comment on the hypothesis and either support the given hypothesis or have evidence to refute the hypothesis.
 
-		Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Ignore redacted terms and make sure to look at the terms provided. Let's work this out in a step by step way to be sure we have the right answer. As a first step, use context clues to figure out the meaning of the terms given.
+		Analyze the abstract above, and throughly describe your thought process for evaluating the hypothesis. Pay attention to particular details in the abstract as it relates to the hypothesis. Make sure to stay focused on what the hypothesis is specifically saying. Let's work this out in a step by step way to be sure we have the right answer. As a first step, use context clues to figure out the meaning of the terms given.
 		{{chain_of_thought}}
 		
 		{% if continuous %}
@@ -152,20 +152,29 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
 	return dict(zip(returned_pmids, returned_abstracts))
 
 # Packages all the inputted data into the provided dataframes
-def postProcess(config: Config, terms: str, raw_scores: RaggedTensor, shape: list, abstracts: RaggedTensor, cot: RaggedTensor, hypotheses: RaggedTensor, cot_df: pd.DataFrame, filtered_df: pd.DataFrame):
-	raw_scores.reshape(shape)
-	answer_masks = raw_scores
-	
-	if config.continuous:
-		answer_masks = raw_scores.getFullKArgMax(k = config.k)
+def postProcess(config: Config, raw_scores: RaggedTensor, abstracts: RaggedTensor, cot: RaggedTensor, hypotheses: RaggedTensor, cot_df: pd.DataFrame, filtered_df: pd.DataFrame, terms: str, shape: list):
 	abstracts.reshape(shape)
 	cot.reshape(shape)
+	raw_scores.reshape(shape)
+		
+	answer_masks = raw_scores
+	if config.continuous:
+		answer_masks = raw_scores.getFullKArgMax(k = config.k)
 	
-	filtered_df[f"{terms}_pmid_intersection"] = abstracts.data
-	cot_df[f"{terms}_mask"] = answer_masks.data
-	cot_df[f"{terms}_score"] = raw_scores.data
-	cot_df[f"{terms}_cot"] = cot.data
-	cot_df[f"{terms}_hypothesis"] = hypotheses.data
+	# This is needed because there will only be one AC abstract list per TSV
+	if terms == "ac":
+		filtered_df[f"{terms}_pmid_intersection"] = abstracts.data * len(filtered_df)
+		cot_df[f"{terms}_mask"] = answer_masks.data * len(filtered_df)
+		cot_df[f"{terms}_score"] = raw_scores.data * len(filtered_df)
+		cot_df[f"{terms}_cot"] = cot.data * len(filtered_df)
+		cot_df[f"{terms}_hypothesis"] = hypotheses.data * len(filtered_df)
+  
+	else:
+		filtered_df[f"{terms}_pmid_intersection"] = abstracts.data
+		cot_df[f"{terms}_mask"] = answer_masks.data
+		cot_df[f"{terms}_score"] = raw_scores.data
+		cot_df[f"{terms}_cot"] = cot.data
+		cot_df[f"{terms}_hypothesis"] = hypotheses.data
 
 def main():
 	###################### Argument Parsing ############################ 
@@ -203,7 +212,7 @@ def main():
 			ac_hypothesis = RaggedTensor([getHypothesis(config.job_config, a_term = a_term, c_term = c_term)])
 
 			all_pmids += ac_pmids
-			all_hypotheses += ac_hypothesis
+			all_hypotheses += ac_hypothesis.expand([ac_pmids.shape])
 
 	abstract_map = getAbstractMap(config.job_config, all_pmids)
 	abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
@@ -248,7 +257,7 @@ def main():
 	if config.is_skim_gpt:
 		postProcess(config, bc_raw_scores, bc_abstracts, bc_cot, ab_hypotheses, cot_df, filtered_df, terms = "bc", shape = bc_pmids.shape)
 		if config.has_ac:
-			postProcess(config, ac_raw_scores, ac_abstracts, ac_cot, ab_hypotheses, cot_df, filtered_df, terms = "ac", shape = ac_pmids.shape)
+			postProcess(config, ac_raw_scores, ac_abstracts, ac_cot, ac_hypothesis, cot_df, filtered_df, terms = "ac", shape = [ac_pmids.shape])
 	
 	filtered_df.to_csv(f"{config.filtered_tsv_name}", sep="\t")
 	cot_df.to_csv(f"{config.cot_tsv_name}", sep="\t")

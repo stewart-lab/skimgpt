@@ -80,22 +80,6 @@ def position_km_with_gpt_workflow(config, output_directory):
 def skim_with_gpt_workflow(config, output_directory, a_term, c_term):
 	skim_file_paths = []  # Initialize the list to collect file paths
 
-	# c_terms = skim.read_terms_from_file(
-	#     config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
-	# )
-
-	# if not c_terms:
-	#     print("C terms are empty")
-	#     return skim_file_paths
-
-	# a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
-	# if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
-	#     a_terms = skim.read_terms_from_file(
-	#         config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
-	#     )
-
-	# for a_term in a_terms:
-	#     for c_term in c_terms:
 	local_config = copy.deepcopy(config)
 	local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
 	c_term_file = os.path.join(output_directory, f"{c_term}.txt")

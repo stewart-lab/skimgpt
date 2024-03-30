@@ -154,7 +154,8 @@ class Config:
 		
 		self.sys_prompt = self.filter_config['SYS_PROMPT']
 		self.is_skim_gpt = self.job_type == "skim_with_gpt"
-		self.has_ac = "ac_pmid_intersection" in self.data.columns
+		# Make sure the df has an ac_pmid_intersection that isn't empty
+		self.has_ac = "ac_pmid_intersection" in self.data.columns and len(self.data["ac_pmid_intersection"].value_counts()) > 0
 		self.continuous = self.filter_config["CONTINUOUS_SCORE"]
 		
 		self.regex = r'[0][.]\d{5}' if self.continuous else r'0|1'
