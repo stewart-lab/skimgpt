@@ -18,7 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # import openai
 
 
-def km_with_gpt_workflow(config, output_directory, file_paths=None):
+def km_with_gpt_workflow(config, output_directory):
 	if file_paths is None:
 		file_paths = []
 

@@ -1,0 +1,2 @@
+	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
+7	Pancreatic cancer	[25889214, 28697764, 35408691, 36367161, 38058810]	[0,0,0,0,0]	CCK	[27894350, 27601167, 30268354, 32677544, 35933378]	[0,0,0,0,0]	gant61	[19860666, 20024066, 27349387, 24297612, 31036756]	[1,0,1,1,1]

@@ -195,7 +195,6 @@ def main():
 			a_terms = skim.read_terms_from_file(
 				config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"])
 
-		if config[""]
 		terms = itertools.product(a_terms, c_terms)
 		workflow = partial(main_workflow, config,
 						output_directory, timestamp_output_path)
