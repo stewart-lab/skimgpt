@@ -255,7 +255,7 @@ def main():
 
 	##################### Post process BC answers ############################ 
 	if config.is_skim_gpt:
-		postProcess(config, bc_raw_scores, bc_abstracts, bc_cot, ab_hypotheses, cot_df, filtered_df, terms = "bc", shape = bc_pmids.shape)
+		postProcess(config, bc_raw_scores, bc_abstracts, bc_cot, bc_hypotheses, cot_df, filtered_df, terms = "bc", shape = bc_pmids.shape)
 		if config.has_ac:
 			postProcess(config, ac_raw_scores, ac_abstracts, ac_cot, ac_hypothesis, cot_df, filtered_df, terms = "ac", shape = [ac_pmids.shape])
 	
