@@ -15,7 +15,7 @@ arguments = $(file)
 # Specify file transfer behavior and the files to be transferred
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-transfer_input_files = .,../src/
+transfer_input_files = ., ../src/
 
 # Output, error, and log file settings
 output = run_$(Cluster)_$(Process).out
