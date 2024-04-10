@@ -1,2 +1,0 @@
-a_count	a_term	ab_count	ab_pmid_intersection	ab_pred_score	ab_pvalue	ab_sort_ratio	b_count	b_term	bc_count	bc_pmid_intersection	bc_pred_score	bc_pvalue	bc_sort_ratio	c_count	c_term	total_count
-657735	Non-alcoholic fatty liver disease	646	[23978414, 32042044, 31551937, 31191364, 32240652]	0.0614487510800821	0.5372071064802428	0.0178704805112174	36149	ULK1	96	[30244168, 26636543, 29154199, 37886951]	0.20775012657002	7.080303933178968e-58	0.0091254752851711	10520	pp242	36691282

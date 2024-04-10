@@ -1,0 +1,2 @@
+	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
+0	Alzheimer’s	[10368299, 16275899, 37636505, 34455970, 32250307]	[0,1,1,1,1]	BCHE	[16293236, 17192662, 31051153, 33592259, 32278739]	[1,1,1,1,1]	2 pam	[21731462, 1494302, 26165232, 22647259, 23916150]	[1,1,1,0,1]

@@ -1,0 +1,2 @@
+	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
+6	Pancreatic cancer	[24025713, 28507103, 36428689, 35724566, 37242714]	[1,1,1,1,1]	NAMPT	[35818423, 38003249, 36948143]	[1,1,1]	ginsenoside rb1	[7954360, 27893436, 36641437]	[0,1,1]

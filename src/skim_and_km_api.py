@@ -151,15 +151,15 @@ def km_with_gpt_workflow(config=None, output_directory=None):
         a_term = str(a_term) + str(a_term_suffix)
     print("Executing KM workflow...")
     print("Reading terms from files...")
-    c_terms = read_terms_from_file(
+    b_terms = read_terms_from_file(
         config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
     )
-    assert c_terms, "B_TERM is not defined in the configuration"
+    assert b_terms, "B_TERM is not defined in the configuration"
     print(f"Running and saving KM query for a_term: {a_term}...")
     km_file_path = run_and_save_query(
         "km_with_gpt",
         a_term,
-        c_terms,
+        b_terms,
         config=config,
         output_directory=output_directory,
     )

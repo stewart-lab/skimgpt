@@ -73,7 +73,7 @@ def initialize_workflow():
 	# Return the configuration, the full path to the output directory, and the lowest level directory name
 	return config, output_directory, timestamp_output_path
 
-def initialize_eval_workflow():
+def initialize_eval_workflow(tsv_dir):
 	# Generate a timestamp string
 	timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -99,7 +99,7 @@ def initialize_eval_workflow():
 	)
 
 	generated_file_paths = []
-	for test_file in glob("../test_tsvs/*.tsv"):
+	for test_file in glob(f"{tsv_dir}/*.tsv"):
 		output_path = os.path.join(output_directory, test_file.split("/")[-1])
 		shutil.copy(test_file, output_path)
 		generated_file_paths.append(output_path)
@@ -177,15 +177,15 @@ def main():
 	parser = argparse.ArgumentParser("arg_parser")
 	parser.add_argument("-config", "--config_file", dest='config_file',
 						help="Config file. Default=config.json.", default="../config.json", type=str)
-	parser.add_argument("-eval_dir", default=None, type=str)
+	parser.add_argument("-tsv_dir", default=None, type=str)
 	args = parser.parse_args()
  
 	
 	GlobalClass.config_file = args.config_file
-	if not args.eval_dir:
+	if not args.tsv_dir:
 		# Assuming initialize_workflow loads the config file and sets up the output directory
 		config, output_directory, timestamp_output_path = initialize_workflow()
-
+		
 		c_terms = skim.read_terms_from_file(
 			config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
 		)
@@ -202,7 +202,7 @@ def main():
 		with multiprocessing.Pool() as p:
 			generated_file_paths = p.map(workflow, terms)
 	else:
-		config, output_directory, timestamp_output_path, generated_file_paths = initialize_eval_workflow()
+		config, output_directory, timestamp_output_path, generated_file_paths = initialize_eval_workflow(args.tsv_dir)
  
 	ssh_config = config.get("SSH", {})
 	if ssh_config and generated_file_paths:
@@ -251,16 +251,16 @@ def main():
 					dynamic_file_names.append(f"filtered_{safe_file_name}")
 					dynamic_file_names.append(f"cot_{safe_file_name}")
 					# dynamic_file_names.append(json_file_name)
-					# Transfer the filex
+					# Transfer the files
 					ssh.transfer_files(
 						ssh_client, local_file, remote_file_path)
-					ssh.transfer_files(
-						ssh_client, ssh_config["src_path"], remote_src_path)
-					# Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
-					remote_config_path = os.path.join(
-						remote_subdir_path, "config.json")
-					ssh.transfer_files(
-						ssh_client, config_path, remote_config_path)
+			ssh.transfer_files(
+				ssh_client, ssh_config["src_path"], remote_src_path)
+			# Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
+			remote_config_path = os.path.join(
+				remote_subdir_path, "config.json")
+			ssh.transfer_files(
+				ssh_client, config_path, remote_config_path)
 	 
 			with open(files_path, "w+") as f:
 				for remote_file in remote_file_paths:

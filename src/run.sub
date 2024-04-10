@@ -10,11 +10,12 @@ docker_pull_policy = missing
 
 # The executable is a script or command that resides in the current directory, which will be transferred to the Docker container
 executable = run.sh
+arguments = $(file)
 
 # Specify file transfer behavior and the files to be transferred
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-transfer_input_files = .,../src/
+transfer_input_files = ., ../src/
 
 # Output, error, and log file settings
 output = run_$(Cluster)_$(Process).out
@@ -39,4 +40,4 @@ stream_output = true
 # require_gpus = (Capability >= 8.0) && (GlobalMemoryMb >= 41000)
 
 # Job queueing
-queue 1
+queue file from files.txt

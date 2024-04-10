@@ -1,0 +1,2 @@
+	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
+1	Alzheimer’s	[9600986, 20655099, 35820485, 36639708, 35253743]	[1,1,1,0,0]	FYN	[11278378, 11788577, 36532777, 34238111, 35185557]	[1,1,1,1,1]	PP2	[11278378, 11756483, 30735733, 33536910, 34818135]	[1,1,1,1,1]

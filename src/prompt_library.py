@@ -45,16 +45,10 @@ def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstr
         "Few-Shot Learning Examples:\n"
         "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
         
-        f"Example 1: {fsl.breast_cancer_example_1()}\n"
-        f"Example 2: {fsl.breast_cancer_example_2()}\n"
-        f"Example 3: {fsl.raynauds_disease_example_1()}\n"
-        f"Example 4: {fsl.raynauds_disease_example_2()}\n"
-        f"Example 5: {fsl.heart_failure_example_1()}\n"
-        f"Example 6: {fsl.heart_failure_example_2()}\n"
         "Format your response as:\n"
         "Score: [Number] - Reasoning: [Reasoning]\n\n"
         "Scoring Guidelines:\n"
-        f"{sg.original_scoring_guidelines()}\n"
+        f"{sg.updated_KM_scoring_guidelines()}\n"
         "Biomedical Abstracts for Analysis:\n"
         f"{consolidated_abstracts}"
     )
