@@ -80,11 +80,19 @@ def run_and_save_query(
         return None
     
     file_name = job_config["a_terms"][0]
+    # read the result tsv into a dataframe
+    result_df = pd.DataFrame(result)
+    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
+        print("Sorting the results by the most recent articles...")
+        result_df['ab_pmid_intersection'] = result_df['ab_pmid_intersection'].apply(lambda x: sorted(x, reverse=True))
+
     if job_type == "skim_with_gpt":
+        if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
+            result_df['bc_pmid_intersection'] = result_df['bc_pmid_intersection'].apply(lambda x: sorted(x, reverse=True))
         file_name = job_config["a_terms"][0] + "_" + job_config["c_terms"][0]
 
     file_path = f"{job_type}_{file_name}_output.tsv"
-    save_to_tsv(result, file_path, output_directory)  # Pass output_directory
+    save_to_tsv(result_df, file_path, output_directory)  # Pass output_directory
     return file_path
 
 # Job Configuration
@@ -213,6 +221,7 @@ def skim_with_gpt_workflow(config, output_directory):
     km_df.rename(columns={"ab_pmid_intersection": "ac_pmid_intersection"}, inplace=True)
     ac_pmid_intersection_values = km_df.iloc[0]["ac_pmid_intersection"]
     skim_df["ac_pmid_intersection"] = [ac_pmid_intersection_values] * len(skim_df)
+    os.remove(full_km_file_path)
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get(
         "SORT_COLUMN", "bc_sort_ratio"
     )
@@ -221,6 +230,10 @@ def skim_with_gpt_workflow(config, output_directory):
         (skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]")) &
         (skim_df["ab_pmid_intersection"].apply(lambda x: x != "[]"))
     ]
+    # if valid_rows is empty, return None
+    if valid_rows.empty:
+        print("No SKIM results after filtering. Return None to indicate no SKIM results.")
+        return None
     skim_df = valid_rows
     # add _filtered to the skim_file_path
     full_skim_file_path = os.path.join(
@@ -228,8 +241,6 @@ def skim_with_gpt_workflow(config, output_directory):
     )
     # assert the sort_column is in the skim_df
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
-    assert not skim_df.empty, "SKIM results are empty"
-
     skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
     print(f"SKIM results saved to {full_skim_file_path}")
     return full_skim_file_path
