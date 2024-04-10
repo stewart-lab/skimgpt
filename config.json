@@ -1,89 +1,89 @@
 {
-	"JOB_TYPE": "skim_with_gpt",
-	"KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
-	"POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
-	"SKIM_hypotheses": {
-		"BC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
-		"AB": "There exists an interaction facilitated by {b_term} that offers therapeutic benefits or slows the disease progression of {a_term}.",
-		"AC": "{c_term} may be useful in treating {a_term}.",
-		"ABC": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through an indirect relationship moudulated by {b_term}."
-	},
-	"Evaluate_single_abstract": false,
-	"GLOBAL_SETTINGS": {
-		"A_TERM": "diabetes",
-		"A_TERM_SUFFIX": "",
-		"TOP_N_ARTICLES": 10,
-		"MAX_ABSTRACTS": 10,
-		"MIN_WORD_COUNT": 98,
-		"MODEL": "gpt-4-turbo-preview",
-		"MAX_TOKENS": 1000,
-		"API_URL": "http://localhost:5099/skim/api/jobs",
-		"PORT": "5081",
-		"BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
-		"PUBMED_PARAMS": {
-			"db": "pubmed",
-			"retmode": "xml",
-			"rettype": "abstract"
-		},
-		"RATE_LIMIT": 3,
-		"DELAY": 10,
-		"MAX_RETRIES": 10,
-		"RETRY_DELAY": 5
-	},
-	"SSH": {
-		"server": "ap2002.chtc.wisc.edu",
-		"port": 22,
-		"user": "lpxu",
-		"key_path": "/w5home/lxu3/.ssh/id_rsa",
-		"config_path": "../config.json",
-		"src_path": "./",
-		"remote_path": "/home/lpxu/kmtest/"
-	},
-	"abstract_filter": {
-		"MODEL": "Open-Orca/Mistral-7B-OpenOrca",
-		"TEMPERATURE": 0.8,
-		"TOP_K": 20,
-		"TOP_P": 0.95,
-		"REPETITION_PENALTY": 1.2,
-		"FREQUENCY_PENALTY": 1.2,
-		"SYS_PROMPT": "You are an advanced language model specialized in the field of biomedical research, with expertise stemming from a comprehensive analysis of the PubMed database. Your purpose is to assist researchers by evaluating the relevance and utility of individual biomedical abstracts in relation to specific research hypotheses. You focus on meticulously reviewing each abstract presented to you, determining its significance and potential contribution to the hypothesis in question. Your evaluations are grounded in a deep understanding of biomedical literature, ensuring accuracy and reliability in identifying the value of each abstract without comparing it to other studies",
-		"CONTINUOUS_SCORE": false,
-		"MAX_COT_TOKENS": 1024
-	},
-	"JOB_SPECIFIC_SETTINGS": {
-		"km_with_gpt": {
-			"A_TERM_LIST": false,
-			"A_TERMS_FILE": "input_lists/",
-			"B_TERMS_FILE": "../input_lists/ddi_b_terms.txt",
-			"SORT_COLUMN": "ab_sort_ratio",
-			"NUM_B_TERMS": 8,
-			"km_with_gpt": {
-				"ab_fet_threshold": 1,
-				"censor_year": 2023
-			}
-		},
-		"position_km_with_gpt": {
-			"A_TERM_LIST": true,
-			"A_TERMS_FILE": "input_lists/exp_2_a_list.txt",
-			"B_TERMS_FILE": "input_lists/exp_2_b_list.txt",
-			"SORT_COLUMN": "ab_sort_ratio",
-			"position_km_with_gpt": {
-				"ab_fet_threshold": 1,
-				"censor_year": 2024
-			}
-		},
-		"skim_with_gpt": {
-			"A_TERM_LIST": true,
-			"A_TERMS_FILE": "../input_lists/test/skim_a.txt",
-			"B_TERMS_FILE": "../input_lists/test/skim_b.txt",
-			"NUM_B_TERMS": 20000,
-			"C_TERMS_FILE": "../input_lists/test/skim_c.txt",
-			"SORT_COLUMN": "bc_sort_ratio",
-			"skim": {
-				"ab_fet_threshold": 1,
-				"bc_fet_threshold": 1,
-				"censor_year": 2024
-			}
-		}
-	}
+    "JOB_TYPE": "skim_with_gpt",
+    "KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
+    "POSITION_KM_hypothesis": "{b_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression.",
+    "SKIM_hypotheses": {
+        "BC": "There exists an interaction facilitated by {c_term} that modulates the expression of {b_term}.",
+        "AB": "There exists an interaction facilitated by {b_term} that offers therapeutic benefits or slows the disease progression of {a_term}.",
+        "ABC": "{c_term} may effectively alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression through an indirect relationship moudulated by {b_term}."
+    },
+    "Evaluate_single_abstract": false,
+    "GLOBAL_SETTINGS": {
+        "A_TERM": "diabetes",
+        "A_TERM_SUFFIX": "",
+        "TOP_N_ARTICLES": 100000,
+        "MOST_RECENT": true,
+        "MAX_ABSTRACTS": 10,
+        "MIN_WORD_COUNT": 98,
+        "MODEL": "gpt-4-turbo-preview",
+        "MAX_TOKENS": 1000,
+        "API_URL": "http://localhost:5099/skim/api/jobs",
+        "PORT": "5081",
+        "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+        "PUBMED_PARAMS": {
+            "db": "pubmed",
+            "retmode": "xml",
+            "rettype": "abstract"
+        },
+        "RATE_LIMIT": 3,
+        "DELAY": 10,
+        "MAX_RETRIES": 10,
+        "RETRY_DELAY": 5
+    },
+    "SSH": {
+        "server": "ap2002.chtc.wisc.edu",
+        "port": 22,
+        "user": "lpxu",
+        "key_path": "/w5home/lxu3/.ssh/id_rsa",
+        "config_path": "../config.json",
+        "src_path": "./",
+        "remote_path": "/home/lpxu/kmtest/"
+    },
+    "abstract_filter": {
+        "MODEL": "Open-Orca/Mistral-7B-OpenOrca",
+        "TEMPERATURE": 0.8,
+        "TOP_K": 20,
+        "TOP_P": 0.95,
+        "REPETITION_PENALTY": 1.2,
+        "FREQUENCY_PENALTY": 1.2,
+        "SYS_PROMPT": "You are an advanced language model specialized in the field of biomedical research, with expertise stemming from a comprehensive analysis of the PubMed database. Your purpose is to assist researchers by evaluating the relevance and utility of individual biomedical abstracts in relation to specific research hypotheses. You focus on meticulously reviewing each abstract presented to you, determining its significance and potential contribution to the hypothesis in question. Your evaluations are grounded in a deep understanding of biomedical literature, ensuring accuracy and reliability in identifying the value of each abstract without comparing it to other studies",
+        "CONTINUOUS_SCORE": false,
+        "MAX_COT_TOKENS": 1024
+    },
+    "JOB_SPECIFIC_SETTINGS": {
+        "km_with_gpt": {
+            "A_TERM_LIST": false,
+            "A_TERMS_FILE": "input_lists/",
+            "B_TERMS_FILE": "../input_lists/ddi_b_terms.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "NUM_B_TERMS": 8,
+            "km_with_gpt": {
+                "ab_fet_threshold": 1,
+                "censor_year": 2023
+            }
+        },
+        "position_km_with_gpt": {
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "input_lists/exp_2_a_list.txt",
+            "B_TERMS_FILE": "input_lists/exp_2_b_list.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "position_km_with_gpt": {
+                "ab_fet_threshold": 1,
+                "censor_year": 2024
+            }
+        },
+        "skim_with_gpt": {
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "../input_lists/test/skim_a.txt",
+            "B_TERMS_FILE": "../input_lists/test/skim_b.txt",
+            "NUM_B_TERMS": 20000,
+            "C_TERMS_FILE": "../input_lists/test/skim_c.txt",
+            "SORT_COLUMN": "bc_sort_ratio",
+            "skim": {
+                "ab_fet_threshold": 1,
+                "bc_fet_threshold": 1,
+                "censor_year": 2024
+            }
+        }
+    }
 }
