@@ -1,4 +1,3 @@
-import cmdlogtime
 import os
 import sys
 import json
@@ -94,5 +93,43 @@ def write_json_dict(json_dict, out_file):
         print(f"An error occurred while writing the JSON dictionary data: {e}")
         return None
 
+def extract_scores(directory):
+    results = []
+    # Walk through all files in the directory
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.json') and file != 'config.json':
+                # Construct the full file path
+                file_path = os.path.join(root, file)
+                # Open and load the JSON file
+                with open(file_path, 'r') as json_file:
+                    data = json.load(json_file)
+                    # Iterate over each entry in the JSON array
+                    for entry in data:
+                        Relationship = entry.get("Relationship", "No Relationship Provided")
+                        score_details = entry.get("Result", [])
+                        for detail in score_details:
+                            # Using regex to find the score pattern
+                            match = re.search(r"Score: ([-+]?\d+)", detail)
+                            if match:
+                                score = match.group(1)
+                                results.append({"Relationship": Relationship, "Score": score})
+    return results
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <directory_path>")
+        sys.exit(1)
+
+    directory_path = sys.argv[1]
+    score_results = extract_scores(directory_path)
+    results_file_path = os.path.join(directory_path, "results.txt")
+
+    # Saving the results to a text file in the specified directory
+    with open(results_file_path, "w") as file:
+        for result in score_results:
+            file.write(f"Relationship: {result['Relationship']}, Score: {result['Score']}\n")
+
 if __name__ == "__main__":
     main()
+

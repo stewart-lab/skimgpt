@@ -40,6 +40,49 @@ def initialize_workflow():
     return config, output_directory
 
 
+def test_example_3(df, i, csv_file_path):
+    # Load the PMIDs from the CSV file with converters to ensure correct format
+    pmids = pd.read_csv(csv_file_path, converters={"A-B PMIDs": lambda x: x, 
+                                                   "B-C PMIDs": lambda x: x, 
+                                                   "A-C PMIDs": lambda x: x})
+    print(f"Processing row {i + 1} of {len(pmids)}")
+    print(pmids.iloc[i]["A-B PMIDs"])  # Print the A-B PMIDs for this row
+    print(pmids.iloc[i]["B-C PMIDs"])  # Print the B-C PMIDs for this row
+    print(pmids.iloc[i]["A-C PMIDs"])  # Print the A-C PMIDs for this row
+    print(pmids)
+    print(pmids["A-B PMIDs"])
+    print(pmids["B-C PMIDs"])
+    print(pmids["A-C PMIDs"])
+
+    # Function to convert a comma-separated string of numbers into a list of integers
+    def convert_to_list(pmid_string):
+        # Ensure pmid_string is treated as a string
+        pmid_string = str(pmid_string)
+        if pd.isna(pmid_string) or pmid_string.strip() == '':
+            return []  # Return an empty list if the data is NaN or an empty string
+        try:
+            # Remove any leading/trailing whitespace and split the string by commas
+            pmid_list = pmid_string.strip().split(',')
+            # Map each split string to an integer, stripping any extra spaces around the numbers
+            return [int(pmid.strip()) for pmid in pmid_list if pmid.strip()]
+        except ValueError:
+            print(f"Warning: Non-integer value encountered in the data: {pmid_string}")
+            return []
+
+    ab_pmids = convert_to_list(pmids.iloc[i]["A-B PMIDs"])
+    bc_pmids = convert_to_list(pmids.iloc[i]["B-C PMIDs"])
+    ac_pmids = convert_to_list(pmids.iloc[i]["A-C PMIDs"])
+
+    # Correct way to assign values to avoid SettingWithCopyWarning
+    df.at[0, "ab_pmid_intersection"] = ab_pmids
+    df.at[0, "bc_pmid_intersection"] = bc_pmids
+    df.at[0, "ac_pmid_intersection"] = ac_pmids if ac_pmids else []
+
+    #print the relevant columns
+    print(df[["b_term", "ab_pmid_intersection", "bc_pmid_intersection", "ac_pmid_intersection"]])
+    return df
+
+
 def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     output_json_map = {
@@ -191,13 +234,18 @@ def perform_analysis(job_type, row, config, abstracts_data):
         pmids = pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
     elif job_type == "skim_with_gpt":
         if row["ac_pmid_intersection"] != "[]":
+            print("Processing all three PMID lists for ABC")
             pmids = (
                 pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
                 + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
                 + pubmed.parse_pmids(row, "ac_pmid_intersection")[:max_abstracts]
             )
-        pmids = (pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts] + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts] )
-
+        else:
+            pmids = (
+                pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
+                + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
+            )
+    print(f"Processing {len(pmids)} PMIDs for {b_term} and {a_term}")
     (
         consolidated_abstracts,
         paper_urls,
@@ -242,7 +290,7 @@ def process_single_row(row, config):
         return None
 
     return {
-        "Term": row["b_term"],
+        "Relationship": f"{row['a_term']} - {row['b_term']}" + (f" - {row['c_term']}" if 'c_term' in row else ""),
         "Result": result,
         "Prompt": prompt,  # Added prompt here
         "URLs": paper_urls,
@@ -688,6 +736,7 @@ def skim_with_gpt_workflow(config, output_directory):
              )
             continue
         df = read_tsv_to_dataframe(skim_file_path)
+        df = test_example_3(df, i, "/w5home/jfreeman/kmGPT/test/example3.csv")
         assert not df.empty, "The dataframe is empty"
         df = df.iloc[
             : config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["NUM_B_TERMS"]
@@ -701,11 +750,12 @@ def skim_with_gpt_workflow(config, output_directory):
             print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
             assert results_list, "No results were processed"
             # Generate a unique output JSON file name for each a_term and c_term combination
-            output_json = f"{a_term}_{c_term}_skim_with_gpt.json"
+            output_json = f"{a_term}_{b_term}_{c_term}_skim_with_gpt.json"
             write_to_json(results_list, output_json, output_directory)
             print(f"Analysis results have been saved to {output_json}")
             # delete the temporary file
             os.remove(c_term_file)
+            os.remove(b_term_file)
 
 
 def skim_with_gpt_workflow_old(config, output_directory):
