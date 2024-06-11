@@ -118,7 +118,7 @@ def extract_scores(directory):
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python script.py <directory_path>")
+        print("Usage: python eval_JSON_results.py <directory_path>")
         sys.exit(1)
 
     directory_path = sys.argv[1]
@@ -132,4 +132,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
