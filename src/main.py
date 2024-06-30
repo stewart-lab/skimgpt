@@ -42,7 +42,7 @@ class GlobalClass(object):
 
 def initialize_workflow():
 	# Generate a timestamp string
-	timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+	timestamp = datetime.now().strftime("%Y%m%d%H%M")
 
 	# Define the base output directory and ensure it exists
 	base_output_dir = "../output"
@@ -236,7 +236,7 @@ def main():
 						file_path)  # Extract the file name
 					# Make a safe file name
 					safe_file_name = re.sub(
-						r'[^a-zA-Z0-9_\-\.]', '_', file_name)
+						r'[^a-zA-Z0-9_\-\.]', '_', file_name
 					base_name = safe_file_name.replace(
 						"_output_filtered.tsv", "")
 					json_file_name = f"{base_name}.json"
@@ -249,8 +249,8 @@ def main():
 
 					remote_file_paths.append(remote_file_path.split("/")[-1])
 					dynamic_file_names.append(f"filtered_{safe_file_name}")
-					dynamic_file_names.append(f"cot_{safe_file_name}")
-					# dynamic_file_names.append(json_file_name)
+					# dynamic_file_names.append(f"cot_{safe_file_name}")
+					dynamic_file_names.append(json_file_name)
 					# Transfer the files
 					ssh.transfer_files(
 						ssh_client, local_file, remote_file_path)
@@ -284,6 +284,7 @@ def main():
 			ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
 			ssh.execute_remote_command(
 				ssh_client, f"rm -rf {remote_subdir_path}")
+			return os.path.join(output_directory, json_file_name)
 		finally:
 			# Close the SSH connection
 			ssh_client.close()

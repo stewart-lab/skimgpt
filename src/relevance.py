@@ -92,8 +92,12 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     for paper in output["PubmedArticle"]:
         pmid = paper["MedlineCitation"]["PMID"]
         returned_pmids.append(str(pmid))
-        abstract_text = " ".join(
-            paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
+        try:
+            abstract_text = " ".join(
+                paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
+        except:
+            print(f"No abstract found for PMID {pmid}. Skipping...")
+            continue
         returned_abstracts.append(abstract_text)
     return dict(zip(returned_pmids, returned_abstracts))
 
@@ -136,7 +140,7 @@ def postProcess(config: Config, outputs: RaggedTensor, abstracts: RaggedTensor, 
 
 def main():
     ###################### Argument Parsing ############################
-    parser = argparse.ArgumentParser(description='Mistral7B Inference')
+    parser = argparse.ArgumentParser(description='Porpoise Inference')
 
     parser.add_argument('--km_output', type=str, required=True,
                         help='Tsv file to run relevance filtering on.')
@@ -216,32 +220,32 @@ def main():
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}", sep="\t")
 
     ###################### Open AI Call #####################################
-    # results = {}
+    results = {}
 
-    # # Test OpenAI connection if necessary
-    # test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
+    # Test OpenAI connection if necessary
+    test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
 
-    # # Process each row in the DataFrame
-    # for index, row in filtered_df.iterrows():
-    #     term = row["b_term"]
-    #     result_dict = process_single_row(row, config.job_config)
-    #     if result_dict:  # Ensure that result_dict is not None
-    #         if term not in results:
-    #             results[term] = [result_dict]
-    #         else:
-    #             results[term].append(result_dict)
-    #         print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
-    #     else:
-    #         print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
+    # Process each row in the DataFrame
+    for index, row in out_df.iterrows():
+        term = row["b_term"]
+        result_dict = process_single_row(row, config.job_config)
+        if result_dict:  # Ensure that result_dict is not None
+            if term not in results:
+                results[term] = [result_dict]
+            else:
+                results[term].append(result_dict)
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
+        else:
+            print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
 
-    # # Check if results were processed
-    # if not results:
-    #     print("No results were processed.")
-    # else:
-    #     # Save the results to a JSON file
-    #     output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
-    #     write_to_json(results, output_json_path, config.km_output_dir)
-    #     print(f"Analysis results have been saved to {config.km_output_dir}")
+    # Check if results were processed
+    if not results:
+        print("No results were processed.")
+    else:
+        # Save the results to a JSON file
+        output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
+        write_to_json(results, output_json_path, config.km_output_dir)
+        print(f"Analysis results have been saved to {config.km_output_dir}")
     return
 
 
