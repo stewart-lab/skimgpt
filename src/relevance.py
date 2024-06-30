@@ -98,7 +98,7 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
         except:
             print(f"No abstract found for PMID {pmid}. Skipping...")
             continue
-        returned_abstracts.append(abstract_text)
+        returned_abstracts.append(f"PMID {pmid}: {abstract_text}")
     return dict(zip(returned_pmids, returned_abstracts))
 
 
@@ -245,8 +245,7 @@ def main():
         # Save the results to a JSON file
         output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
         write_to_json(results, output_json_path, config.km_output_dir)
-        print(f"Analysis results have been saved to {config.km_output_dir}")
-    return
+        print(f"Analysis results have been saved to {config.job_config['OUTPUT_JSON']}")
 
 
 if __name__ == '__main__':

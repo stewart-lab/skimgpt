@@ -40,16 +40,15 @@ class GlobalClass(object):
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 
 
-def initialize_workflow():
+def initialize_workflow(extension):
 	# Generate a timestamp string
-	timestamp = datetime.now().strftime("%Y%m%d%H%M")
 
 	# Define the base output directory and ensure it exists
 	base_output_dir = "../output"
 	os.makedirs(base_output_dir, exist_ok=True)
 
 	# Define the name of the timestamped output directory
-	timestamp_dir_name = f"output_{timestamp}"
+	timestamp_dir_name = f"output_{extension}"
 
 	# Create the timestamped output directory within 'output'
 	output_directory = os.path.join(base_output_dir, timestamp_dir_name)
@@ -142,7 +141,7 @@ def get_config(output_directory):
 	if not api_key:
 		raise ValueError("OPENAI_API_KEY environment variable not set.")
 
-	config["API_KEY"] = api_key
+	config["OPENAI_API_KEY"] = api_key
 
 	pubmed_api_key = os.getenv("PUBMED_API_KEY", "")
 	if not pubmed_api_key:
@@ -177,15 +176,19 @@ def main():
 	parser = argparse.ArgumentParser("arg_parser")
 	parser.add_argument("-config", "--config_file", dest='config_file',
 						help="Config file. Default=config.json.", default="../config.json", type=str)
-	parser.add_argument("-tsv_dir", default=None, type=str)
+	parser.add_argument("-output_dir_ext", help = "Output directory extension", type = str, default = "")
+	parser.add_argument("-tsv_dir", default=None, type=str, help = "Path to evaluation")
 	args = parser.parse_args()
  
 	
 	GlobalClass.config_file = args.config_file
 	if not args.tsv_dir:
 		# Assuming initialize_workflow loads the config file and sets up the output directory
-		config, output_directory, timestamp_output_path = initialize_workflow()
-		
+		if not args.output_dir_ext:
+			config, output_directory, timestamp_output_path = initialize_workflow(datetime.now().strftime("%Y%m%d%H%M"))
+		else:
+			config, output_directory, timestamp_output_path = initialize_workflow(args.output_dir_ext)
+   
 		c_terms = skim.read_terms_from_file(
 			config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
 		)
@@ -236,7 +239,7 @@ def main():
 						file_path)  # Extract the file name
 					# Make a safe file name
 					safe_file_name = re.sub(
-						r'[^a-zA-Z0-9_\-\.]', '_', file_name
+						r'[^a-zA-Z0-9_\-\.]', '_', file_name)
 					base_name = safe_file_name.replace(
 						"_output_filtered.tsv", "")
 					json_file_name = f"{base_name}.json"
@@ -284,7 +287,6 @@ def main():
 			ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
 			ssh.execute_remote_command(
 				ssh_client, f"rm -rf {remote_subdir_path}")
-			return os.path.join(output_directory, json_file_name)
 		finally:
 			# Close the SSH connection
 			ssh_client.close()
