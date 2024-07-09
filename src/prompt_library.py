@@ -56,21 +56,23 @@ def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstr
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
     return (
+        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}\n\n"
         "Assessment Task:\n"
-        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
-        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
-        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
-        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
-        "evidence in your evaluation.\n\n"
-        "Hypothesis:\n"
+        "Evaluate the degree of support for the following hypothesis in the above biomedical texts.\n\n"
+        f"Hypothesis:\n"
         f"{hypothesis_template}\n\n"
-        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
+        "Instructions:\n"
+        "Use only the information from the provided texts to assess the hypothesis. While the texts may not explicitly state support or "
+        "opposition to the hypothesis, use your analytical skills to extrapolate the necessary information. Synthesize findings from multiple "
+        "texts, as no single text will be conclusive. Provide a justification for your score in simple terms understandable to an "
+        "undergraduate biochemist. Be sure to explain your rationale step-by-step. Cite the articles you use in your rationale. Think step by step and pay attention to directionality of relationships.\n\n"
         "Format your response as:\n"
         "Score: [Number] - Reasoning: [Reasoning]\n\n"
         "Scoring Guidelines:\n"
-        f"{sg.skim(b_term, a_term, c_term)}\n" 
-        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}"
+        f"{sg.skim()}\n"
+
     )
+
 
 
 def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):
@@ -256,4 +258,17 @@ def exercise_3_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         f"{sg.gpt_customized_scoring_system(b_term, a_term)}\n"
         "Biomedical Abstracts for Analysis:\n"
         f"{consolidated_abstracts}"
+    )
+
+
+
+def exercise_3_few_shot_prompt_2(b_term, a_term, consolidated_abstracts):
+    return (
+            "Few-Shot Learning Examples:\n"
+        "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
+        f'Example 1: {fsl.fictitious_disease_example_1()}\n'
+        f'Example 2: {fsl.fictitious_disease_example_2()}\n'
+        f'Example 3: {fsl.fictitious_disease_example_3()}\n'
+        f'Example 4: {fsl.fictitious_disease_example_4()}\n'
+        f'Example 5: {fsl.fictitious_disease_example_5()}\n'
     )

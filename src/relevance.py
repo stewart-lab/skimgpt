@@ -11,11 +11,13 @@ from tqdm import tqdm
 import numpy as np
 import os
 import jinja2
-from classifier import process_single_row, write_to_json, test_openai_connection
+import tiktoken
+from classifier import process_single_row, write_to_json
 from itertools import chain
 
 # Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis.
-# Only two arguements should be specified at once.
+# Only two arguements should be specified at once
+
 
 
 def getHypothesis(config, a_term: str = None, b_term: str = None, c_term: str = None) -> str:
@@ -80,7 +82,7 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     pmid_config = global_config["PUBMED_PARAMS"]
 
     Entrez.email = 'leoxu27@gmail.com'
-    Entrez.api_key = "8bfe67116f93cedbee9e4f31a1e65b7e1d09"
+    Entrez.api_key = config["PUBMED_API_KEY"]
     Entrez.max_tries = global_config["MAX_RETRIES"]
     Entrez.sleep_between_tries = global_config["RETRY_DELAY"]
     efetch = Entrez.efetch(
@@ -93,9 +95,10 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
         pmid = paper["MedlineCitation"]["PMID"]
         returned_pmids.append(str(pmid))
         abstract_text = " ".join(
-            paper["MedlineCitation"]["Article"]["Abstract"]["AbstractText"])
+            paper["MedlineCitation"]["Article"].get("Abstract", {}).get("AbstractText", ["No abstract available"])
+        )
         returned_abstracts.append(abstract_text)
-    return dict(zip(returned_pmids, returned_abstracts))
+    return dict(zip(returned_pmids, [f"PMID: {pmid} {abstract}" for pmid, abstract in zip(returned_pmids, returned_abstracts)]))
 
 
 # Packages all the inputted data into the provided dataframes
@@ -133,6 +136,54 @@ def postProcess(config: Config, outputs: RaggedTensor, abstracts: RaggedTensor, 
         out_df[f"{terms}_mask"] = answer_masks.data
         out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
+def optimize_text_length(df, model="gpt-4"):
+    enc = tiktoken.encoding_for_model(model)
+
+    # Define maximum tokens
+    max_tokens = 100000
+
+    # Check for presence of columns
+    has_bc = 'bc_pmid_intersection' in df.columns
+    has_ac = 'ac_pmid_intersection' in df.columns
+
+    # Calculate number of text fields to divide the tokens among
+    num_fields = 1 + has_bc + has_ac
+
+    # Tokens per field
+    tokens_per_field = max_tokens // num_fields
+
+    def truncate_text(text_list, max_tokens):
+        if isinstance(text_list, list):
+            text = ' '.join(text_list)
+        else:
+            text = text_list
+
+        sentences = text.split('. ')
+        truncated_text = ""
+        current_tokens = 0
+
+        for sentence in sentences:
+            sentence_with_period = sentence + ". "
+            sentence_tokens = enc.encode(sentence_with_period)
+            if current_tokens + len(sentence_tokens) > max_tokens:
+                break
+            truncated_text += sentence_with_period
+            current_tokens += len(sentence_tokens)
+        print(f"Truncated text token length: {current_tokens}")
+        return truncated_text.strip()
+
+    # Truncate ab_pmid_intersection
+    df['ab_pmid_intersection'] = df['ab_pmid_intersection'].apply(lambda x: truncate_text(x, tokens_per_field))
+
+    # Truncate bc_pmid_intersection if present
+    if has_bc:
+        df['bc_pmid_intersection'] = df['bc_pmid_intersection'].apply(lambda x: truncate_text(x, tokens_per_field))
+    
+    # Truncate ac_pmid_intersection if present
+    if has_ac:
+        df['ac_pmid_intersection'] = df['ac_pmid_intersection'].apply(lambda x: truncate_text(x, tokens_per_field))
+
+    return df
 
 def main():
     ###################### Argument Parsing ############################
@@ -212,38 +263,22 @@ def main():
             postProcess(config, ac_outputs, ac_abstracts, ac_hypothesis,
                         out_df, terms="ac", shape=[ac_pmids.shape])
 
+    out_df = optimize_text_length(out_df)
     out_df.to_csv(
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}", sep="\t")
-
-    ###################### Open AI Call #####################################
-    # results = {}
-
-    # # Test OpenAI connection if necessary
-    # test_openai_connection(config.job_config)  # Ensure this function exists in the classifier module
-
-    # # Process each row in the DataFrame
-    # for index, row in filtered_df.iterrows():
-    #     term = row["b_term"]
-    #     result_dict = process_single_row(row, config.job_config)
-    #     if result_dict:  # Ensure that result_dict is not None
-    #         if term not in results:
-    #             results[term] = [result_dict]
-    #         else:
-    #             results[term].append(result_dict)
-    #         print(f"Processed row {index + 1} ({row['b_term']}) of {len(filtered_df)}")
-    #     else:
-    #         print(f"Skipping row {index + 1} ({row['b_term']}) due to no results.")
-
-    # # Check if results were processed
-    # if not results:
-    #     print("No results were processed.")
-    # else:
-    #     # Save the results to a JSON file
-    #     output_json_path = os.path.join(config.km_output_dir, config.job_config["OUTPUT_JSON"])
-    #     write_to_json(results, output_json_path, config.km_output_dir)
-    #     print(f"Analysis results have been saved to {config.km_output_dir}")
-    return
-
+    
+    
+    ##################### Classify ############################
+    results_list = []
+    for index, row in out_df.iterrows():
+        result_dict = process_single_row(row, config)
+        results_list.append(result_dict)
+        print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
+        assert results_list, "No results were processed"
+        # Generate a unique output JSON file name for each a_term and c_term combination
+        output_json = f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
+        write_to_json(results_list, output_json)
+        print(f"Analysis results have been saved to {output_json}")
 
 if __name__ == '__main__':
     main()

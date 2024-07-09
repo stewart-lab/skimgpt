@@ -63,33 +63,13 @@ def execute_remote_command(ssh_client, command):
 
     return stdout_result  # Return the stdout result for further processing
 
-def monitor_files_and_extensions(ssh_client, remote_subdir_path, local_output_directory, file_names, extensions, interval=10):
-    downloaded_files = set()  # To keep track of which files have been successfully downloaded
 
-    while True:
-        all_files_downloaded = True  # Assume all files are downloaded, prove otherwise
+def monitor_files_and_extensions(ssh_client, remote_subdir_path, local_output_directory, file_names, extensions, json_count, interval=10):
+    total_json_downloaded = 0  # Total count of .json files downloaded
+    json_files_downloaded_this_cycle = set()  # Track .json files downloaded in the current cycle
 
-        for file_name in file_names:
-            if file_name in downloaded_files:
-                continue  # Skip checking this file if it's already been downloaded
-
-            all_files_downloaded = False  # Found at least one file not yet downloaded
-            
-            remote_file_path = os.path.join(remote_subdir_path, file_name)
-            local_file_path = os.path.join(local_output_directory, file_name)
-            command = f"if [ -f {remote_file_path} ]; then echo 'exists'; else echo 'not exists'; fi"
-            output = execute_remote_command(ssh_client, command).strip()
-
-            if output == 'exists':
-                transfer_files(ssh_client, remote_file_path, local_file_path, action="download")
-                downloaded_files.add(file_name)  # Mark this file as downloaded
-
-        # Check if we've downloaded all specified files
-        if all_files_downloaded:
-            print("All specified files have been downloaded.")
-            break  # Exit the while loop since we've downloaded all specified files
-
-        # Continue fetching files with specified extensions
+    while total_json_downloaded < json_count:
+        new_files_found = False
         for extension in extensions:
             command = f"find {remote_subdir_path} -type f -name '*{extension}'"
             stdout = execute_remote_command(ssh_client, command).strip().split('\n')
@@ -97,8 +77,33 @@ def monitor_files_and_extensions(ssh_client, remote_subdir_path, local_output_di
                 if remote_file_path:
                     file_name = os.path.basename(remote_file_path)
                     local_file_path = os.path.join(local_output_directory, file_name)
-                    # For files with specified extensions, always fetch and overwrite
-                    transfer_files(ssh_client, remote_file_path, local_file_path, action="download")
-                    downloaded_files.add(file_name)  # Update as downloaded even if already there to prevent re-downloading
+                    # Check if it's a JSON file excluding config.json
+                    if extension == ".json" and file_name == "config.json":
+                        continue  # Skip config.json
 
-        time.sleep(interval)
+                    # Download and overwrite file for continuous updates
+                    transfer_files(ssh_client, remote_file_path, local_file_path, action="download")
+                    new_files_found = True
+
+                    # Specific handling for counting non-config.json files
+                    if extension == ".json" and file_name not in json_files_downloaded_this_cycle:
+                        json_files_downloaded_this_cycle.add(file_name)
+                        total_json_downloaded += 1
+
+        # Check for specified "file_names" if they are not already downloaded in this cycle
+        for file_name in file_names:
+            remote_file_path = os.path.join(remote_subdir_path, file_name)
+            local_file_path = os.path.join(local_output_directory, file_name)
+            command = f"if [ -f {remote_file_path} ]; then echo 'exists'; else echo 'not exists'; fi"
+            output = execute_remote_command(ssh_client, command).strip()
+
+            if output == 'exists':
+                transfer_files(ssh_client, remote_file_path, local_file_path, action="download")
+                new_files_found = True
+
+        # Reset the cycle specific tracker after each interval
+        if not new_files_found:
+            time.sleep(interval)  # Reduce the frequency of checks when no new files are found
+        json_files_downloaded_this_cycle.clear()  # Reset for the next cycle
+
+    print(f"Required number of .json files have been downloaded: {total_json_downloaded}")

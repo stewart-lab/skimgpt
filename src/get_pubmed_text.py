@@ -103,7 +103,14 @@ def process_abstracts_data(config, pmids):
 
 
 def parse_pmids(row, key):
-    return ast.literal_eval(row[key])
+    data = row[key]
+    if isinstance(data, str):
+        return ast.literal_eval(data)
+    elif isinstance(data, list):
+        return data
+    else:
+        raise TypeError(f"Unsupported type for PMID parsing: {type(data)}")
+
 
 
 def get_successful_pmids(pmids, abstracts_data):

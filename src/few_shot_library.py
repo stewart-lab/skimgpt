@@ -164,3 +164,76 @@ def heart_failure_example_2():
         "PMID 35772177 found that omega-3-acid ethyl ester supplementation did not affect cardiovascular event incidence among patients receiving statins. However, this does not necessarily mean that omega-3-acid ethyl esters are ineffective; they may just not have an additive effect on statins. Score: 0."
     )
     return reasoning
+
+
+def fictitious_disease_example_1():
+    """
+    Hypothesis: Fludamorin can be treated with Verazol through its interaction with GeneX. GeneX could be an important intermediary in the treatment of Fludamorin with Verazol.
+    """
+    reasoning = (
+        "Hypothesis: Fludamorin can be treated with Verazol through its interaction with GeneX - Score: -2 - "
+        "Reasoning: PMID 12345678 discusses the involvement of GeneX in various genetic disorders but does not link it to Fludamorin or any similar diseases, nor does it mention Verazol as a treatment.\n"
+        "PMID 23456789 reviews the pharmacodynamics of Verazol and indicates that it targets GeneY primarily, with no significant interaction with GeneX.\n"
+        "PMID 34567890 details a clinical trial of Verazol for a condition unrelated to Fludamorin, in which GeneX expression was monitored and found not to be affected by Verazol treatment.\n"
+        "PMID 45678901 studies the pathology of Fludamorin and specifically rules out any involvement of GeneX, suggesting other genetic factors are at play.\n"
+        "PMID 56789012 explores the adverse effects of Verazol, including exacerbation of symptoms in patients with conditions similar to Fludamorin, with no evidence of beneficial interaction through GeneX or otherwise."
+    )
+    return reasoning
+
+def fictitious_disease_example_2():
+    """
+    Hypothesis: Chronitis can be treated with Zaltron through its interaction with GeneY. GeneY could be an important intermediary in the treatment of Chronitis with Zaltron.
+    """
+    reasoning = (
+        "Hypothesis: Chronitis can be treated with Zaltron through its interaction with GeneY - Score: -1 - "
+        "Reasoning: PMID 98765432 indicates that GeneY activation is closely associated with the proliferation of Chronitis symptoms. It highlights that increased activity of GeneY exacerbates the condition.\n"
+        "PMID 87654321 describes a study with patients treated with Zaltron for an unrelated condition. The study unintentionally discovered that Zaltron significantly increases the activity of GeneY.\n"
+        "PMID 76543210 reviews the molecular pathways affected by Zaltron and confirms its primary action is the activation of GeneY, though it was initially developed for other therapeutic purposes.\n"
+        "PMID 65432109 provides a comprehensive overview of Chronitis pathology, indicating that the activation of GeneY not only worsens the disease but may also trigger new symptoms in genetically predisposed individuals.\n"
+        "PMID 54321098 discusses several cases where Zaltron was used off-label in treating similar conditions to Chronitis, leading to an increase in disease symptoms attributed to enhanced GeneY activity."
+    )
+    return reasoning
+
+
+def fictitious_disease_example_3():
+    """
+    Hypothesis: Neuradox can be treated with Cytorex through its interaction with GeneZ. GeneZ could be an important intermediary in the treatment of Neuradox with Cytorex.
+    """
+    reasoning = (
+        "Hypothesis: Neuradox can be treated with Cytorex through its interaction with GeneZ - Score: 0 - "
+        "Reasoning: PMID 32109876 discusses several potential targets for treating Neuradox, but GeneZ is not specifically mentioned, nor is its connection to Cytorex explored.\n"
+        "PMID 21098765 details the biochemical properties of Cytorex and mentions its interaction with multiple genes, including GeneZ, but does not provide conclusive evidence on the therapeutic outcomes for Neuradox.\n"
+        "PMID 10987654 reviews a small cohort study where Cytorex was administered to patients with Neuradox. The results were inconclusive with regards to the efficacy of the treatment, and no clear connection with GeneZ activity was established.\n"
+        "PMID 09876543 explores the genetic factors involved in Neuradox without linking any therapeutic benefits or detriments to the activity of GeneZ specifically.\n"
+        "PMID 98765432 provides a theoretical analysis of how Cytorex might interact with GeneZ, suggesting potential mechanisms but acknowledging that empirical evidence is still lacking to support any definitive conclusions."
+    )
+    return reasoning
+
+
+def fictitious_disease_example_4():
+    """
+    Hypothesis: Vasculan can be treated with Modulax through its interaction with GeneK. GeneK could be an important intermediary in the treatment of Vasculan with Modulax.
+    """
+    reasoning = (
+        "Hypothesis: Vasculan can be treated with Modulax through its interaction with GeneK - Score: 1 - "
+        "Reasoning: PMID 15975348 suggests that Modulax may indirectly inhibit the activity of GeneK, which has been identified as a promoter of Vasculan in several studies.\n"
+        "PMID 35795124 discusses a small-scale preliminary study in which Modulax was used to treat Vasculan with some success, suggesting that it may interact beneficially with GeneK to reduce disease symptoms.\n"
+        "PMID 75315986 describes the pharmacological profile of Modulax, noting that while it targets several pathways, its effect on GeneK is particularly promising for conditions like Vasculan.\n"
+        "PMID 95135726 reports on laboratory experiments that show Modulax can modulate the expression of GeneK in cell cultures derived from Vasculan patients, providing indirect evidence of its potential effectiveness.\n"
+        "PMID 86149253 reviews the therapeutic landscape for Vasculan and identifies Modulax as a candidate for further research due to its interaction with GeneK, though more definitive clinical trials are needed."
+    )
+    return reasoning
+
+def fictitious_disease_example_5():
+    """
+    Hypothesis: Cardioxin can be treated with Luminor through its interaction with GeneQ. GeneQ could be an important intermediary in the treatment of Cardioxin with Luminor.
+    """
+    reasoning = (
+        "Hypothesis: Cardioxin can be treated with Luminor through its interaction with GeneQ - Score: 2 - "
+        "Reasoning: PMID 12345678 describes a large, well-conducted clinical trial where Luminor treatment led to significant improvement in patients with Cardioxin, specifically through its modulation of GeneQ.\n"
+        "PMID 23456789 provides strong biochemical evidence showing that Luminor directly interacts with GeneQ, resulting in the inhibition of pathways that exacerbate Cardioxin symptoms.\n"
+        "PMID 34567890 reports findings from a multi-center study confirming that GeneQ plays a critical role in the pathophysiology of Cardioxin, and that its modulation by Luminor can effectively manage and treat the disease.\n"
+        "PMID 45678901 discusses the molecular mechanisms by which Luminor interacts with GeneQ, offering detailed insights into how this interaction contributes significantly to the therapeutic effects observed in Cardioxin patients.\n"
+        "PMID 56789012 presents longitudinal data from patients treated with Luminor, showing consistent and significant long-term improvement in Cardioxin symptoms, further supported by changes in GeneQ activity."
+    )
+    return reasoning
