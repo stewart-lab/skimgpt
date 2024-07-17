@@ -53,13 +53,13 @@ def initialize_workflow():
     base_output_dir = "../output"
     os.makedirs(base_output_dir, exist_ok=True)
 
+
     # Define the name of the timestamped output directory
     timestamp_dir_name = f"output_{timestamp}"
 
     # Create the timestamped output directory within 'output'
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
-
     # Set timestamp_output_path to just the name of the timestamped directory
     # This holds just the directory name, not the full path
     timestamp_output_path = timestamp_dir_name
@@ -147,9 +147,7 @@ def get_config(output_directory):
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set.")
-
     config["API_KEY"] = api_key
-
     pubmed_api_key = os.getenv("PUBMED_API_KEY", "")
     if not pubmed_api_key:
         raise ValueError("PUBMED_API_KEY environment variable not set.")

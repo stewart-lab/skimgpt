@@ -102,6 +102,7 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     for paper in output["PubmedArticle"]:
         pmid = paper["MedlineCitation"]["PMID"]
         returned_pmids.append(str(pmid))
+
         abstract_text = " ".join(
             paper["MedlineCitation"]["Article"]
             .get("Abstract", {})
@@ -222,6 +223,7 @@ def optimize_text_length(df, model="gpt-4"):
 
 def main():
     ###################### Argument Parsing ############################
+
     parser = argparse.ArgumentParser(description="Mistral7B Inference")
 
     parser.add_argument(
@@ -334,6 +336,7 @@ def main():
 
     out_df = optimize_text_length(out_df)
     out_df.to_csv(
+
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",
     )
