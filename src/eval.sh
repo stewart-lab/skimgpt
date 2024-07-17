@@ -29,6 +29,6 @@ for child_dir in */; do
 done
 
 # Run the plot.py script with the parent_dir as an argument
-python plot.py "$parent_dir"
+python plot_output_w_truth.py "$parent_dir"
 
 echo "All directories have been processed."

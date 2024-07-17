@@ -39,50 +39,6 @@ def initialize_workflow():
     assert config, "Configuration is empty or invalid"
     return config, output_directory
 
-
-def test_example_3(df, i, csv_file_path):
-    # Load the PMIDs from the CSV file with converters to ensure correct format
-    pmids = pd.read_csv(csv_file_path, converters={"A-B PMIDs": lambda x: x, 
-                                                   "B-C PMIDs": lambda x: x, 
-                                                   "A-C PMIDs": lambda x: x})
-    print(f"Processing row {i + 1} of {len(pmids)}")
-    print(pmids.iloc[i]["A-B PMIDs"])  # Print the A-B PMIDs for this row
-    print(pmids.iloc[i]["B-C PMIDs"])  # Print the B-C PMIDs for this row
-    print(pmids.iloc[i]["A-C PMIDs"])  # Print the A-C PMIDs for this row
-    print(pmids)
-    print(pmids["A-B PMIDs"])
-    print(pmids["B-C PMIDs"])
-    print(pmids["A-C PMIDs"])
-
-    # Function to convert a comma-separated string of numbers into a list of integers
-    def convert_to_list(pmid_string):
-        # Ensure pmid_string is treated as a string
-        pmid_string = str(pmid_string)
-        if pd.isna(pmid_string) or pmid_string.strip() == '':
-            return []  # Return an empty list if the data is NaN or an empty string
-        try:
-            # Remove any leading/trailing whitespace and split the string by commas
-            pmid_list = pmid_string.strip().split(',')
-            # Map each split string to an integer, stripping any extra spaces around the numbers
-            return [int(pmid.strip()) for pmid in pmid_list if pmid.strip()]
-        except ValueError:
-            print(f"Warning: Non-integer value encountered in the data: {pmid_string}")
-            return []
-
-    ab_pmids = convert_to_list(pmids.iloc[i]["A-B PMIDs"])
-    bc_pmids = convert_to_list(pmids.iloc[i]["B-C PMIDs"])
-    ac_pmids = convert_to_list(pmids.iloc[i]["A-C PMIDs"])
-
-    # Correct way to assign values to avoid SettingWithCopyWarning
-    df.at[0, "ab_pmid_intersection"] = ab_pmids
-    df.at[0, "bc_pmid_intersection"] = bc_pmids
-    df.at[0, "ac_pmid_intersection"] = ac_pmids if ac_pmids else []
-
-    #print the relevant columns
-    print(df[["b_term", "ab_pmid_intersection", "bc_pmid_intersection", "ac_pmid_intersection"]])
-    return df
-
-
 def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     output_json_map = {
@@ -174,7 +130,7 @@ def analyze_abstract_with_gpt4(
 
 def generate_prompt(b_term, a_term, content, config, c_term=None):
     job_type = config.get("JOB_TYPE", "").lower()
-    
+    b_term = b_term.replace("&", " ")
     # Define hypothesis templates directly based on job_type
     abc_hypothesis = config.get("SKIM_hypotheses")["ABC"].format(c_term=c_term, a_term=a_term, b_term=b_term)
 
@@ -288,7 +244,6 @@ def process_single_row(row, config):
     # if everything is empty, then we have no data to process
     if not result and not prompt and not paper_urls and not consolidated_abstracts and not publication_years:
         return None
-
     return {
         "Relationship": f"{row['a_term']} - {row['b_term']}" + (f" - {row['c_term']}" if 'c_term' in row else ""),
         "Result": result,
@@ -350,86 +305,6 @@ def call_openai(client, prompt, config):
             print(e.response)
             print(e.__cause__)
     return None
-
-
-def process_drug_discovery_validation_json(json_data, config):
-    nested_dict = {}
-    a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
-    nested_dict[a_term] = {}
-
-    try:
-        term_scores = {}
-        term_counts = {}
-        term_details = {}  # New dictionary to hold the details
-
-        for entry in json_data:
-            term = entry.get("Term", None)
-            results = entry.get("Result", None)
-            urls = entry.get("URLs", None)
-            years = entry.get("Years", None)
-
-            if term is None or results is None or urls is None or years is None:
-                print("Warning: Invalid entry found in JSON data. Skipping.")
-                continue
-
-            if term not in term_scores:
-                term_scores[term] = 0
-                term_counts[term] = 0
-                term_details[term] = []  # Initialize list to hold details
-
-            for i, result in enumerate(results):
-                term_counts[term] += 1  # Increase the count for this term
-                patterns = prompts.drug_process_relationship_scoring(term)
-                score = 0
-                scoring_sentence = ""
-                # Search for the pattern in the result to find the scoring sentence and score
-                for pattern, pattern_score in patterns:
-                    if pattern in result:
-                        score = pattern_score
-                        scoring_sentence = re.search(
-                            f"([^\.]*{pattern}[^\.]*\.)", result
-                        ).group(1)
-                        break
-
-                term_scores[term] += score
-
-                # Extract PMID from URL
-                url = urls[i]
-                pmid_match = re.search(r"(\d+)/?$", url)
-                pmid = pmid_match.group(1) if pmid_match else "Unknown"
-
-                # Get the year for this PMID
-                year = years[i] if i < len(years) else "Unknown"
-
-                # Record the details
-                term_details[term].append(
-                    {
-                        "PMID": pmid,
-                        "Year": year,
-                        "Scoring Sentence": scoring_sentence,
-                        "Score": score,
-                    }
-                )
-
-        term_avg_scores = {
-            term: (term_scores[term] / term_counts[term]) for term in term_scores
-        }
-
-        for term, score in term_scores.items():
-            avg_score = term_avg_scores[term]
-            nested_dict[a_term][term] = {
-                "Total Score": score,
-                "Average Score": avg_score,
-                "Count": term_counts[term],
-                "Details": term_details[term],
-            }
-
-        return nested_dict
-
-    except Exception as e:
-        print(f"An error occurred while processing the JSON data: {e}")
-        return None
-
 
 def save_to_json(data, config, output_directory):
     output_filename = os.path.join(
@@ -495,79 +370,6 @@ def api_cost_estimator(df, config):
         print("Exiting workflow.")
         return False
     return True
-
-
-def drug_discovery_validation_workflow(config, output_directory):
-    a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
-    assert a_term, "A_TERM is not defined in the configuration"
-    try:
-        if (
-            config["JOB_SPECIFIC_SETTINGS"]["drug_discovery_validation"].get("test")
-            == "True"
-        ):
-            return # Skip the workflow if the test flag is set to True
-        else:
-            df = read_tsv_to_dataframe(
-                skim.skim_no_km_workflow(config, output_directory)
-            )
-        assert not df.empty, "The dataframe is empty"
-        if not api_cost_estimator(df, config):
-            return
-
-        results_list = []
-        test_openai_connection(config)
-        for index, row in df.iterrows():
-            result_dict = process_single_row(row, config)
-            results_list.append(result_dict)
-            print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
-
-        assert results_list, "No results were processed"
-        write_to_json(results_list, config["OUTPUT_JSON"], output_directory)
-        print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
-        json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
-        with open(json_file_path, "r") as f:
-            json_data = json.load(f)
-        result = process_drug_discovery_validation_json(json_data, config)
-        if result:
-            save_to_json(result, config, output_directory)
-    except Exception as e:
-        print(f"Error occurred during processing: {e}")
-
-
-def extract_term_and_scoring_sentence(json_data):
-    extracted_data = {}
-
-    for term_data in json_data.values():
-        for entry in term_data:
-            term = entry.get("Term")
-            results = entry.get("Result", [])
-
-            if term and results:
-                # Joining the result strings and extracting the first significant sentence
-                full_text = " ".join(results)
-                first_sentence = full_text.split(".")[0] + "." if full_text else ""
-
-                # Adding to the extracted data
-                extracted_data[term] = first_sentence
-
-    return extracted_data
-
-def calculate_scores_by_term(json_data):
-    scores_by_term = {}
-    # Iterate over each key (term) in the JSON data
-    for term in json_data:
-        total_score = 0
-        # Loop through each entry in the "Result" list for that term
-        for entry in json_data[term]:
-            result_list = entry["Result"]
-            for result in result_list:
-                # Find and extract the score using regular expression
-                matches = re.findall(r"Score: (-?\d+)", result)
-                for match in matches:
-                    total_score += int(match)
-        # Assign the total score to the term
-        scores_by_term[term] = total_score
-    return scores_by_term
 
 
 def apply_scores_to_df(df, scores_by_term):
@@ -716,27 +518,27 @@ def skim_with_gpt_workflow(config, output_directory):
         b_term = b_terms[i]
         local_config = copy.deepcopy(config)
         local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
-        c_term_file = os.path.join(output_directory, f"{c_term}.txt")
+        #local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["skim"]["censor_year"] = determine_censor_year_exercise5(i)
+        c_term_short = c_term[:10] if len(c_term) > 10 else c_term
+        c_term_file = os.path.join(output_directory, f"{c_term_short}.txt")
         with open(c_term_file, "w") as f:
             f.write(c_term)
-        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
-            "C_TERMS_FILE"
-        ] = c_term_file
-        b_term_file = os.path.join(output_directory, f"{b_term}.txt")
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"] = c_term_file
+
+        b_term_short = b_term[:10] if len(b_term) > 10 else b_term
+        b_term_file = os.path.join(output_directory, f"{b_term_short}.txt")
         with open(b_term_file, "w") as f:
             f.write(b_term)
-        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
-            "B_TERMS_FILE"
-        ] = b_term_file
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"] = b_term_file
 
         skim_file_path = skim.skim_with_gpt_workflow(local_config, output_directory)
         if skim_file_path is None:
             print(
-                f"Skim file not found for {a_term} and {c_term}. Please lower fet or check the spelling"
+                f"Skim file not found for {a_term}, {b_term} and {c_term}. Please lower fet or check the spelling"
              )
             continue
         df = read_tsv_to_dataframe(skim_file_path)
-        df = test_example_3(df, i, "/w5home/jfreeman/kmGPT/test/example3.csv")
+        #df = test_example_3(df, i, "/w5home/jfreeman/kmGPT/test/example3.csv")
         assert not df.empty, "The dataframe is empty"
         df = df.iloc[
             : config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["NUM_B_TERMS"]
@@ -827,8 +629,6 @@ def main_workflow():
         if not api_cost_estimator([], config):
             return
         km_with_gpt_workflow(config, output_directory)
-    elif job_type == "drug_discovery_validation":
-        drug_discovery_validation_workflow(config, output_directory)
     elif job_type == "position_km_with_gpt":
         position_km_with_gpt_workflow(config, output_directory)
     elif job_type == "skim_with_gpt":

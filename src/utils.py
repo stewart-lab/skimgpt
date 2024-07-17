@@ -108,38 +108,50 @@ class RaggedTensor:
 		return self.data[index]
 	
 class Config:
-	def __init__(self, args: dict):
-		self.data = read_tsv_to_dataframe(args.km_output)
-		with open(args.config, 'r') as config_file:
-			self.job_config = json.load(config_file)
-		
-		self.global_settings = self.job_config["GLOBAL_SETTINGS"]
-		self.k = self.global_settings["MAX_ABSTRACTS"]
-		assert self.k > 0
-		self.km_output_dir = os.path.dirname(args.km_output)
-		self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
-
-		# Ensure the directory exists
-		if not os.path.exists(self.km_output_dir) and self.km_output_dir != '':
-			os.makedirs(self.km_output_dir)
-		
-		self.filtered_tsv_name = os.path.join(self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv")
-		self.debug_tsv_name = os.path.join(self.km_output_dir, f"debug_{self.km_output_base_name}.tsv")
-		self.job_type = self.job_config.get('JOB_TYPE')
-		self.filter_config = self.job_config["abstract_filter"]
-		self.debug = self.filter_config["DEBUG"]
-		
-		self.is_skim_gpt = self.job_type == "skim_with_gpt"
-		# Make sure the df has an ac_pmid_intersection that isn't empty
-		self.has_ac = "ac_pmid_intersection" in self.data.columns and len(self.data["ac_pmid_intersection"].value_counts()) > 0
-		
-		self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
-		
-		print(f"Job type detected. Running {self.job_type}.")
-		if self.is_skim_gpt:
-			assert "c_term" in self.data.columns, "Input TSV must have c_term if running skim_with_gpt"
-			assert "bc_pmid_intersection" in self.data.columns, "Input TSV must have an bc_pmid_intersection."
-		
-		assert "ab_pmid_intersection" in self.data.columns, "Input TSV must have an ab_pmid_intersection."
-		assert "a_term" in self.data.columns, "Input TSV must have an a_term."
-		assert "b_term" in self.data.columns, "Input TSV must have a b_term"
+    def __init__(self, args: dict):
+        # Load configuration from a JSON file
+        with open(args.config, 'r') as config_file:
+            self.job_config = json.load(config_file)
+        
+        # Load data from a TSV file
+        self.data = read_tsv_to_dataframe(args.km_output)
+        
+        # Access global settings directly from the loaded JSON
+        self.global_settings = self.job_config["GLOBAL_SETTINGS"]
+        self.k = self.global_settings["MAX_ABSTRACTS"]
+        assert self.k > 0, "MAX_ABSTRACTS must be greater than zero."
+        
+        # Define output paths and ensure directories exist
+        self.km_output_dir = os.path.dirname(args.km_output)
+        self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
+        if not os.path.exists(self.km_output_dir) and self.km_output_dir != '':
+            os.makedirs(self.km_output_dir)
+        
+        self.filtered_tsv_name = os.path.join(self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv")
+        self.debug_tsv_name = os.path.join(self.km_output_dir, f"debug_{self.km_output_base_name}.tsv")
+        
+        # Hypotheses and job settings
+        self.api_key = self.job_config["API_KEY"]
+        self.output_json = self.job_config["OUTPUT_JSON"]
+        self.pubmed_api_key = self.job_config["PUBMED_API_KEY"]
+        self.km_hypothesis = self.job_config["KM_hypothesis"]
+        self.position_km_hypothesis = self.job_config["POSITION_KM_hypothesis"]
+        self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
+        self.job_type = self.job_config.get('JOB_TYPE')
+        self.filter_config = self.job_config["abstract_filter"]
+        self.debug = self.filter_config["DEBUG"]
+        self.is_skim_gpt = self.job_type == "skim_with_gpt"
+        self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
+        
+        # Additional checks for specific configurations
+        self.has_ac = "ac_pmid_intersection" in self.data.columns and len(self.data["ac_pmid_intersection"].value_counts()) > 0
+        self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
+        
+        print(f"Job type detected. Running {self.job_type}.")
+        if self.is_skim_gpt:
+            assert "c_term" in self.data.columns, "Input TSV must have c_term if running skim_with_gpt"
+            assert "bc_pmid_intersection" in self.data.columns, "Input TSV must have a bc_pmid_intersection."
+        
+        assert "ab_pmid_intersection" in self.data.columns, "Input TSV must have an ab_pmid_intersection."
+        assert "a_term" in self.data.columns, "Input TSV must have an a_term."
+        assert "b_term" in self.data.columns, "Input TSV must have a b_term."
