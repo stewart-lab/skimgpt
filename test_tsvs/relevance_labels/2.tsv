@@ -1,2 +1,0 @@
-	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
-2	Heart Disease	[19251646, 24534818, 30384889, 30805484, 31130285]	[1,1,1,1,1]	RAF1	[22907845, 26557760, 25862004, 37201366, 36092956]	[1,1,1,0,0]	gefitinib	[36756695]	[0]

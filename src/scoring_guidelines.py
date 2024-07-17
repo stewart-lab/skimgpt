@@ -115,7 +115,7 @@ def updated_scoring_guidelines_for_mediated_relationships(hypothesis):
 
 
 
-def skim(b_term, a_term, c_term):
+def skim_old(b_term, a_term, c_term):
     """
     Provides scoring guidelines for assessing the validity of a given hypothesis about mediated relationships,
     with a focus on the indirect relationships between A and B, B and C, and the co-occurrence of A and C.
@@ -146,3 +146,38 @@ def skim(b_term, a_term, c_term):
         f"   - 2 Points: Strong evidence supports the hypothesis, with clear results demonstrating "
         f"effective interactions between {a_term} and {b_term}, {b_term} and {c_term} involving large sample sizes, strong methodology, and, when present, clear support of the {a_term} and {c_term} relationship with respect to the hypothesis. Evidence is of high methodological quality, with minimal biases.\n\n"
     )
+
+def skim_classify():
+    return (
+                "-2 Points: The hypothesis can very likely be refuted based on the provided texts. There is a substantial amount of evidence in the provided texts that the hypothesis is false.\n" 
+                "-1 Point: The hypothesis can likely be refuted based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is false.\n" 
+                "0 Points: The hypothesis is not supported or directly refuted by the provided texts. There is either no evidence to support or directly refute the hypothesis in the provided texts, or it is inconclusive, neutral, or irrelevant.\n" 
+                "1 Point: The hypothesis is likely true based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is true.\n" 
+                "2 Points: The hypothesis is very likely true based on the provided texts. There is a good amount of direct or indirect evidence in the provided texts that the hypothesis is true.\n"
+    )
+
+def skim():
+    return (
+        "-2 Points: The hypothesis is strongly refuted by the provided texts. There is substantial evidence suggesting the hypothesis is false, offering little to no potential for further research or exploration.\n"
+        "-1 Point: The hypothesis is likely refuted based on the provided texts. The evidence leans towards negating the hypothesis, diminishing its potential for further valuable inquiry.\n"
+        "0 Points: The hypothesis is neither strongly supported nor refuted by the provided texts. The evidence is inconclusive, making its potential for further research unclear.\n"
+        "1 Point: The hypothesis is likely true based on the provided texts. The available evidence is promising and suggests that further exploration could yield valuable insights or discoveries.\n"
+        "2 Points: The hypothesis is strongly supported by the provided texts. The evidence is compelling and indicates significant potential for novel discoveries or important theoretical advancements.\n"
+    )
+
+
+
+def skim_finer():
+    return (
+        "-2.0 Points: The hypothesis can very likely be refuted based on the provided texts. There is substantial evidence in the provided texts that the hypothesis is false.\n"
+        "-1.5 Points: The hypothesis can probably be refuted based on the provided texts. There is considerable evidence in the provided texts that the hypothesis is less likely to be true.\n"
+        "-1.0 Point: The hypothesis is likely refutable based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is false.\n"
+        "-0.5 Point: The evidence against the hypothesis in the provided texts is slight, but it slightly leans towards refutation rather than support.\n"
+        "0 Points: The hypothesis is not supported or directly refuted by the provided texts. There is either no evidence to support or directly refute the hypothesis in the provided texts, or it is inconclusive, neutral, or irrelevant.\n"
+        "0.5 Point: The evidence supporting the hypothesis in the provided texts is slight, but it slightly leans towards support rather than refutation.\n"
+        "1.0 Point: The hypothesis is likely true based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is true.\n"
+        "1.5 Points: The hypothesis is probably true based on the provided texts. There is considerable evidence in the provided texts that the hypothesis is more likely to be true.\n"
+        "2.0 Points: The hypothesis is very likely true based on the provided texts. There is a good amount of direct or indirect evidence in the provided texts that the hypothesis is true.\n"
+    )
+
+

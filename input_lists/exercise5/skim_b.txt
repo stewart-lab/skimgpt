@@ -1,0 +1,18 @@
+normal gait|Gait normal|Gait-normal|Normal
+onset|age of onset
+depression|depressive disorder|depression nos|Depressive disorder NOS|Depressive disorder, NOS|Depressive Disorders|depressive illness|Depressive Neuroses|depressive neurosis|Disorder, Depressive|Disorders, Depressive|Neuroses, Depressive|Neurosis, Depressive
+central nervous system disease|Central nervous system|Central nervous system (CNS) disease|central nervous system diseases|Central nervous system--Diseases|central nervous system disorder|central nervous system disorders|cns disease|cns diseases|cns disorder|cns disorders|disease central nervous system|Disease of the central nervous system|Diseases of the central nervous system|DISORDER CENTRAL NERVOUS SYSTEM|Disorder of Central Nervous System|Disorder of the central nervous system|encephalomyeloneuropathy
+normal gait|Gait normal|Gait-normal|Normal
+depression|depressive disorder|depression nos|Depressive disorder NOS|Depressive disorder, NOS|Depressive Disorders|depressive illness|Depressive Neuroses|depressive neurosis|Disorder, Depressive|Disorders, Depressive|Neuroses, Depressive|Neurosis, Depressive
+onset|age of onset
+dermal atrophy|Atrophic|atrophic skin|Atrophoderma|Atrophy of skin|Atrophy - skin|ATROPHY SKIN|skin atrophy|skin degeneration|atrophy|atrophy|atrophied|atrophies|atrophying
+central nervous system disease|Central nervous system|Central nervous system (CNS) disease|central nervous system diseases|Central nervous system--Diseases|central nervous system disorder|central nervous system disorders|cns disease|cns diseases|cns disorder|cns disorders|disease central nervous system|Disease of the central nervous system|Diseases of the central nervous system|DISORDER CENTRAL NERVOUS SYSTEM|Disorder of Central Nervous System|Disorder of the central nervous system|encephalomyeloneuropathy
+coagulability|blood viscosity
+seizures|seizure|convulsions|Convulsion
+depression|depressive disorder|depression nos|Depressive disorder NOS|Depressive disorder, NOS|Depressive Disorders|depressive illness|Depressive Neuroses|depressive neurosis|Disorder, Depressive|Disorders, Depressive|Neuroses, Depressive|Neurosis, Depressive
+muscle spasms|muscle spasm|muscular spasm|muscular spasms|Myospasm|Skeletal muscle spasm|spasm|Spasm, Muscle|SPASM MUSCLE|spasm of muscle|spasms|Spasms [D]|Spasms, Muscle|muscle cramps|cramp|cramping|cramps|Cramps, Muscle|muscle cramp|Muscle cramping|Muscles cramps|muscular cramp|muscular cramps
+tension|Tense|Tense Feeling|tensions
+normal gait|Gait normal|Gait-normal|Normal
+paraganglioma|carotid body tumors|Gangliocytic paraganglioma|Gangliocytic Paragangliomas|Paragangliomas 1|paragangliomas|Paragangliomata|Paraganglion Tumor|PGL1|PGL|Tumor of the Paraganglion|chemodectoma|chemodectomas|Extra-adrenal paraganglioma|Extraadrenal Paraganglioma|Extra-Adrenal Paragangliomas|[M]|Non-chromaffin paraganglioma|Nonchromaffin paraganglioma|Nonchromaffin Paragangliomas|Non-Chromaffin Paragangliomas|Paraganglioma, Extra Adrenal|Paraganglioma, Extra-Adrenal|Paragangliomas, Extra-Adrenal
+glucose intolerance|chemical diabetes|diabetes chemical|Glucose:|Glucose Intolerances|glucose malabsorption|Glucose Tolerance, Impaired|IGT - Impaired glucose tolerance|impaired glucose tolerance|Impaired Glucose Tolerances|Intolerance, Glucose|latent diabetes|malabsorption of glucose|Tolerance, Impaired Glucose
+cognitive abnormality|intellectual deficiency|intellectual impairment|mental impairment|disabilities mental|handicap mental|handicaps mental|mental disability|mental handicap|mental subnormality|[X]|altered mental status|Abnormal mental state|alter mental status
