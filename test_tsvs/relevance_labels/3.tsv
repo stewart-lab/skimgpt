@@ -1,2 +1,0 @@
-	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
-3	Heart Disease	[20538833, 22717317, 26028594, 36179951, 36691956]	[0,0,0,0,0]	EGFR	[22285168, 17463250, 15329413, 31568888, 30609789]	[1,1,1,1,1]	erlotinib	[26039117, 23660125, 26886479, 34919300, 36795511]	[0,1,1,1,1]

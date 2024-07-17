@@ -299,8 +299,9 @@ def main():
                 remote_subdir_path,
                 f"{output_directory}/filtered",
                 dynamic_file_names,
-                [".log", ".err", ".out", ".json"],
-                len(generated_file_paths),
+                [".log", ".err", ".out"],
+                len(generated_file_paths), # Removed ".json" since entire directory is copied when job terminates
+                interval=10  # Optionally adjust interval
             )
 
             print("Files transferred successfully.")

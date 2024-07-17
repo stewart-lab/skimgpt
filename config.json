@@ -1,10 +1,10 @@
 {
-    "JOB_TYPE": "skim_with_gpt",
+    "JOB_TYPE": "km_with_gpt",
     "KM_hypothesis": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
     "POSITION_KM_hypothesis": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
     "SKIM_hypotheses": {
-        "BC": "There exists an interaction between {c_term} and{b_term}.",
-        "AB": "There exists an interaction between {a_term} and{b_term}.",
+        "BC": "There exists an interaction between {c_term} and {b_term}.",
+        "AB": "There exists an interaction between {a_term} and {b_term}.",
         "AC": "The drug {c_term} has an interaction with {a_term}.",
         "ABC": "{c_term} treats {a_term} through its effect on {b_term}."
     },
@@ -12,7 +12,7 @@
     "GLOBAL_SETTINGS": {
         "A_TERM": "diabetes",
         "A_TERM_SUFFIX": "",
-        "TOP_N_ARTICLES": 50,
+        "TOP_N_ARTICLES": 3,
         "MOST_RECENT": false,
         "MAX_ABSTRACTS": 50,
         "MIN_WORD_COUNT": 98,
@@ -20,12 +20,6 @@
         "MAX_TOKENS": 1000,
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
-        "BASE_URL": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
-        "PUBMED_PARAMS": {
-            "db": "pubmed",
-            "retmode": "xml",
-            "rettype": "abstract"
-        },
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
@@ -50,9 +44,9 @@
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "input_lists/",
-            "B_TERMS_FILE": "../input_lists/ddi_b_terms.txt",
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "../input_lists/test/km_a.txt",
+            "B_TERMS_FILE": "../input_lists/test/km_b.txt",
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 8,
             "km_with_gpt": {

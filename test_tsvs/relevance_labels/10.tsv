@@ -1,2 +1,0 @@
-	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
-10	Diabetes	[38091482, 38070476, 37946085, 37925022, 37924847]	[1,0,1,1,1]	GIPR	[38091482, 38070476, 37897727, 37591245, 37498367]	[1,1,1,1,1]	tirzepatide	[35921984, 35914543, 35914542, 35830001, 35807558]	[1,1,1,1,1]

@@ -1,2 +1,0 @@
-	a_term	ab_pmid_intersection	ab_relevance_labels	b_term	bc_pmid_intersection	bc_relevance_labels	c_term	ac_pmid_intersection	ac_labels
-8	Diabetes	[32442528, 19996060, 36817596, 36260549, 32541383]	[0,0,0,0,0]	AHR	[22089377, 21483703, 30700732, 33995787, 38070936]	[0,0,0,0,0]	stavudine	[10929917, 18268071, 32920318, 30720846, 31304808]	[0,1,1,0,1]

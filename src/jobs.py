@@ -1,26 +1,13 @@
-# add parent directory to path
-import ssh_helper as ssh
-import get_pubmed_text as pubmed
-import argparse
 import skim_and_km_api as skim
-from datetime import datetime
 import copy
-import inspect
-import importlib
-import re
-import shutil
-import json
-import time
-import pandas as pd
 import sys
 import os
-import utils
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# import openai
 
 
-def km_with_gpt_workflow(config, output_directory):
+def km_with_gpt_workflow(config, output_directory, file_paths=None):
+    # Initialize file_paths if not provided
     if file_paths is None:
         file_paths = []
 
@@ -32,19 +19,23 @@ def km_with_gpt_workflow(config, output_directory):
             local_config = copy.deepcopy(config)
             local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
 
-            # Recursive call for each term, passing the file_paths list to accumulate paths
-            km_with_gpt_workflow(local_config, output_directory, file_paths)
+            # Directly process each term without recursion
+            km_file_path = skim.km_with_gpt_workflow(
+                config=local_config, output_directory=output_directory
+            )
+
+            if km_file_path:
+                file_paths.append(km_file_path)
 
         return file_paths
-
-    km_file_path = skim.km_with_gpt_workflow(
-        config=config, output_directory=output_directory
-    )
-
-    if km_file_path:
-        file_paths.append(km_file_path)
-
-    return file_paths
+    else:
+        # Process without terms
+        km_file_path = skim.km_with_gpt_workflow(
+            config=config, output_directory=output_directory
+        )
+        if km_file_path:
+            file_paths.append(km_file_path)
+        return file_paths
 
 
 def position_km_with_gpt_workflow(config, output_directory):

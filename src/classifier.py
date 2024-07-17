@@ -4,7 +4,7 @@ import time
 import json
 import importlib
 import inspect
-import skim_and_km_api as skim
+
 
 def write_to_json(data, file_path):
     with open(file_path, "w") as outfile:
@@ -22,28 +22,32 @@ def process_single_row(row, config):
         print("Invalid job type (caught in process_single_row)")
         return None
 
-    (
-        result,
-        prompt,
-        consolidated_abstracts
-    ) = perform_analysis(job_type, row, config, {})
+    (result, prompt, consolidated_abstracts) = perform_analysis(
+        job_type, row, config, {}
+    )
 
     # if everything is empty, then we have no data to process
     if not result and not prompt:
         return None
     return {
-        "Relationship": f"{row['a_term']} - {row['b_term']}" + (f" - {row['c_term']}" if 'c_term' in row else ""),
+        "Relationship": f"{row['a_term']} - {row['b_term']}"
+        + (f" - {row['c_term']}" if "c_term" in row else ""),
         "Result": result,
         "Prompt": prompt,  # Added prompt here
-        "Abstracts": consolidated_abstracts
+        "Abstracts": consolidated_abstracts,
     }
+
 
 def perform_analysis(job_type, row, config, abstract_data):
     b_term = row["b_term"]
     a_term = row["a_term"]
     c_term = row.get("c_term", None) if job_type == "skim_with_gpt" else None
-    consolidated_abstracts = row["ab_pmid_intersection"] + row.get("bc_pmid_intersection", "") + row.get("ac_pmid_intersection", "")
-    
+    consolidated_abstracts = (
+        row["ab_pmid_intersection"]
+        + row.get("bc_pmid_intersection", "")
+        + row.get("ac_pmid_intersection", "")
+    )
+
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
     )
@@ -92,7 +96,6 @@ def analyze_abstract_with_gpt4(
     return responses, prompt
 
 
-
 def generate_prompt(b_term, a_term, content, config, c_term=None):
     job_type = config.job_type.lower()
     b_term = b_term.replace("&", " ")  # Clean up the term if necessary
@@ -100,14 +103,20 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     # Choose the correct hypothesis template based on the job type
     hypothesis_templates = {
         "km_with_gpt": config.km_hypothesis.format(b_term=b_term, a_term=a_term),
-        "position_km_with_gpt": config.position_km_hypothesis.format(b_term=b_term, a_term=a_term),
-        "skim_with_gpt": config.skim_hypotheses["ABC"].format(c_term=c_term, a_term=a_term, b_term=b_term)  # Assuming c_term is needed
+        "position_km_with_gpt": config.position_km_hypothesis.format(
+            b_term=b_term, a_term=a_term
+        ),
+        "skim_with_gpt": config.skim_hypotheses["ABC"].format(
+            c_term=c_term, a_term=a_term, b_term=b_term
+        ),  # Assuming c_term is needed
     }
 
-    hypothesis_template = hypothesis_templates.get(job_type, "No valid hypothesis for the provided JOB_TYPE.")
+    hypothesis_template = hypothesis_templates.get(
+        job_type, "No valid hypothesis for the provided JOB_TYPE."
+    )
     if hypothesis_template.startswith("No valid"):
         return hypothesis_template
-    
+
     # Dynamically import the prompts module (assuming this module contains relevant prompt generation functions)
     prompts_module = importlib.import_module("prompt_library")
     assert prompts_module, "Failed to import the prompts module."
@@ -115,7 +124,9 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     # Use job_type to fetch the corresponding prompt function
     prompt_function = getattr(prompts_module, job_type, None)
     if not prompt_function:
-        raise ValueError(f"Prompt function for '{job_type}' not found in the prompts module.")
+        raise ValueError(
+            f"Prompt function for '{job_type}' not found in the prompts module."
+        )
 
     # Prepare arguments for the prompt function
     prompt_args = (b_term, a_term, hypothesis_template, content)
@@ -123,9 +134,6 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
         return prompt_function(*prompt_args, c_term=c_term)
     else:
         return prompt_function(*prompt_args)
-
-
-
 
 
 def call_openai(client, prompt, config):
@@ -175,60 +183,3 @@ def save_to_json(data, config, output_directory):
     with open(output_filename, "w") as f:
         json.dump(data, f, indent=4)
     print(f"Filtered results have been saved to {output_filename}")
-
-
-def api_cost_estimator(df, config):
-    job_type = config.get("JOB_TYPE", "")
-    max_abstracts = config["GLOBAL_SETTINGS"]["MAX_ABSTRACTS"]
-    estimated_cost = 0
-    total_calls = 0
-
-    def read_terms_length(file_path):
-        return len(skim.read_terms_from_file(file_path))
-
-    if job_type in ["drug_discovery_validation", "pathway_augmentation"]:
-        estimated_cost = max_abstracts * len(df) * 0.006
-    elif job_type == "km_with_gpt":
-        if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
-            term_length = read_terms_length(
-                config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
-            )
-        else:
-            term_length = 1  # Default value if A_TERM_LIST is not set
-
-        num_b_terms = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]
-        total_calls = max_abstracts * term_length * num_b_terms
-        estimated_cost = total_calls * 0.006
-    elif job_type == "post_km_analysis":
-        robust_setting = (
-            config["JOB_SPECIFIC_SETTINGS"]["post_km_analysis"]
-            .get("robust", "False")
-            .lower()
-        )
-
-        if robust_setting == "true":
-            total_calls = sum(
-                len(eval(row["panc & ggp & kras-mapk set"])) // (max_abstracts // 2)
-                + len(eval(row["brd & ggp set"])) // (max_abstracts // 2)
-                for _, row in df.iterrows()
-            )
-        else:
-            total_calls = df.apply(
-                lambda row: min(
-                    len(eval(row["panc & ggp & kras-mapk set"]))
-                    + len(eval(row["brd & ggp set"])),
-                    max_abstracts,
-                ),
-                axis=1,
-            ).sum()
-
-        estimated_cost = total_calls * 0.06
-
-    user_input = input(
-        f"The following job consists of {total_calls} abstracts and will cost roughly ${estimated_cost:.2f} in GPT-4 API calls. Do you wish to proceed? [Y/n]: "
-    )
-    if user_input.lower() != "y":
-        print("Exiting workflow.")
-        return False
-    return True
-
