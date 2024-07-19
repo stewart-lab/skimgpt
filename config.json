@@ -1,5 +1,5 @@
 {
-    "JOB_TYPE": "km_with_gpt",
+    "JOB_TYPE": "skim_with_gpt",
     "KM_hypothesis": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
     "POSITION_KM_hypothesis": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
     "SKIM_hypotheses": {

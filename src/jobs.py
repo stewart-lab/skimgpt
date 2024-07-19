@@ -96,6 +96,7 @@ def skim_with_gpt_workflow(config, output_directory, a_term, b_term, c_term):
     if skim_file_path:
         skim_file_paths.append(skim_file_path)
         config["OUTPUT_JSON"] = os.path.basename(skim_file_path)
+    return skim_file_paths, config
 
 
 def main_workflow(config, output_directory, timestamp_output_path, terms):
