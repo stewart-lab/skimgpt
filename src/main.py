@@ -1,23 +1,17 @@
 import ssh_helper as ssh
-import get_pubmed_text as pubmed
 import argparse
 import skim_and_km_api as skim
 from datetime import datetime
 from functools import partial
-import copy
-import inspect
-import importlib
 import re
 import shutil
 import json
 import itertools
-import time
 import pandas as pd
 import multiprocessing
 from jobs import main_workflow
 # add parent directory to path
 from glob import glob
-from tqdm import tqdm
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -1,22 +1,9 @@
 # add parent directory to path
-import ssh_helper as ssh
-import get_pubmed_text as pubmed
-import argparse
 import skim_and_km_api as skim
-from datetime import datetime
 import copy
-import inspect
-import importlib
-import re
-import shutil
-import json
-import time
-import pandas as pd
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# import openai
-
 
 def km_with_gpt_workflow(config, output_directory):
 	if file_paths is None:
