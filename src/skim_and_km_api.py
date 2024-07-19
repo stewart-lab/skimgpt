@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import requests
 import time
-
+import exercises as exer
 
 # File Operations
 def read_terms_from_file(filename):
@@ -13,13 +13,16 @@ def read_terms_from_file(filename):
         terms = list(filter(None, terms))
     return terms
 
-
 def save_to_tsv(data, filename, output_directory):
     """Save the data into a TSV (Tab Separated Values) file."""
     full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
     df.to_csv(full_path, sep="\t", index=False)
 
+def process_intersection(df, column_name, top_n, most_recent):
+    """Processes the intersection data by sorting and trimming based on settings."""
+    if most_recent:
+        df[column_name] = df[column_name].apply(lambda x: sorted(x, reverse=True)[:top_n])
 
 # API Calls
 class APIClient:
@@ -38,21 +41,38 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
-    def wait_for_job_completion(self, url, job_id):
+    def wait_for_job_completion(self, url, job_id, max_retries=100):
         """Wait for an API job to complete and return the result."""
-        while True:
-            response_json = self.get_api_request(url, job_id)
-            job_status = response_json["status"]
-            if job_status in ["finished", "failed"]:
-                break
-            time.sleep(5)
-        assert "result" in response_json, "Job did not complete successfully."
+        retries = 0
+        while retries < max_retries:
+            try:
+                response_json = self.get_api_request(url, job_id)
+                job_status = response_json["status"]
+                print(f"Attempt {retries+1}/{max_retries}: Job status is '{job_status}'")
+                
+                if job_status in ["finished", "failed"]:
+                    break
+                
+                time.sleep(5)
+                retries += 1
+            
+            except Exception as e:
+                print(f"Attempt {retries+1}/{max_retries} failed with error: {e}")
+                retries += 1
+        
+        if "result" not in response_json:
+            print(f"Job did not complete successfully after {max_retries} retries.")
+            raise AssertionError("Job did not complete successfully.")
+        
+        print("Job completed successfully.")
         return response_json.get("result", None)
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""
+        print(f"Initiating job with payload: {payload}")
         initial_response = self.post_api_request(url, payload)
         job_id = initial_response["id"]
+        print(f"Job initiated with ID: {job_id}")
         return self.wait_for_job_completion(url, job_id)
 
 def run_and_save_query(
@@ -67,32 +87,35 @@ def run_and_save_query(
     job_config = configure_job(
         job_type, a_term, c_terms, b_terms, config
     )
-    # Accessing API_URL from the updated config structure
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
-    # Utilizing the APIClient class
     api_client = APIClient()
     result = api_client.run_api_query(job_config, api_url)
     
-    if not result or result is None:
+    if not result:
         print("The result is empty")
         return None
     
     file_name = job_config["a_terms"][0]
-    # read the result tsv into a dataframe
     result_df = pd.DataFrame(result)
-    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
-        print("Sorting the results by the most recent articles...")
-        result_df['ab_pmid_intersection'] = result_df['ab_pmid_intersection'].apply(lambda x: sorted(x, reverse=True))
+
+    most_recent = config["GLOBAL_SETTINGS"]["MOST_RECENT"]
+    top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
+
+    if most_recent:
+        process_intersection(result_df, 'ab_pmid_intersection', top_n_articles, most_recent)
+
+    if job_type == "skim_with_gpt" and most_recent:
+        process_intersection(result_df, 'bc_pmid_intersection', top_n_articles, most_recent)
 
     if job_type == "skim_with_gpt":
-        if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
-            result_df['bc_pmid_intersection'] = result_df['bc_pmid_intersection'].apply(lambda x: sorted(x, reverse=True))
-        file_name = job_config["a_terms"][0] + "_" + job_config["c_terms"][0]
+        file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
+    else:
+        file_name = job_config["a_terms"][0]
 
     file_path = f"{job_type}_{file_name}_output.tsv"
-    save_to_tsv(result_df, file_path, output_directory)  # Pass output_directory
+    save_to_tsv(result_df, file_path, output_directory)
     return file_path
 
 # Job Configuration
@@ -101,12 +124,15 @@ def configure_job(
 ):
     """Configure a job based on the provided type and terms."""
     assert config, "No configuration provided"
+    top_n_articles = config["GLOBAL_SETTINGS"].get("TOP_N_ARTICLES", 10)
+    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
+        top_n_articles = 10000
 
     common_settings = {
         "a_terms": [a_term],
         "return_pmids": True,
         "query_knowledge_graph": False,
-        "top_n_articles": config["GLOBAL_SETTINGS"].get("TOP_N_ARTICLES", 10),
+        "top_n_articles": top_n_articles,
     }
 
     if job_type == "km_with_gpt":
@@ -141,7 +167,6 @@ def configure_job(
     else:
         raise ValueError(f"Invalid job type: {job_type}")
 
-
 def km_with_gpt_workflow(config=None, output_directory=None):
     assert config, "No configuration provided"
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
@@ -174,12 +199,11 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get(
         "SORT_COLUMN", "ab_sort_ratio"
     )
-    # assert the sort_column is in the km_df
     assert sort_column in km_df.columns, f"{sort_column} is not in the km_df"
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
-
-    # check if ab_pmid_intersection is [] and remove those rows
+    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
+        print("Sorting the results by the most recent articles")
     valid_rows = km_df[
         km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")
     ]
@@ -190,11 +214,10 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
 
     print(f"Filtered KM query results saved to {filtered_file_path}")
-    if (len(valid_rows) == 0): 
-        print ("No KM results after filtering. Return None to indicate no KM results.")
+    if len(valid_rows) == 0:
+        print("No KM results after filtering. Returning None to indicate no KM results.")
         return None
     return filtered_file_path
-
 
 def skim_with_gpt_workflow(config, output_directory):
     """Run the SKIM workflow."""
@@ -230,16 +253,13 @@ def skim_with_gpt_workflow(config, output_directory):
         (skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]")) &
         (skim_df["ab_pmid_intersection"].apply(lambda x: x != "[]"))
     ]
-    # if valid_rows is empty, return None
     if valid_rows.empty:
-        print("No SKIM results after filtering. Return None to indicate no SKIM results.")
+        print("No SKIM results after filtering. Returning None to indicate no SKIM results.")
         return None
     skim_df = valid_rows
-    # add _filtered to the skim_file_path
     full_skim_file_path = os.path.join(
         output_directory, os.path.splitext(skim_file_path)[0] + "_filtered.tsv"
     )
-    # assert the sort_column is in the skim_df
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
     print(f"SKIM results saved to {full_skim_file_path}")

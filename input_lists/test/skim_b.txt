@@ -1,3 +1,2 @@
-PPAR
-
-COX-2
+NAT2
+EGFR
