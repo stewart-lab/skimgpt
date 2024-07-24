@@ -14,6 +14,7 @@ import jinja2
 import tiktoken
 from classifier import process_single_row, write_to_json
 from itertools import chain
+import time
 
 # Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis.
 # Only two arguements should be specified at once
@@ -278,9 +279,11 @@ def main():
             all_pmids += ac_pmids
             all_hypotheses += ac_hypothesis.expand([ac_pmids.shape])
 
+    start_time = time.time()
     abstract_map = getAbstractMap(config.job_config, all_pmids)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
-
+    print(f"Abstract fetching runtime: {time.time() - start_time}")
+    start_time = time.time()
     ##################### Model Loading & Generation ############################
     model = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=4000)
 
@@ -290,7 +293,8 @@ def main():
         top_p=config.filter_config["TOP_P"],
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
-
+    print(f"Model Loading Time: {time.time() - start_time}")
+    start_time = time.time()
     ##################### LLM Inference ############################
     prompts = getPrompts(abstracts, all_hypotheses)
     answers = gen(prompts, model, sampling_config)
@@ -340,7 +344,8 @@ def main():
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",
     )
-
+    print(f"Porpoise Time: {time.time() - start_time}")
+    start_time = time.time()
     ##################### Classify ############################
     for index, row in out_df.iterrows():
         results_list = []  # Initialize the results_list for each row
@@ -354,6 +359,7 @@ def main():
         )
         write_to_json(results_list, output_json)
         print(f"Analysis results have been saved to {output_json}")
+    print(f"GPT-4 Time: {time.time() - start_time}")
 
 
 if __name__ == "__main__":

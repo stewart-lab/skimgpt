@@ -180,6 +180,7 @@ def cleanup():
 	os.remove("run.json")
 
 def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
+	start_total = time.time()
 	with open("../config.json", 'r') as config_file:
 		base_config = json.load(config_file)
 	 
@@ -225,6 +226,7 @@ def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
 	ssh_config = config.get("SSH", {})
  
 	if ssh_config and generated_file_paths:
+		start_ssh_time = time.time()
 		# Create SSH client using the key for authentication
 		ssh_client = ssh.create_ssh_client(
 			ssh_config['server'], ssh_config['port'], ssh_config['user'], ssh_config.get('key_path'))
@@ -307,6 +309,9 @@ def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
 			# Close the SSH connection
 			ssh_client.close()
 			cleanup()
+			end_total = time.time()
+			print(f"Total Runtime: {end_total - start_total}")
+			print(f"Total SSH-time: {end_total - start_ssh_time}")
 			with open(os.path.join(output_directory, f"filtered/{json_file_name}"), "r") as gpt_output:
 				return json.load(gpt_output)
 
@@ -323,4 +328,4 @@ demo = gr.Interface(
 	description = "Runs a SkimGPT run with an A Term, B Term, and a C Term. Outputs GPT4's Response."
 )
 
-demo.launch(share = True)
+demo.launch(share = False)
