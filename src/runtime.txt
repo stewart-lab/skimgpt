@@ -1,0 +1,7 @@
+Total Runtime: 546.535153388977 seconds
+Skim Runtime: 83 seconds
+Total SSH Runtime: 463.04183864593506 seconds
+	Matching Time: 293.4898 seconds
+	Model Loading Time: 151.754 seconds
+	Porpoise Time: 1.5 seconds
+	GPT-4 Time: 16.298 seconds

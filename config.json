@@ -28,11 +28,11 @@
     "SSH": {
         "server": "ap2002.chtc.wisc.edu",
         "port": 22,
-        "user": "jfreeman23",
-        "key_path": "/w5home/jfreeman/.ssh/chtc2",
+        "user": "lpxu",
+        "key_path": "/w5home/lxu3/.ssh/id_rsa",
         "config_path": "../config.json",
         "src_path": "./",
-        "remote_path": "/home/jfreeman23/kmGPT/"
+        "remote_path": "/home/lpxu/kmtest/"
     },
     "abstract_filter": {
         "MODEL": "lexu14/porpoise1",

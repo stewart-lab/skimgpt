@@ -131,7 +131,7 @@ class Config:
         self.debug_tsv_name = os.path.join(self.km_output_dir, f"debug_{self.km_output_base_name}.tsv")
         
         # Hypotheses and job settings
-        self.api_key = self.job_config["API_KEY"]
+        self.api_key = self.job_config["OPENAI_API_KEY"]
         self.output_json = self.job_config["OUTPUT_JSON"]
         self.pubmed_api_key = self.job_config["PUBMED_API_KEY"]
         self.km_hypothesis = self.job_config["KM_hypothesis"]

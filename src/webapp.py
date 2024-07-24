@@ -180,7 +180,7 @@ def cleanup():
 	os.remove("run.json")
 
 def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
-	start_total = time.time()
+	start_time = time.time()
 	with open("../config.json", 'r') as config_file:
 		base_config = json.load(config_file)
 	 
@@ -222,6 +222,7 @@ def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
 	with multiprocessing.Pool() as p:
 		generated_file_paths = p.map(workflow, terms)
 
+	print(f"Skim Runtime: {time.time() - start_time}")
 	gr.Info("Sending data to CHTC for processing!", duration = 30)
 	ssh_config = config.get("SSH", {})
  
@@ -299,7 +300,7 @@ def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
 			print(f"Waiting for files: {dynamic_file_names}")
 			# Wait for the dynamically specified files
 			ssh.monitor_files_and_extensions(
-				ssh_client, remote_subdir_path, f"{output_directory}/filtered", dynamic_file_names, ['.log', '.err', '.out', ])
+				ssh_client, remote_subdir_path, f"{output_directory}/filtered", dynamic_file_names, ['.log', '.err', '.out', ], len(generated_file_paths))
 			print("Files transferred successfully.")
 			# cleanup
 			ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
@@ -310,7 +311,7 @@ def webapp(a_terms, b_terms, c_terms, num_abstracts, progress = gr.Progress()):
 			ssh_client.close()
 			cleanup()
 			end_total = time.time()
-			print(f"Total Runtime: {end_total - start_total}")
+			print(f"Total Runtime: {end_total - start_time}")
 			print(f"Total SSH-time: {end_total - start_ssh_time}")
 			with open(os.path.join(output_directory, f"filtered/{json_file_name}"), "r") as gpt_output:
 				return json.load(gpt_output)
