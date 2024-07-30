@@ -47,7 +47,6 @@ def initialize_workflow():
     base_output_dir = "../output"
     os.makedirs(base_output_dir, exist_ok=True)
 
-
     # Define the name of the timestamped output directory
     timestamp_dir_name = f"output_{timestamp}"
 
@@ -201,10 +200,20 @@ def main():
                 config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
             )
 
-        if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["position"]:
-            terms = list(zip(a_terms, b_terms, c_terms))
-        else:
+        if config["JOB_TYPE"] == "skim_with_gpt":
+            # Generate all combinations of a_terms and c_terms
             terms = list(itertools.product(a_terms, c_terms))
+            if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get("position", False):
+                # If the position setting is true, combine a_terms, b_terms, and c_terms
+                terms = list(zip(a_terms, b_terms, c_terms))
+        else:
+            a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
+            if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
+                a_terms = skim.read_terms_from_file(
+                    config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
+                )
+            terms = a_terms
+            print(terms)
 
         workflow = partial(
             main_workflow, config, output_directory, timestamp_output_path
@@ -292,14 +301,16 @@ def main():
                 f"{output_directory}/filtered",
                 dynamic_file_names,
                 [".log", ".err", ".out"],
-                len(generated_file_paths), # Removed ".json" since entire directory is copied when job terminates
-                interval=10  # Optionally adjust interval
+                len(
+                    generated_file_paths
+                ),  # Removed ".json" since entire directory is copied when job terminates
+                interval=10,  # Optionally adjust interval
             )
 
             print("Files transferred successfully.")
             # Cleanup
             ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
-            #ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
+            # ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
         finally:
             # Close the SSH connection
             ssh_client.close()

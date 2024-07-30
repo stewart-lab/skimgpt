@@ -14,16 +14,22 @@ import argparse
 import sys
 import get_pubmed_text as pubmed
 
+
 class Singleton(type):
     def __init__(cls, name, bases, dict):
         super(Singleton, cls).__init__(name, bases, dict)
         cls.instance = None
 
+
 class GlobalClass(object):
     __metaclass__ = Singleton
-    config_file = 'y'
+    config_file = "y"
+
     def __init__():
-        print("I am global and whenever attributes are added in one instance, any other instance will be affected as well.")
+        print(
+            "I am global and whenever attributes are added in one instance, any other instance will be affected as well."
+        )
+
 
 # Ron is using: "./configRMS_needSpecialTunnel.json"
 def initialize_workflow():
@@ -38,6 +44,7 @@ def initialize_workflow():
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
     return config, output_directory
+
 
 def get_output_json_filename(config, job_settings):
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
@@ -132,19 +139,25 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     job_type = config.get("JOB_TYPE", "").lower()
     b_term = b_term.replace("&", " ")
     # Define hypothesis templates directly based on job_type
-    abc_hypothesis = config.get("SKIM_hypotheses")["ABC"].format(c_term=c_term, a_term=a_term, b_term=b_term)
+    abc_hypothesis = config.get("SKIM_hypotheses")["ABC"].format(
+        c_term=c_term, a_term=a_term, b_term=b_term
+    )
 
     # Now, incorporate this into your hypothesis_templates dictionary
     hypothesis_templates = {
-        "km_with_gpt": config.get("KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
-        "position_km_with_gpt": config.get("POSITION_KM_hypothesis", "").format(b_term=b_term, a_term=a_term),
-        "skim_with_gpt": abc_hypothesis  # Using the formatted ABC hypothesis directly
+        "km_with_gpt": config.get("KM_hypothesis", "").format(
+            b_term=b_term, a_term=a_term
+        ),
+        "position_km_with_gpt": config.get("POSITION_KM_hypothesis", "").format(
+            b_term=b_term, a_term=a_term
+        ),
+        "skim_with_gpt": abc_hypothesis,  # Using the formatted ABC hypothesis directly
     }
     # Fetch the hypothesis template for the given job_type
     hypothesis_template = hypothesis_templates.get(job_type)
     if not hypothesis_template:
         return "No valid hypothesis for the provided JOB_TYPE."
-    
+
     # Dynamically import the prompts module
     prompts_module = importlib.import_module("prompt_library")
     assert prompts_module, "Failed to import the prompts module."
@@ -164,15 +177,17 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
         else:
             return prompt_function(*prompt_args)
     else:
-            # Fallback for functions not expecting a hypothesis_template directly
-        if "c_term" in inspect.signature(prompt_function).parameters and c_term is not None:
+        # Fallback for functions not expecting a hypothesis_template directly
+        if (
+            "c_term" in inspect.signature(prompt_function).parameters
+            and c_term is not None
+        ):
             return prompt_function(*prompt_args, c_term=c_term)
         else:
             return prompt_function(*prompt_args)
 
 
 def perform_analysis(job_type, row, config, abstracts_data):
-    max_abstracts = config["GLOBAL_SETTINGS"].get("MAX_ABSTRACTS", 10)
     b_term = row["b_term"]
     a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
     c_term = None  # Initialize c_term with a default value of None
@@ -187,20 +202,19 @@ def perform_analysis(job_type, row, config, abstracts_data):
         "km_with_gpt",
         "position_km_with_gpt",
     ]:
-        pmids = pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
+        pmids = pubmed.parse_pmids(row, "ab_pmid_intersection")
     elif job_type == "skim_with_gpt":
         if row["ac_pmid_intersection"] != "[]":
             print("Processing all three PMID lists for ABC")
             pmids = (
-                pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
-                + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
-                + pubmed.parse_pmids(row, "ac_pmid_intersection")[:max_abstracts]
+                pubmed.parse_pmids(row, "ab_pmid_intersection")
+                + pubmed.parse_pmids(row, "bc_pmid_intersection")
+                + pubmed.parse_pmids(row, "ac_pmid_intersection")
             )
         else:
-            pmids = (
-                pubmed.parse_pmids(row, "ab_pmid_intersection")[:max_abstracts]
-                + pubmed.parse_pmids(row, "bc_pmid_intersection")[:max_abstracts]
-            )
+            pmids = pubmed.parse_pmids(
+                row, "ab_pmid_intersection"
+            ) + pubmed.parse_pmids(row, "bc_pmid_intersection")
     print(f"Processing {len(pmids)} PMIDs for {b_term} and {a_term}")
     (
         consolidated_abstracts,
@@ -242,16 +256,24 @@ def process_single_row(row, config):
     ) = perform_analysis(job_type, row, config, {})
 
     # if everything is empty, then we have no data to process
-    if not result and not prompt and not paper_urls and not consolidated_abstracts and not publication_years:
+    if (
+        not result
+        and not prompt
+        and not paper_urls
+        and not consolidated_abstracts
+        and not publication_years
+    ):
         return None
     return {
-        "Relationship": f"{row['a_term']} - {row['b_term']}" + (f" - {row['c_term']}" if 'c_term' in row else ""),
+        "Relationship": f"{row['a_term']} - {row['b_term']}"
+        + (f" - {row['c_term']}" if "c_term" in row else ""),
         "Result": result,
         "Prompt": prompt,  # Added prompt here
         "URLs": paper_urls,
         "Abstracts": consolidated_abstracts,
         "Years": publication_years,
     }
+
 
 def test_openai_connection(config):
     openai.api_key = os.getenv("OPENAI_API_KEY", "")
@@ -267,6 +289,7 @@ def test_openai_connection(config):
         print("Successfully connected to OpenAI!")
     except Exception as e:
         print(f"Failed to connect to OpenAI. Error: {e}")
+
 
 def call_openai(client, prompt, config):
     retry_delay = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
@@ -305,6 +328,7 @@ def call_openai(client, prompt, config):
             print(e.response)
             print(e.__cause__)
     return None
+
 
 def save_to_json(data, config, output_directory):
     output_filename = os.path.join(
@@ -390,32 +414,46 @@ def create_corrected_file_path(original_path):
 
 
 def km_with_gpt_workflow(config, output_directory):
-    # Check for the presence of a_terms and process each one
-    if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("A_TERM_LIST"):
-        a_terms = skim.read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
-        )
-        for a_term in a_terms:
-            local_config = copy.deepcopy(config)
-            local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
-
-            # Dynamically generate output_json name for each a_term
-            output_json = f"{a_term}_km_with_gpt.json"
-            output_json = output_json.replace(" ", "_").replace("'", "")
-            local_config["OUTPUT_JSON"] = output_json
-
-            # Recursive call for each term
-            km_with_gpt_workflow(local_config, output_directory)
-
-        return
-
-    km_file_path = skim.km_with_gpt_workflow(
-        config=config, output_directory=output_directory
+    a_terms = None
+    a_terms_file_path = (
+        config.get("JOB_SPECIFIC_SETTINGS", {})
+        .get("km_with_gpt", {})
+        .get("A_TERMS_FILE")
     )
-    if km_file_path:  #Have KM results
+    if a_terms_file_path and config.get("JOB_SPECIFIC_SETTINGS", {}).get("A_TERM_LIST"):
+        try:
+            a_terms = skim.read_terms_from_file(a_terms_file_path)
+        except Exception as e:
+            print(f"Failed to read terms from file {a_terms_file_path}: {e}")
+            return
+
+        if not a_terms:
+            print("No terms found in the A_TERMS_FILE.")
+            return
+
+    for a_term in (
+        a_terms if a_terms else [config.get("GLOBAL_SETTINGS", {}).get("A_TERM")]
+    ):
+        local_config = copy.deepcopy(config)
+        local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
+
+        # Dynamically generate output_json name for each a_term
+        output_json = f"{a_term}_km_with_gpt.json".replace(" ", "_").replace("'", "")
+        local_config["OUTPUT_JSON"] = output_json
+
+        # Recursive call for each term
+        km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
+
+        if not km_file_path:
+            print("No km_file_path returned from km_with_gpt_workflow.")
+            return
+
         df = read_tsv_to_dataframe(km_file_path)
+        if df.empty:
+            print("The dataframe is empty, skipping processing.")
+            return
+
         df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["NUM_B_TERMS"]]
-        assert not df.empty, "The dataframe is empty"
         results = {}
         test_openai_connection(config)
         for index, row in df.iterrows():
@@ -426,19 +464,19 @@ def km_with_gpt_workflow(config, output_directory):
             else:
                 results[term].append(result_dict)
             print(f"Processed row {index + 1} ({row['b_term']}) of {len(df)}")
+
         if not results:
             print("No results were processed")
+            return
+
         write_to_json(results, config["OUTPUT_JSON"], output_directory)
         print(f"Analysis results have been saved to {config['OUTPUT_JSON']}")
+
         # if the prompt name ends in cc then we need to correct the file
         if config.get("PROMPT_NAME", "").endswith("cc"):
             print("Correcting the counts based off cc suffix...")
             json_file_path = os.path.join(output_directory, config["OUTPUT_JSON"])
-            with open(json_file_path, "r") as f:
-                json_data = json.load(f)
-            scores_by_term = calculate_scores_by_term(json_data)
-            apply_scores_to_df(df, scores_by_term)
-            corrected_file_path = create_corrected_file_path(km_file_path)
+            corrected_file_path = create_corrected_file_path(json_file_path)
             df.to_csv(corrected_file_path, sep="\t", index=False)
             print(f"Corrected file has been saved to {corrected_file_path}")
 
@@ -518,31 +556,33 @@ def skim_with_gpt_workflow(config, output_directory):
         b_term = b_terms[i]
         local_config = copy.deepcopy(config)
         local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
-        #local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["skim"]["censor_year"] = determine_censor_year_exercise5(i)
+        # local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["skim"]["censor_year"] = determine_censor_year_exercise5(i)
         c_term_short = c_term[:10] if len(c_term) > 10 else c_term
         c_term_file = os.path.join(output_directory, f"{c_term_short}.txt")
         with open(c_term_file, "w") as f:
             f.write(c_term)
-        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"] = c_term_file
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
+            "C_TERMS_FILE"
+        ] = c_term_file
 
         b_term_short = b_term[:10] if len(b_term) > 10 else b_term
         b_term_file = os.path.join(output_directory, f"{b_term_short}.txt")
         with open(b_term_file, "w") as f:
             f.write(b_term)
-        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"] = b_term_file
+        local_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"][
+            "B_TERMS_FILE"
+        ] = b_term_file
 
         skim_file_path = skim.skim_with_gpt_workflow(local_config, output_directory)
         if skim_file_path is None:
             print(
                 f"Skim file not found for {a_term}, {b_term} and {c_term}. Please lower fet or check the spelling"
-             )
+            )
             continue
         df = read_tsv_to_dataframe(skim_file_path)
-        #df = test_example_3(df, i, "/w5home/jfreeman/kmGPT/test/example3.csv")
+        # df = test_example_3(df, i, "/w5home/jfreeman/kmGPT/test/example3.csv")
         assert not df.empty, "The dataframe is empty"
-        df = df.iloc[
-            : config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["NUM_B_TERMS"]
-        ]
+        df = df.iloc[: config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["NUM_B_TERMS"]]
         # Process the dataframe and gather results
         results_list = []
         test_openai_connection(config)
@@ -614,12 +654,20 @@ def skim_with_gpt_workflow_old(config, output_directory):
             # delete the temporary file
             os.remove(c_term_file)
 
+
 # TODO add time
 
 
 def main_workflow():
     parser = argparse.ArgumentParser("arg_parser")
-    parser.add_argument("-config","--config_file",  dest='config_file', help="Config file. Default=config.json.", default="../config.json", type=str)
+    parser.add_argument(
+        "-config",
+        "--config_file",
+        dest="config_file",
+        help="Config file. Default=config.json.",
+        default="../config.json",
+        type=str,
+    )
     args = parser.parse_args()
     GlobalClass.config_file = args.config_file
     config, output_directory = initialize_workflow()
