@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import requests
 import time
-import exercises as exer
 
 
 # File Operations
@@ -104,21 +103,33 @@ def run_and_save_query(
         print("The result is empty")
         return None
 
-    file_name = job_config["a_terms"][0]
     result_df = pd.DataFrame(result)
 
-    most_recent = config["GLOBAL_SETTINGS"]["MOST_RECENT"]
+    sample_method = config["GLOBAL_SETTINGS"].get("SAMPLE_METHOD", "cited")
     top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
+    recent_ratio = config["GLOBAL_SETTINGS"].get("RECENT_RATIO", 0.5)
 
-    if most_recent:
-        process_intersection(
-            result_df, "ab_pmid_intersection", top_n_articles, most_recent
-        )
+    # Define the columns to sample from based on job type
+    if job_type == "skim_with_gpt":
+        columns_to_sample = ["ab_pmid_intersection", "bc_pmid_intersection"]
+    else:
+        columns_to_sample = ["ab_pmid_intersection"]
 
-    if job_type == "skim_with_gpt" and most_recent:
-        process_intersection(
-            result_df, "bc_pmid_intersection", top_n_articles, most_recent
-        )
+    # Apply sampling to each relevant column
+    for column in columns_to_sample:
+        if column in result_df.columns:
+            if sample_method == "mixed":
+                result_df[column] = result_df[column].apply(
+                    lambda x: sample_mixed(x, top_n_articles, recent_ratio)
+                )
+            elif sample_method == "recent":
+                result_df[column] = result_df[column].apply(
+                    lambda x: sorted(x, reverse=True)[:top_n_articles]
+                )
+            else:  # Default to most cited
+                result_df[column] = result_df[column].apply(
+                    lambda x: x[:top_n_articles]
+                )
 
     if job_type == "skim_with_gpt":
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
@@ -130,19 +141,49 @@ def run_and_save_query(
     return file_path
 
 
+def sample_mixed(lst, top_n, recent_ratio):
+    if not lst:
+        return []
+
+    recent_index = -1
+    cited_index = 0
+    result = []
+    lst_len = len(lst)
+
+    for i in range(min(top_n, lst_len)):
+        if i % (1 / recent_ratio) < 1 and abs(recent_index) <= lst_len:
+            # Sample from recent
+            result.append(lst[recent_index])
+            recent_index -= 1
+        elif cited_index < lst_len:
+            # Sample from cited
+            result.append(lst[cited_index])
+            cited_index += 1
+        else:
+            # If we've exhausted one end, continue with the other
+            remaining_index = (
+                recent_index if abs(recent_index) <= lst_len else cited_index
+            )
+            result.extend(
+                lst[remaining_index:]
+                if remaining_index >= 0
+                else lst[remaining_index::-1]
+            )
+            break
+
+    return list(dict.fromkeys(result))
+
+
 # Job Configuration
 def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
     """Configure a job based on the provided type and terms."""
     assert config, "No configuration provided"
-    top_n_articles = config["GLOBAL_SETTINGS"].get("TOP_N_ARTICLES", 10)
-    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
-        top_n_articles = 10000
 
     common_settings = {
         "a_terms": [a_term],
         "return_pmids": True,
         "query_knowledge_graph": False,
-        "top_n_articles": top_n_articles,
+        "top_n_articles": 10000,
     }
 
     if job_type == "km_with_gpt":
@@ -213,8 +254,6 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     assert sort_column in km_df.columns, f"{sort_column} is not in the km_df"
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
-    if config["GLOBAL_SETTINGS"]["MOST_RECENT"]:
-        print("Sorting the results by the most recent articles")
     valid_rows = km_df[km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")]
     filtered_file_path = os.path.join(
         output_directory,
@@ -235,24 +274,21 @@ def skim_with_gpt_workflow(config, output_directory):
     """Run the SKIM workflow."""
     print("Executing SKIM workflow...")
 
+    b_terms_file = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
+    c_terms_file = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+
     skim_file_path = run_and_save_query(
         "skim_with_gpt",
         config["GLOBAL_SETTINGS"]["A_TERM"],
-        read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
-        ),
-        read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
-        ),
+        read_terms_from_file(c_terms_file),
+        read_terms_from_file(b_terms_file),
         config=config,
         output_directory=output_directory,
     )
     km_file_path = run_and_save_query(
         "km_with_gpt",
         config["GLOBAL_SETTINGS"]["A_TERM"],
-        read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
-        ),
+        read_terms_from_file(c_terms_file),
         config=config,
         output_directory=output_directory,
     )
@@ -284,4 +320,7 @@ def skim_with_gpt_workflow(config, output_directory):
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
     print(f"SKIM results saved to {full_skim_file_path}")
+    # Remove B and C term files
+    os.remove(b_terms_file)
+    os.remove(c_terms_file)
     return full_skim_file_path
