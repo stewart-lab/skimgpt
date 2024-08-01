@@ -1,19 +1,17 @@
 from __future__ import annotations
 import pandas as pd
-from transformers import set_seed
 import json
 from Bio import Entrez
 import vllm
 import argparse
-from abstract_comprehension import read_tsv_to_dataframe
 from utils import Config, RaggedTensor
-from tqdm import tqdm
-import numpy as np
-import os
-import jinja2
 import tiktoken
 from classifier import process_single_row, write_to_json
 from itertools import chain
+from leakage import load_data, update_ab_pmid_intersection, save_updated_data
+
+# import plot_output_w_truth as plot
+import eval_JSON_results as eval_results
 
 # Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis.
 # Only two arguements should be specified at once
@@ -335,8 +333,9 @@ def main():
             )
 
     out_df = optimize_text_length(out_df)
+    # leakage_data = load_data("leakage.csv")
+    # out_df = update_ab_pmid_intersection(out_df, leakage_data, "negative")
     out_df.to_csv(
-
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",
     )
@@ -349,11 +348,16 @@ def main():
         print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
         assert results_list, "No results were processed"
         # Generate a unique output JSON file name for each a_term and c_term combination
-        output_json = (
-            f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
-        )
+        if config.is_skim_gpt:
+            output_json = (
+                f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
+            )
+        else:
+            output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
         write_to_json(results_list, output_json)
         print(f"Analysis results have been saved to {output_json}")
+    # eval_results.extract_and_write_scores(config.km_output_dir)
+    # plot.plot_output_w_truth(config.km_output_dir)
 
 
 if __name__ == "__main__":

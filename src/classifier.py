@@ -4,6 +4,7 @@ import time
 import json
 import importlib
 import inspect
+import re
 
 
 def write_to_json(data, file_path):
@@ -22,9 +23,7 @@ def process_single_row(row, config):
         print("Invalid job type (caught in process_single_row)")
         return None
 
-    (result, prompt, consolidated_abstracts) = perform_analysis(
-        job_type, row, config, {}
-    )
+    (result, prompt, urls) = perform_analysis(job_type, row, config, {})
 
     # if everything is empty, then we have no data to process
     if not result and not prompt:
@@ -33,9 +32,22 @@ def process_single_row(row, config):
         "Relationship": f"{row['a_term']} - {row['b_term']}"
         + (f" - {row['c_term']}" if "c_term" in row else ""),
         "Result": result,
-        "Prompt": prompt,  # Added prompt here
-        "Abstracts": consolidated_abstracts,
+        "Prompt": prompt,
+        "URLS": urls,
     }
+
+
+def extract_pmids_and_generate_urls(text):
+    # Regular expression to find PMIDs
+    pmid_pattern = r"PMID:\s*(\d+)"
+
+    # Find all PMIDs in the text
+    pmids = re.findall(pmid_pattern, text)
+
+    # Generate PubMed URLs
+    pubmed_urls = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in pmids]
+
+    return pubmed_urls
 
 
 def perform_analysis(job_type, row, config, abstract_data):
@@ -47,11 +59,11 @@ def perform_analysis(job_type, row, config, abstract_data):
         + row.get("bc_pmid_intersection", "")
         + row.get("ac_pmid_intersection", "")
     )
-
+    urls = extract_pmids_and_generate_urls(consolidated_abstracts)
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
     )
-    return result, prompt, consolidated_abstracts
+    return result, prompt, urls
 
 
 def analyze_abstract_with_gpt4(
@@ -173,13 +185,3 @@ def call_openai(client, prompt, config):
             print(e.response)
             print(e.__cause__)
     return None
-
-
-def save_to_json(data, config, output_directory):
-    output_filename = os.path.join(
-        output_directory, config["OUTPUT_JSON"] + "_filtered.json"
-    )
-    # Adding "_filtered" to the filename
-    with open(output_filename, "w") as f:
-        json.dump(data, f, indent=4)
-    print(f"Filtered results have been saved to {output_filename}")

@@ -3,74 +3,81 @@ import scoring_guidelines as sg
 
 
 def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
-    return (
-        "Assessment Task:\n"
-        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
-        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
-        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
-        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
-        "evidence in your evaluation.\n\n"
-        "Hypothesis:\n"
-        f"{hypothesis_template}\n\n"
-        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
-        "Few-Shot Learning Examples:\n"
-        "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
-        f"Example 1: {fsl.breast_cancer_example_1()}\n"
-        f"Example 2: {fsl.breast_cancer_example_2()}\n"
-        f"Example 3: {fsl.raynauds_disease_example_1()}\n"
-        f"Example 4: {fsl.raynauds_disease_example_2()}\n"
-        f"Example 5: {fsl.heart_failure_example_1()}\n"
-        f"Example 6: {fsl.heart_failure_example_2()}\n"
-        "Format your response as:\n"
-        "Score: [Number] - Reasoning: [Reasoning]\n\n"
-        "Scoring Guidelines:\n"
-        f"{sg.original_scoring_guidelines()}\n"
-        "Biomedical Abstracts for Analysis:\n"
-        f"{consolidated_abstracts}"
-    )
+    return f"""Biomedical Abstracts for Analysis:
+{consolidated_abstracts}
+
+Assessment Task:
+Evaluate the degree of support for the hypothesis, which posits a significant interaction between {a_term} and {b_term}. 
+The texts provided above come from PubMed and each abstract will include only {a_term} and {b_term}. 
+The texts need to be your only source of information for arriving at your classification result.
+
+Hypothesis:
+{hypothesis_template}
+
+Instructions:
+1. Review each abstract to understand how {a_term} and {b_term} might be interconnected based on the available information.
+2. Analyze the presence and implications of the term pairing ({a_term} + {b_term}) in the context of the hypothesis.
+3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+
+Format your response as:
+Score: [Number] - Reasoning: [Reasoning]
+
+Scoring Guidelines:
+{sg.biomedical_hypothesis_strength()}
+"""
 
 
 def position_km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
-    return (
-        "Assessment Task:\n"
-        "Conduct a thorough analysis of the provided biomedical texts to evaluate the level of support for the stated hypothesis. "
-        "Assign a score based on the evidence's strength and relevance. This score should encapsulate the degree to which the research data "
-        "and findings in the texts corroborate or refute the hypothesis. Ensure that your score is supported by specific references to the texts. "
-        "Consider the quality of the research, the relevance of the findings to the hypothesis, and the presence of any limitations or conflicting "
-        "evidence in your evaluation.\n\n"
-        "Hypothesis:\n"
-        f"{hypothesis_template}\n\n"
-        "Instructions for Evaluating the Hypothesis:\n\n1. Rely Solely on Provided Abstracts: Use only the information within the given abstracts for your assessment. Avoid using external information or resources.\n\n2. Analyze Implicit Information: It's unlikely that the abstracts will directly state their stance on the hypothesis. Employ your analytical skills to infer whether the information supports or contradicts the hypothesis.\n\n3. Synthesize Information: You'll need to integrate insights from several abstracts. No single abstract will provide a definitive conclusion on its own.\n\n4. Justify Your Assessment: Clearly explain your reasoning for the hypothesis evaluation. Your justification should be understandable by someone with an undergraduate level of knowledge in biochemistry. Use straightforward and concise language."
-        "Few-Shot Learning Examples:\n"
-        "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
-        "Format your response as:\n"
-        "Score: [Number] - Reasoning: [Reasoning]\n\n"
-        "Scoring Guidelines:\n"
-        f"{sg.updated_KM_scoring_guidelines()}\n"
-        "Biomedical Abstracts for Analysis:\n"
-        f"{consolidated_abstracts}"
-    )
+    return f"""Biomedical Abstracts for Analysis:
+{consolidated_abstracts}
+
+Assessment Task:
+Evaluate the degree of support for the hypothesis, which posits a significant interaction between {a_term} and {b_term}. 
+The texts provided above come from PubMed and each abstract will include only {a_term} and {b_term}. 
+The texts need to be your only source of information for arriving at your classification result.
+
+Hypothesis:
+{hypothesis_template}
+
+Instructions:
+1. Review each abstract to understand how {a_term} and {b_term} might be interconnected based on the available information.
+2. Analyze the presence and implications of the term pairing ({a_term} + {b_term}) in the context of the hypothesis.
+3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+
+Format your response as:
+Score: [Number] - Reasoning: [Reasoning]
+
+Scoring Guidelines:
+{sg.biomedical_hypothesis_strength()}
+"""
 
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
-    return (
-        f"Biomedical Abstracts for Analysis:\n{consolidated_abstracts}\n\n"
-        "Assessment Task:\n"
-        "Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} mediated by {b_term}. "
-        "The texts provided above come from PubMed and each abstract will include only two of the three terms at any one time. The texts need to be your only source of information for arriving at your classification result.\n\n"
-        f"Hypothesis:\n"
-        f"{hypothesis_template}\n\n"
-        "Instructions:\n"
-        "1. Review each abstract to understand how {a_term}, {b_term}, and {c_term} might be interconnected based on the available information.\n"
-        "2. Analyze the presence and implications of each term pairing ({a_term} + {b_term}, {b_term} + {c_term}) in the context of the hypothesis.\n"
-        "3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.\n"
-        "4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.\n"
-        "5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.\n\n"
-        "Format your response as:\n"
-        "Score: [Number] - Reasoning: [Reasoning]\n\n"
-        "Scoring Guidelines:\n"
-        f"{sg.skim()}\n"
-    )
+    return f"""Biomedical Abstracts for Analysis:
+{consolidated_abstracts}
+
+Assessment Task:
+Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} through their own interactions with {b_term}. The texts provided above come from PubMed and each abstract will include only two of the three terms at any one time. The texts need to be your only source of information for arriving at your classification result.
+
+Hypothesis:
+{hypothesis_template}
+
+Instructions:
+1. Review each abstract to understand how {a_term}, {b_term}, and {c_term} might be interconnected based on the available information.
+2. Analyze the presence and implications of each term pairing ({a_term} + {b_term}, {b_term} + {c_term}) in the context of the hypothesis.
+3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+
+Format your response as:
+Score: [Number] - Reasoning: [Reasoning]
+
+Scoring Guidelines:
+{sg.skim()}"""
 
 
 def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):

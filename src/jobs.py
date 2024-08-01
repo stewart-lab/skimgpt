@@ -6,36 +6,17 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def km_with_gpt_workflow(config, output_directory, file_paths=None):
+def km_with_gpt_workflow(config, output_directory, a_terms=None, file_paths=None):
     # Initialize file_paths if not provided
     if file_paths is None:
         file_paths = []
-
-    if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("A_TERM_LIST"):
-        a_terms = skim.read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
-        )
-        for a_term in a_terms:
-            local_config = copy.deepcopy(config)
-            local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
-
-            # Directly process each term without recursion
-            km_file_path = skim.km_with_gpt_workflow(
-                config=local_config, output_directory=output_directory
-            )
-
-            if km_file_path:
-                file_paths.append(km_file_path)
-
-        return file_paths
-    else:
-        # Process without terms
-        km_file_path = skim.km_with_gpt_workflow(
-            config=config, output_directory=output_directory
-        )
-        if km_file_path:
-            file_paths.append(km_file_path)
-        return file_paths
+    local_config = copy.deepcopy(config)
+    local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_terms
+    km_file_path = skim.km_with_gpt_workflow(config, output_directory)
+    # Collect results
+    if km_file_path:
+        file_paths.append(km_file_path)
+    return file_paths
 
 
 def position_km_with_gpt_workflow(config, output_directory):
@@ -107,9 +88,10 @@ def main_workflow(config, output_directory, timestamp_output_path, terms):
 
     # Process based on job type
     if job_type == "km_with_gpt":
-        a_term = terms[0]
-        c_term = terms[1]
-        generated_file_paths.extend(km_with_gpt_workflow(config, output_directory))
+        a_terms = terms
+        generated_file_paths.extend(
+            km_with_gpt_workflow(config, output_directory, a_terms)
+        )
     elif job_type == "position_km_with_gpt":
         a_term = terms[0]
         c_term = terms[1]

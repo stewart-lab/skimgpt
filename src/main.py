@@ -10,14 +10,11 @@ import itertools
 import pandas as pd
 import multiprocessing
 from jobs import main_workflow
-
-# add parent directory to path
 from glob import glob
 import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# import openai
 
 
 class Singleton(type):
@@ -40,36 +37,20 @@ class GlobalClass(object):
 
 
 def initialize_workflow():
-    # Generate a timestamp string
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
-    # Define the base output directory and ensure it exists
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_output_dir = "../output"
     os.makedirs(base_output_dir, exist_ok=True)
-
-
-    # Define the name of the timestamped output directory
     timestamp_dir_name = f"output_{timestamp}"
-
-    # Create the timestamped output directory within 'output'
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
-    # Set timestamp_output_path to just the name of the timestamped directory
-    # This holds just the directory name, not the full path
     timestamp_output_path = timestamp_dir_name
-
-    # Copy the config file into the timestamped output directory
     shutil.copy(
-        GlobalClass.config_file,  # Assuming GlobalClass.config_file is defined elsewhere
+        GlobalClass.config_file,
         os.path.join(output_directory, "config.json"),
     )
-
-    # Assuming get_config is a function that reads and returns the configuration
-    # Use the full path here for reading the config
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
-
-    # Return the configuration, the full path to the output directory, and the lowest level directory name
     return config, output_directory, timestamp_output_path
 
 
@@ -113,31 +94,12 @@ def initialize_eval_workflow(tsv_dir):
     return config, output_directory, timestamp_output_path, generated_file_paths
 
 
-def get_output_json_filename(config, job_settings):
-    a_term = config["GLOBAL_SETTINGS"]["A_TERM"]
-    output_json_map = {
-        "km_with_gpt": f"km_with_gpt_{a_term}_output.json",
-        "post_km_analysis": f"{a_term}_drug_synergy_maxAbstracts{config['GLOBAL_SETTINGS'].get('MAX_ABSTRACTS', '')}.json",
-        "drug_discovery_validation": f"{a_term}_censorYear{job_settings.get('skim', {}).get('censor_year', '')}_numCTerms{config['GLOBAL_SETTINGS'].get('NUM_C_TERMS', '')}.json",
-        "position_km_with_gpt": "position_km_with_gpt.json",
-        "skim_with_gpt": "skim_with_gpt.json",
-    }
-
-    output_json = output_json_map.get(config["JOB_TYPE"])
-    if output_json is None:
-        raise ValueError(f"Invalid job type: {config['JOB_TYPE']}")
-
-    return output_json.replace(" ", "_").replace("'", "")
-
-
 def get_config(output_directory):
     config_path = os.path.join(output_directory, "config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
 
     job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
-    config["OUTPUT_JSON"] = get_output_json_filename(config, job_settings)
-
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set.")
@@ -201,10 +163,20 @@ def main():
                 config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
             )
 
-        if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["position"]:
-            terms = list(zip(a_terms, b_terms, c_terms))
-        else:
+        if config["JOB_TYPE"] == "skim_with_gpt":
+            # Generate all combinations of a_terms and c_terms
             terms = list(itertools.product(a_terms, c_terms))
+            if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get("position", False):
+                # If the position setting is true, combine a_terms, b_terms, and c_terms
+                terms = list(zip(a_terms, b_terms, c_terms))
+        else:
+            a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
+            if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
+                a_terms = skim.read_terms_from_file(
+                    config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
+                )
+            terms = a_terms
+            print(terms)
 
         workflow = partial(
             main_workflow, config, output_directory, timestamp_output_path
@@ -251,9 +223,6 @@ def main():
                     file_name = os.path.basename(file_path)  # Extract the file name
                     # Make a safe file name
                     safe_file_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", file_name)
-                    base_name = safe_file_name.replace("_output_filtered.tsv", "")
-                    json_file_name = f"{base_name}.json"
-                    config["OUTPUT_JSON"] = json_file_name
                     with open(os.path.join(output_directory, "config.json"), "w") as f:
                         json.dump(config, f, indent=4)
                     # Construct the remote path with file name
@@ -292,14 +261,14 @@ def main():
                 f"{output_directory}/filtered",
                 dynamic_file_names,
                 [".log", ".err", ".out"],
-                len(generated_file_paths), # Removed ".json" since entire directory is copied when job terminates
-                interval=10  # Optionally adjust interval
+                len(generated_file_paths),
+                interval=10,
             )
 
             print("Files transferred successfully.")
             # Cleanup
             ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
-            #ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
+            # ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
         finally:
             # Close the SSH connection
             ssh_client.close()
