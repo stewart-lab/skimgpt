@@ -72,7 +72,7 @@ The `config.json` file includes global parameters as well as several job types, 
 
    ```bash
    
- source run_analysis.sh
+   source run_analysis.sh
  
    ```
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
