@@ -12,7 +12,7 @@ def km_with_gpt_workflow(config, output_directory, a_terms=None, file_paths=None
         file_paths = []
     local_config = copy.deepcopy(config)
     local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_terms
-    km_file_path = skim.km_with_gpt_workflow(config, output_directory)
+    km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
     # Collect results
     if km_file_path:
         file_paths.append(km_file_path)

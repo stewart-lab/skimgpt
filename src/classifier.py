@@ -177,8 +177,8 @@ def call_openai(client, prompt, config):
 
         except openai.RateLimitError as e:
             print("A 429 status code was received; we should back off a bit.")
+            print(e)
             time.sleep(retry_delay)
-            print(e.__cause__)
         except openai.APIStatusError as e:
             print("Another non-200-range status code was received")
             print(e.status_code)

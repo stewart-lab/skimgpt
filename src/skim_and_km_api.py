@@ -321,6 +321,6 @@ def skim_with_gpt_workflow(config, output_directory):
     skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
     print(f"SKIM results saved to {full_skim_file_path}")
     # Remove B and C term files
-    os.remove(b_terms_file)
-    os.remove(c_terms_file)
+    # os.remove(b_terms_file)
+    # os.remove(c_terms_file)
     return full_skim_file_path
