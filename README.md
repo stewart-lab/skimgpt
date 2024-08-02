@@ -69,6 +69,12 @@ The `config.json` file includes global parameters as well as several job types, 
    ```
 
 5. **Running the script**
+
+   ```bash
+   
+ source run_analysis.sh
+ 
+   ```
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 <a name="skim-and-km-api-overview"></a>
 # `skim_and_km_api` Module Overview
