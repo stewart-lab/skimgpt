@@ -39,7 +39,7 @@ This repository provides tools to SKIM through PubMed abstracts and analyze the 
     pip install -r requirements.txt
     ```
 3. **Environment Variables**
-   Before running the script, ensure you have set up your OpenAI API key in your environment. You can set it using:
+   Before running the script, ensure you have set up your OpenAI API key in your environment. We recommend setting in your shell profile. You can set it using:
   ```bash
     export OPENAI_API_KEY=your_api_key_here
     export PUBMED_API_KEY=your_api_key_here
