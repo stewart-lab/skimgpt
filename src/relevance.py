@@ -6,7 +6,7 @@ import vllm
 import argparse
 from utils import Config, RaggedTensor
 import tiktoken
-from classifier import process_single_row, write_to_json
+from classifier import process_single_row, write_to_json, calculate_relevance_ratios
 from itertools import chain
 from leakage import load_data, update_ab_pmid_intersection, save_updated_data
 
@@ -333,6 +333,7 @@ def main():
             )
 
     out_df = optimize_text_length(out_df)
+    out_df = calculate_relevance_ratios(out_df)
     # leakage_data = load_data("leakage.csv")
     # out_df = update_ab_pmid_intersection(out_df, leakage_data, "negative")
     out_df.to_csv(
@@ -342,22 +343,22 @@ def main():
 
     ##################### Classify ############################
     for index, row in out_df.iterrows():
-        results_list = []  # Initialize the results_list for each row
         result_dict = process_single_row(row, config)
-        results_list.append(result_dict)
-        print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
-        assert results_list, "No results were processed"
-        # Generate a unique output JSON file name for each a_term and c_term combination
-        if config.is_skim_gpt:
-            output_json = (
-                f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
-            )
-        else:
-            output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
-        write_to_json(results_list, output_json)
-        print(f"Analysis results have been saved to {output_json}")
-    # eval_results.extract_and_write_scores(config.km_output_dir)
-    # plot.plot_output_w_truth(config.km_output_dir)
+        if result_dict:
+            for ratio_type in ["ab", "bc", "ac"]:
+                ratio_col = f"{ratio_type}_relevance_ratio"
+                fraction_col = f"{ratio_type}_relevance_fraction"
+                if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                    ratio = row[ratio_col]
+                    fraction = row[fraction_col]
+                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+            print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
+            if config.is_skim_gpt:
+                output_json = f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
+            else:
+                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
+            write_to_json([result_dict], output_json)  # Wrap result_dict in a list
+            print(f"Analysis results have been saved to {output_json}")
 
 
 if __name__ == "__main__":

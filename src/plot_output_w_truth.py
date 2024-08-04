@@ -23,7 +23,7 @@ def plot_output(output_dir):
     df["Relationship"] = df["Relationship"].str.replace(
         "Relationship: ", "", regex=False
     )
-    df["Drug"] = df["Relationship"].str.split(" - ").str[1]
+    df["Term"] = df["Relationship"].str.split(" - ").str[1]
 
     # Sort the DataFrame by Score in descending order
     df = df.sort_values("Score", ascending=False)
@@ -32,11 +32,11 @@ def plot_output(output_dir):
     plt.figure(figsize=(12, 8))
 
     # Create a horizontal bar plot
-    ax = sns.barplot(x="Score", y="Drug", data=df, palette="viridis")
+    ax = sns.barplot(x="Score", y="Term", data=df, palette="viridis")
 
-    plt.title("Drug Effectiveness for Breast Cancer")
+    plt.title("Support for hypothesis")
     plt.xlabel("Score")
-    plt.ylabel("Drug")
+    plt.ylabel("Term")
 
     # Add score labels to the end of each bar
     for i, v in enumerate(df["Score"]):

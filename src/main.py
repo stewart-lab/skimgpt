@@ -3,6 +3,7 @@ import argparse
 import skim_and_km_api as skim
 from datetime import datetime
 from functools import partial
+from eval_JSON_results import extract_and_write_scores
 import re
 import shutil
 import json
@@ -131,6 +132,42 @@ def create_corrected_file_path(original_path):
     # Create a new path with "corrected" appended
     new_path = f"{file_name}_corrected{file_extension}"
     return new_path
+
+
+def organize_output(directory):
+    # Create 'results' and 'debug' directories if they don't exist
+    results_dir = os.path.join(directory, "results")
+    debug_dir = os.path.join(directory, "debug")
+    os.makedirs(results_dir, exist_ok=True)
+    os.makedirs(debug_dir, exist_ok=True)
+
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+
+            # Move .json files (except config.json) to 'results'
+            if file.endswith(".json") and file != "config.json":
+                shutil.move(file_path, os.path.join(results_dir, file))
+
+            # Move .tsv, .log, .err, .sub, and .out files to 'debug'
+            elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
+                shutil.move(file_path, os.path.join(debug_dir, file))
+
+            # Delete all other files except config.json
+            elif file != "config.json":
+                os.remove(file_path)
+
+    # Remove empty directories
+    for root, dirs, files in os.walk(directory, topdown=False):
+        for dir in dirs:
+            dir_path = os.path.join(root, dir)
+            if not os.listdir(dir_path):
+                os.rmdir(dir_path)
+
+    # Remove the filtered directory and its components
+    filtered_dir = os.path.join(directory, "filtered")
+    if os.path.exists(filtered_dir):
+        shutil.rmtree(filtered_dir)
 
 
 def main():
@@ -268,7 +305,9 @@ def main():
             print("Files transferred successfully.")
             # Cleanup
             ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
-            # ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
+            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
+            organize_output(output_directory)
+            extract_and_write_scores(output_directory)
         finally:
             # Close the SSH connection
             ssh_client.close()

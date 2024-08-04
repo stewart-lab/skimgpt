@@ -12,6 +12,30 @@ def write_to_json(data, file_path):
         json.dump(data, outfile, indent=4)
 
 
+def calculate_relevance_ratios(out_df):
+    mask_columns = ["ab_mask", "bc_mask", "ac_mask"]
+
+    for col in mask_columns:
+        if col in out_df.columns:
+            prefix = col.split("_")[0]
+            ratio_col = f"{prefix}_relevance_ratio"
+            fraction_col = f"{prefix}_relevance_fraction"
+
+            out_df[[ratio_col, fraction_col]] = (
+                out_df[col]
+                .apply(
+                    lambda x: (
+                        (sum(x) / len(x), f"{sum(x)}/{len(x)}")
+                        if isinstance(x, list)
+                        else (None, None)
+                    )
+                )
+                .tolist()
+            )
+
+    return out_df
+
+
 def process_single_row(row, config):
     job_type = config.job_type
 
@@ -28,12 +52,17 @@ def process_single_row(row, config):
     # if everything is empty, then we have no data to process
     if not result and not prompt:
         return None
+
     return {
         "Relationship": f"{row['a_term']} - {row['b_term']}"
         + (f" - {row['c_term']}" if "c_term" in row else ""),
         "Result": result,
         "Prompt": prompt,
-        "URLS": urls,
+        "URLS": {
+            "AB": urls.get("AB", []),
+            "BC": urls.get("BC", []),
+            "AC": urls.get("AC", []),
+        },
     }
 
 
@@ -54,12 +83,19 @@ def perform_analysis(job_type, row, config, abstract_data):
     b_term = row["b_term"]
     a_term = row["a_term"]
     c_term = row.get("c_term", None) if job_type == "skim_with_gpt" else None
-    consolidated_abstracts = (
-        row["ab_pmid_intersection"]
-        + row.get("bc_pmid_intersection", "")
-        + row.get("ac_pmid_intersection", "")
-    )
-    urls = extract_pmids_and_generate_urls(consolidated_abstracts)
+
+    ab_abstracts = row["ab_pmid_intersection"]
+    bc_abstracts = row.get("bc_pmid_intersection", "")
+    ac_abstracts = row.get("ac_pmid_intersection", "")
+
+    consolidated_abstracts = ab_abstracts + bc_abstracts + ac_abstracts
+
+    urls = {
+        "AB": extract_pmids_and_generate_urls(ab_abstracts),
+        "BC": extract_pmids_and_generate_urls(bc_abstracts),
+        "AC": extract_pmids_and_generate_urls(ac_abstracts),
+    }
+
     result, prompt = analyze_abstract_with_gpt4(
         consolidated_abstracts, b_term, a_term, config, c_term=c_term
     )
