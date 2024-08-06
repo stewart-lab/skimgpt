@@ -1,6 +1,6 @@
 {
     "JOB_TYPE": "km_with_gpt",
-    "KM_hypothesis": "{b_term} can be used to treat {a_term}.",
+    "KM_hypothesis": "{b_term} has no effect on {a_term}.",
     "SKIM_hypotheses": {
         "BC": "There exists an interaction between {c_term} and {b_term}.",
         "AB": "There exists an interaction between {a_term} and {b_term}.",
@@ -39,7 +39,8 @@
         "TOP_K": 20,
         "TOP_P": 0.95,
         "MAX_COT_TOKENS": 500,
-        "DEBUG": false
+        "DEBUG": false,
+        "TEST_LEAKAGE": false
     },
     "JOB_SPECIFIC_SETTINGS": {
         "km_with_gpt": {
