@@ -174,6 +174,15 @@ def sample_mixed(lst, top_n, recent_ratio):
     return list(dict.fromkeys(result))
 
 
+def filter_term_columns(df):
+    for column in ["a_term", "b_term", "c_term"]:
+        if column in df.columns:
+            df[column] = df[column].apply(
+                lambda x: x.split("|")[0] if "|" in str(x) else x
+            )
+    return df
+
+
 # Job Configuration
 def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
     """Configure a job based on the provided type and terms."""
@@ -255,6 +264,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
     valid_rows = km_df[km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")]
+    valid_rows = filter_term_columns(valid_rows)
     filtered_file_path = os.path.join(
         output_directory,
         os.path.splitext(km_file_path)[0].replace(" ", "_") + "_filtered.tsv",
@@ -314,13 +324,11 @@ def skim_with_gpt_workflow(config, output_directory):
         )
         return None
     skim_df = valid_rows
+    skim_df = filter_term_columns(skim_df)
     full_skim_file_path = os.path.join(
         output_directory, os.path.splitext(skim_file_path)[0] + "_filtered.tsv"
     )
     assert sort_column in skim_df.columns, f"{sort_column} is not in the skim_df"
     skim_df.to_csv(full_skim_file_path, sep="\t", index=False)
     print(f"SKIM results saved to {full_skim_file_path}")
-    # Remove B and C term files
-    # os.remove(b_terms_file)
-    # os.remove(c_terms_file)
     return full_skim_file_path
