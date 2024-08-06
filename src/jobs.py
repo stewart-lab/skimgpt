@@ -19,42 +19,6 @@ def km_with_gpt_workflow(config, output_directory, a_terms=None, file_paths=None
     return file_paths
 
 
-def position_km_with_gpt_workflow(config, output_directory):
-
-    km_file_paths = []  # Initialize the list to collect file paths
-
-    assert config["JOB_SPECIFIC_SETTINGS"]["position_km_with_gpt"][
-        "A_TERMS_FILE"
-    ], "A_TERMS_FILE is not defined in the configuration"
-
-    a_terms = skim.read_terms_from_file(
-        config["JOB_SPECIFIC_SETTINGS"]["position_km_with_gpt"]["A_TERMS_FILE"]
-    )
-    b_terms = skim.read_terms_from_file(
-        config["JOB_SPECIFIC_SETTINGS"]["position_km_with_gpt"]["B_TERMS_FILE"]
-    )
-
-    for i, a_term in enumerate(a_terms):
-        local_config = copy.deepcopy(config)
-        local_config["GLOBAL_SETTINGS"]["A_TERM"] = a_term
-        b_term = b_terms[i]
-        b_term_file = os.path.join(output_directory, f"b_term_{i}.txt")
-        with open(b_term_file, "w") as f:
-            f.write(b_term)
-        local_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"][
-            "B_TERMS_FILE"
-        ] = b_term_file
-
-        km_file_path = skim.km_with_gpt_workflow(local_config, output_directory)
-        if km_file_path is not None:
-            base, extension = os.path.splitext(km_file_path)
-            new_file_name = f"{base}_{b_term}{extension}"
-            os.rename(km_file_path, new_file_name)
-            km_file_paths.append(new_file_name)
-
-    return km_file_paths
-
-
 def skim_with_gpt_workflow(config, output_directory, a_term, b_term, c_term):
     skim_file_paths = []  # Initialize the list to collect file paths
 
@@ -91,12 +55,6 @@ def main_workflow(config, output_directory, timestamp_output_path, terms):
         a_terms = terms
         generated_file_paths.extend(
             km_with_gpt_workflow(config, output_directory, a_terms)
-        )
-    elif job_type == "position_km_with_gpt":
-        a_term = terms[0]
-        c_term = terms[1]
-        generated_file_paths.extend(
-            position_km_with_gpt_workflow(config, output_directory)
         )
     elif job_type == "skim_with_gpt":
         if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["position"]:

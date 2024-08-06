@@ -128,8 +128,6 @@ class Config:
 
         # Access global settings directly from the loaded JSON
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
-        self.k = self.global_settings["MAX_ABSTRACTS"]
-        assert self.k > 0, "MAX_ABSTRACTS must be greater than zero."
 
         # Define output paths and ensure directories exist
         self.km_output_dir = os.path.dirname(args.km_output)
