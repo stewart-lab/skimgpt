@@ -146,7 +146,6 @@ class Config:
         self.api_key = self.job_config["API_KEY"]
         self.pubmed_api_key = self.job_config["PUBMED_API_KEY"]
         self.km_hypothesis = self.job_config["KM_hypothesis"]
-        self.position_km_hypothesis = self.job_config["POSITION_KM_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["abstract_filter"]

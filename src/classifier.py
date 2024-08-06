@@ -151,9 +151,6 @@ def generate_prompt(b_term, a_term, content, config, c_term=None):
     # Choose the correct hypothesis template based on the job type
     hypothesis_templates = {
         "km_with_gpt": config.km_hypothesis.format(b_term=b_term, a_term=a_term),
-        "position_km_with_gpt": config.position_km_hypothesis.format(
-            b_term=b_term, a_term=a_term
-        ),
         "skim_with_gpt": config.skim_hypotheses["ABC"].format(
             c_term=c_term, a_term=a_term, b_term=b_term
         ),  # Assuming c_term is needed
