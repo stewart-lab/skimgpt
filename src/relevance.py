@@ -328,8 +328,9 @@ def main():
 
     out_df = optimize_text_length(out_df)
     out_df = calculate_relevance_ratios(out_df)
-    leakage_data = load_data("leakage.csv")
-    out_df = update_ab_pmid_intersection(out_df, leakage_data, "neutral")
+    if config.test_leakage:
+        leakage_data = load_data("leakage.csv")
+        out_df = update_ab_pmid_intersection(out_df, leakage_data, "neutral")
     out_df.to_csv(
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",

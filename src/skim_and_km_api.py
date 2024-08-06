@@ -53,9 +53,9 @@ class APIClient:
             try:
                 response_json = self.get_api_request(url, job_id)
                 job_status = response_json["status"]
-                print(
-                    f"Attempt {retries+1}/{max_retries}: Job status is '{job_status}'"
-                )
+                # print(
+                # f"Attempt {retries+1}/{max_retries}: Job status is '{job_status}'"
+                # )
 
                 if job_status in ["finished", "failed"]:
                     break
@@ -76,10 +76,10 @@ class APIClient:
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""
-        print(f"Initiating job with payload: {payload}")
+        # print(f"Initiating job with payload: {payload}")
         initial_response = self.post_api_request(url, payload)
         job_id = initial_response["id"]
-        print(f"Job initiated with ID: {job_id}")
+        # print(f"Job initiated with ID: {job_id}")
         return self.wait_for_job_completion(url, job_id)
 
 

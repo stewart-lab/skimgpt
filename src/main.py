@@ -213,7 +213,7 @@ def main():
                     config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
                 )
             terms = a_terms
-            print(terms)
+            # print(terms)
 
         workflow = partial(
             main_workflow, config, output_directory, timestamp_output_path

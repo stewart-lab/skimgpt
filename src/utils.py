@@ -150,6 +150,7 @@ class Config:
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["abstract_filter"]
         self.debug = self.filter_config["DEBUG"]
+        self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.is_skim_gpt = self.job_type == "skim_with_gpt"
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
 
