@@ -26,8 +26,8 @@ def calculate_relevance_ratios(out_df):
                 .apply(
                     lambda x: (
                         (sum(x) / len(x), f"{sum(x)}/{len(x)}")
-                        if isinstance(x, list)
-                        else (None, None)
+                        if isinstance(x, list) and len(x) > 0
+                        else (0, "0/0")
                     )
                 )
                 .tolist()
