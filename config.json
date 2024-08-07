@@ -1,21 +1,21 @@
 {
-    "JOB_TYPE": "km_with_gpt",
+    "JOB_TYPE": "skim_with_gpt",
     "KM_hypothesis": "{b_term} has no effect on {a_term}.",
     "SKIM_hypotheses": {
-        "BC": "There exists an interaction between {c_term} and {b_term}.",
-        "AB": "There exists an interaction between {a_term} and {b_term}.",
-        "AC": "The drug {c_term} has an interaction with {a_term}.",
+        "BC": "There exists an interaction between the drug {c_term} and the gene {b_term}.",
+        "AB": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
+        "AC": "There exists an interaction between the drug {c_term} and the disease {a_term}.",
         "ABC": "{c_term} treats {a_term} through its effect on {b_term}."
     },
     "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
         "A_TERM": "Breast Cancer",
         "A_TERM_SUFFIX": "",
-        "TOP_N_ARTICLES": 10,
+        "TOP_N_ARTICLES": 100,
         "SAMPLE_METHOD": "mixed",
         "RECENT_RATIO": 0.5,
         "MIN_WORD_COUNT": 98,
-        "MODEL": "gpt-4o",
+        "MODEL": "gpt-4o-2024-08-06",
         "MAX_TOKENS": 1000,
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
@@ -56,12 +56,12 @@
             }
         },
         "skim_with_gpt": {
-            "position": false,
+            "position": true,
             "A_TERM_LIST": true,
-            "A_TERMS_FILE": "../input_lists/test/skim_a.txt",
-            "B_TERMS_FILE": "../input_lists/test/skim_b.txt",
+            "A_TERMS_FILE": "../input_lists/exercise3/skim_a.txt",
+            "B_TERMS_FILE": "../input_lists/exercise3/skim_b.txt",
             "NUM_B_TERMS": 20000,
-            "C_TERMS_FILE": "../input_lists/test/skim_c.txt",
+            "C_TERMS_FILE": "../input_lists/exercise3/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
             "skim": {
                 "ab_fet_threshold": 1,
