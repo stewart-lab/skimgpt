@@ -2,10 +2,7 @@ import os
 import pandas as pd
 import requests
 import time
-import logging
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 
 # File Operations
@@ -95,29 +92,24 @@ def run_and_save_query(
     config=None,
     output_directory=None,
 ):
-    logger.debug(f"Starting query for {job_type} with a_term: {a_term}")
 
     job_config = configure_job(job_type, a_term, c_terms, b_terms, config)
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
     api_client = APIClient()
-    logger.debug("Running API query")
+
     result = api_client.run_api_query(job_config, api_url)
 
     if not result:
-        logger.warning("The result is empty")
         return None
 
-    logger.debug("Creating DataFrame from result")
+
     result_df = pd.DataFrame(result)
 
     top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
     recent_ratio = config["GLOBAL_SETTINGS"].get("RECENT_RATIO", 0.5)
 
-    logger.debug(
-        f"Sampling articles with top_n: {top_n_articles}, recent_ratio: {recent_ratio}"
-    )
 
     # Define the columns to sample from based on job type
     if job_type == "skim_with_gpt":
@@ -128,12 +120,9 @@ def run_and_save_query(
     # Apply sampling to each relevant column
     for column in columns_to_sample:
         if column in result_df.columns:
-            logger.debug(f"Sampling column: {column}")
             result_df[column] = result_df[column].apply(
                 lambda x: sample_by_recent_ratio(x, top_n_articles, recent_ratio)
             )
-
-    logger.debug("Sampling completed")
 
     if job_type == "skim_with_gpt":
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
