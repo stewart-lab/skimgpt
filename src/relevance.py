@@ -9,12 +9,7 @@ import tiktoken
 from classifier import process_single_row, write_to_json, calculate_relevance_ratios
 from itertools import chain
 from leakage import load_data, update_ab_pmid_intersection, save_updated_data
-
-# import plot_output_w_truth as plot
-import eval_JSON_results as eval_results
-
-# Returns either AB or BC hypotheses depending on the input. If A, B is passed in, getHypothesis will retrieve the AB hypothesis.
-# Only two arguements should be specified at once
+import re
 
 
 def getHypothesis(
@@ -213,6 +208,42 @@ def optimize_text_length(df, model="gpt-4"):
     return df
 
 
+def filter_top_n_articles(df, config):
+    post_n = config.post_n
+    if post_n <= 0:
+        return df  # Return original dataframe if POST_N is not set or invalid
+
+    def get_top_n_pmids(text, n):
+        # Split the text by PMID
+        pmid_entries = re.split(r"(?=PMID: \d+)", text)
+        # Remove any empty entries
+        pmid_entries = [entry.strip() for entry in pmid_entries if entry.strip()]
+        # Take the top n entries
+        top_n_entries = pmid_entries[:n]
+        # Join them back together
+        return " ".join(top_n_entries)
+
+    columns_to_filter = [
+        "ab_pmid_intersection",
+        "bc_pmid_intersection",
+        "ac_pmid_intersection",
+    ]
+
+    for column in columns_to_filter:
+        if column in df.columns:
+            df[column] = df[column].apply(lambda x: get_top_n_pmids(x, post_n))
+
+    return df
+
+
+def process_dataframe(out_df, config):
+    out_df = optimize_text_length(out_df)
+    out_df = calculate_relevance_ratios(out_df)
+    out_df = filter_top_n_articles(out_df, config)  # Add this line
+
+    return out_df
+
+
 def main():
     ###################### Argument Parsing ############################
 
@@ -326,8 +357,8 @@ def main():
                 shape=[ac_pmids.shape],
             )
 
-    out_df = optimize_text_length(out_df)
-    out_df = calculate_relevance_ratios(out_df)
+    out_df = process_dataframe(out_df, config)
+
     if config.test_leakage:
         leakage_data = load_data("leakage.csv")
         out_df = update_ab_pmid_intersection(out_df, leakage_data, "neutral")

@@ -2,6 +2,10 @@ import os
 import pandas as pd
 import requests
 import time
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 # File Operations
@@ -91,23 +95,29 @@ def run_and_save_query(
     config=None,
     output_directory=None,
 ):
-    """Run a query, save the results, and return the saved file path."""
+    logger.debug(f"Starting query for {job_type} with a_term: {a_term}")
+
     job_config = configure_job(job_type, a_term, c_terms, b_terms, config)
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
     api_client = APIClient()
+    logger.debug("Running API query")
     result = api_client.run_api_query(job_config, api_url)
 
     if not result:
-        print("The result is empty")
+        logger.warning("The result is empty")
         return None
 
+    logger.debug("Creating DataFrame from result")
     result_df = pd.DataFrame(result)
 
-    sample_method = config["GLOBAL_SETTINGS"].get("SAMPLE_METHOD", "cited")
     top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
     recent_ratio = config["GLOBAL_SETTINGS"].get("RECENT_RATIO", 0.5)
+
+    logger.debug(
+        f"Sampling articles with top_n: {top_n_articles}, recent_ratio: {recent_ratio}"
+    )
 
     # Define the columns to sample from based on job type
     if job_type == "skim_with_gpt":
@@ -118,18 +128,12 @@ def run_and_save_query(
     # Apply sampling to each relevant column
     for column in columns_to_sample:
         if column in result_df.columns:
-            if sample_method == "mixed":
-                result_df[column] = result_df[column].apply(
-                    lambda x: sample_mixed(x, top_n_articles, recent_ratio)
-                )
-            elif sample_method == "recent":
-                result_df[column] = result_df[column].apply(
-                    lambda x: sorted(x, reverse=True)[:top_n_articles]
-                )
-            else:  # Default to most cited
-                result_df[column] = result_df[column].apply(
-                    lambda x: x[:top_n_articles]
-                )
+            logger.debug(f"Sampling column: {column}")
+            result_df[column] = result_df[column].apply(
+                lambda x: sample_by_recent_ratio(x, top_n_articles, recent_ratio)
+            )
+
+    logger.debug("Sampling completed")
 
     if job_type == "skim_with_gpt":
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
@@ -141,37 +145,51 @@ def run_and_save_query(
     return file_path
 
 
-def sample_mixed(lst, top_n, recent_ratio):
-    if not lst:
-        return []
+def sample_by_recent_ratio(lst, top_n, recent_ratio):
+    if not lst or recent_ratio < 0 or recent_ratio > 1:
+        return lst[:top_n]
 
-    recent_index = -1
-    cited_index = 0
+    # If recent_ratio is 0, return the original list up to top_n
+    if recent_ratio == 0:
+        return lst[:top_n]
+
+    # Convert to set for faster lookup
+    original_set = set(lst)
+
+    # Sort the list by PMID (assuming higher PMID means more recent)
+    recent_articles = sorted(original_set, reverse=True)
+
+    # Use the original list order for cited articles
+    cited_articles = [x for x in lst if x in original_set]
+
     result = []
-    lst_len = len(lst)
+    recent_batch = max(1, int(recent_ratio * 10))  # Ensure at least 1 recent article
+    cited_batch = 10 - recent_batch
 
-    for i in range(min(top_n, lst_len)):
-        if i % (1 / recent_ratio) < 1 and abs(recent_index) <= lst_len:
-            # Sample from recent
-            result.append(lst[recent_index])
-            recent_index -= 1
-        elif cited_index < lst_len:
-            # Sample from cited
-            result.append(lst[cited_index])
-            cited_index += 1
-        else:
-            # If we've exhausted one end, continue with the other
-            remaining_index = (
-                recent_index if abs(recent_index) <= lst_len else cited_index
-            )
-            result.extend(
-                lst[remaining_index:]
-                if remaining_index >= 0
-                else lst[remaining_index::-1]
-            )
-            break
+    recent_index = 0
+    cited_index = 0
 
-    return list(dict.fromkeys(result))
+    while len(result) < top_n and (
+        recent_index < len(recent_articles) or cited_index < len(cited_articles)
+    ):
+        # Add recent articles
+        for _ in range(recent_batch):
+            if recent_index < len(recent_articles) and len(result) < top_n:
+                result.append(recent_articles[recent_index])
+                recent_index += 1
+            else:
+                break
+
+        # Add cited articles
+        for _ in range(cited_batch):
+            if cited_index < len(cited_articles) and len(result) < top_n:
+                if cited_articles[cited_index] not in result:
+                    result.append(cited_articles[cited_index])
+                cited_index += 1
+            else:
+                break
+
+    return result[:top_n]
 
 
 def filter_term_columns(df):
