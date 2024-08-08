@@ -153,6 +153,7 @@ class Config:
         self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.is_skim_gpt = self.job_type == "skim_with_gpt"
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
+        self.post_n = self.global_settings["POST_N"]
 
         # Additional checks for specific configurations
         self.has_ac = (
