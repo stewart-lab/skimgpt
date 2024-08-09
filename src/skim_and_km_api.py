@@ -4,7 +4,6 @@ import requests
 import time
 
 
-
 # File Operations
 def read_terms_from_file(filename):
     """Read terms from a given file and return them as a list."""
@@ -104,12 +103,10 @@ def run_and_save_query(
     if not result:
         return None
 
-
     result_df = pd.DataFrame(result)
 
     top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
     recent_ratio = config["GLOBAL_SETTINGS"].get("RECENT_RATIO", 0.5)
-
 
     # Define the columns to sample from based on job type
     if job_type == "skim_with_gpt":
@@ -142,7 +139,9 @@ def sample_by_recent_ratio(lst, top_n, recent_ratio):
     if recent_ratio == 0:
         return lst[:top_n]
 
-    # Convert to set for faster lookup
+    if recent_ratio == 1 or 1.0:
+        # If recent_ratio is 1, return the most recent articles up to top_n
+        return sorted(lst, reverse=True)[:top_n]
     original_set = set(lst)
 
     # Sort the list by PMID (assuming higher PMID means more recent)
