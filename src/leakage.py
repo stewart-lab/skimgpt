@@ -1,5 +1,32 @@
 import pandas as pd
 import random
+import csv
+import os
+
+
+def save_drugs_to_files(csv_path, output_dir):
+    # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Read the CSV file
+    with open(csv_path, "r") as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        # Iterate through each row
+        for row in reader:
+            drug = row["Drug"]
+
+            # Create the output file path
+            output_file = os.path.join(output_dir, "leakage_b_terms")
+
+            # Append the drug name to the file
+            with open(output_file, "a") as f:
+                f.write(drug + "\n")
+
+    print(f"Drugs have been saved to {output_file}")
+
+
+# Usage
 
 
 # Load the CSV file into a DataFrame
@@ -37,7 +64,13 @@ def update_ab_pmid_intersection(filtered_data, leakage_data, text_type="neutral"
     assert text_type.lower() in [
         "neutral",
         "negative",
-    ], "text_type must be 'neutral' or 'negative'"
+        "empty",
+    ], "text_type must be 'neutral', 'negative', or 'empty'"
+
+    if text_type.lower() == "empty":
+        # Set all ab_pmid_intersection values to an empty string
+        filtered_data["ab_pmid_intersection"] = ""
+        return filtered_data
 
     text_column = f"{text_type.capitalize()} text"
 
@@ -58,7 +91,7 @@ def save_updated_data(data, output_filepath):
 
 # Example usage
 if __name__ == "__main__":
-    filepath = "/w5home/jfreeman/kmGPT/leakage/leakage.csv"
+    filepath = "/w5home/jfreeman/kmGPT/src/leakage.csv"
     data = load_data(filepath)
 
     drugs = get_drugs(data)

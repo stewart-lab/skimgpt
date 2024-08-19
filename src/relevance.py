@@ -81,21 +81,22 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     Entrez.max_tries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
     Entrez.sleep_between_tries = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
 
-    # Hard coding PubMed parameters directly
     efetch = Entrez.efetch(db="pubmed", id=pmids, retmode="xml", rettype="abstract")
 
     output = Entrez.read(efetch)
     efetch.close()
     for paper in output["PubmedArticle"]:
         pmid = paper["MedlineCitation"]["PMID"]
-        returned_pmids.append(str(pmid))
-
         abstract_text = " ".join(
             paper["MedlineCitation"]["Article"]
             .get("Abstract", {})
             .get("AbstractText", ["No abstract available"])
         )
-        returned_abstracts.append(abstract_text)
+
+        # Check if the abstract has at least 50 words
+        if len(abstract_text.split()) >= 50:
+            returned_pmids.append(str(pmid))
+            returned_abstracts.append(abstract_text)
 
     return dict(
         zip(
@@ -208,20 +209,62 @@ def optimize_text_length(df, model="gpt-4"):
     return df
 
 
+def interleave_and_get_top_n_pmids(text, n):
+    if not isinstance(text, str) or text == "[]":
+        return ""
+
+    # Split the text by PMID
+    pmid_entries = re.split(r"(?=PMID: \d+)", text)
+    # Remove any empty entries
+    pmid_entries = [entry.strip() for entry in pmid_entries if entry.strip()]
+
+    # Extract PMIDs, skipping entries that don't match the expected format
+    pmids = []
+    for entry in pmid_entries:
+        match = re.search(r"PMID: (\d+)", entry)
+        if match:
+            pmids.append(int(match.group(1)))
+
+    if not pmids:
+        return ""  # Return empty string if no valid PMIDs found
+
+    # Create a sorted copy of PMIDs in descending order
+    sorted_pmids = sorted(pmids, reverse=True)
+
+    # Interleave the original and sorted PMIDs
+    interleaved = []
+    for original, sorted_pmid in zip(pmids, sorted_pmids):
+        if original not in interleaved:
+            interleaved.append(original)
+        if sorted_pmid not in interleaved:
+            interleaved.append(sorted_pmid)
+
+    # Add any remaining PMIDs
+    interleaved.extend(
+        [pmid for pmid in pmids + sorted_pmids if pmid not in interleaved]
+    )
+
+    # Take the top n PMIDs
+    top_n_pmids = interleaved[:n]
+
+    # Map the top n PMIDs back to their original entries
+    pmid_to_entry = {
+        int(re.search(r"PMID: (\d+)", entry).group(1)): entry
+        for entry in pmid_entries
+        if re.search(r"PMID: (\d+)", entry)
+    }
+    top_n_entries = [
+        pmid_to_entry[pmid] for pmid in top_n_pmids if pmid in pmid_to_entry
+    ]
+
+    # Join them back together
+    return " ".join(top_n_entries)
+
+
 def filter_top_n_articles(df, config):
     post_n = config.post_n
     if post_n <= 0:
         return df  # Return original dataframe if POST_N is not set or invalid
-
-    def get_top_n_pmids(text, n):
-        # Split the text by PMID
-        pmid_entries = re.split(r"(?=PMID: \d+)", text)
-        # Remove any empty entries
-        pmid_entries = [entry.strip() for entry in pmid_entries if entry.strip()]
-        # Take the top n entries
-        top_n_entries = pmid_entries[:n]
-        # Join them back together
-        return " ".join(top_n_entries)
 
     columns_to_filter = [
         "ab_pmid_intersection",
@@ -231,7 +274,9 @@ def filter_top_n_articles(df, config):
 
     for column in columns_to_filter:
         if column in df.columns:
-            df[column] = df[column].apply(lambda x: get_top_n_pmids(x, post_n))
+            df[column] = df[column].apply(
+                lambda x: interleave_and_get_top_n_pmids(x, post_n)
+            )
 
     return df
 
@@ -361,7 +406,9 @@ def main():
 
     if config.test_leakage:
         leakage_data = load_data("leakage.csv")
-        out_df = update_ab_pmid_intersection(out_df, leakage_data, "neutral")
+        out_df = update_ab_pmid_intersection(
+            out_df, leakage_data, config.test_leakage_type
+        )
     out_df.to_csv(
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",

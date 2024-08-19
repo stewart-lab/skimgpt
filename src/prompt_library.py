@@ -9,7 +9,7 @@ def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
 Assessment Task:
 Evaluate the degree of support for the hypothesis, which posits a significant interaction between {a_term} and {b_term}. 
 The texts provided above come from PubMed and each abstract will include only {a_term} and {b_term}. 
-The texts need to be your only source of information for arriving at your classification result.
+The texts need to be your only source of information for arriving at your classification result. If texts arent available, use what you know about {a_term} and {b_term} to make an educated guess.
 
 Hypothesis:
 {hypothesis_template}

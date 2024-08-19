@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import requests
 import time
+import ast
 
 
 # File Operations
@@ -19,14 +20,6 @@ def save_to_tsv(data, filename, output_directory):
     full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
     df.to_csv(full_path, sep="\t", index=False)
-
-
-def process_intersection(df, column_name, top_n, most_recent):
-    """Processes the intersection data by sorting and trimming based on settings."""
-    if most_recent:
-        df[column_name] = df[column_name].apply(
-            lambda x: sorted(x, reverse=True)[:top_n]
-        )
 
 
 # API Calls
@@ -53,16 +46,10 @@ class APIClient:
             try:
                 response_json = self.get_api_request(url, job_id)
                 job_status = response_json["status"]
-                # print(
-                # f"Attempt {retries+1}/{max_retries}: Job status is '{job_status}'"
-                # )
-
                 if job_status in ["finished", "failed"]:
                     break
-
                 time.sleep(5)
                 retries += 1
-
             except Exception as e:
                 print(f"Attempt {retries+1}/{max_retries} failed with error: {e}")
                 retries += 1
@@ -76,50 +63,26 @@ class APIClient:
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""
-        # print(f"Initiating job with payload: {payload}")
+        print(f"Initiating job with payload: {payload}")
         initial_response = self.post_api_request(url, payload)
         job_id = initial_response["id"]
-        # print(f"Job initiated with ID: {job_id}")
         return self.wait_for_job_completion(url, job_id)
 
 
 def run_and_save_query(
-    job_type,
-    a_term,
-    c_terms,
-    b_terms=None,
-    config=None,
-    output_directory=None,
+    job_type, a_term, c_terms, b_terms=None, config=None, output_directory=None
 ):
-
     job_config = configure_job(job_type, a_term, c_terms, b_terms, config)
     api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
     assert api_url, "'API_URL' is not defined in the configuration"
 
     api_client = APIClient()
-
     result = api_client.run_api_query(job_config, api_url)
 
     if not result:
         return None
 
     result_df = pd.DataFrame(result)
-
-    top_n_articles = config["GLOBAL_SETTINGS"]["TOP_N_ARTICLES"]
-    recent_ratio = config["GLOBAL_SETTINGS"].get("RECENT_RATIO", 0.5)
-
-    # Define the columns to sample from based on job type
-    if job_type == "skim_with_gpt":
-        columns_to_sample = ["ab_pmid_intersection", "bc_pmid_intersection"]
-    else:
-        columns_to_sample = ["ab_pmid_intersection"]
-
-    # Apply sampling to each relevant column
-    for column in columns_to_sample:
-        if column in result_df.columns:
-            result_df[column] = result_df[column].apply(
-                lambda x: sample_by_recent_ratio(x, top_n_articles, recent_ratio)
-            )
 
     if job_type == "skim_with_gpt":
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
@@ -129,55 +92,6 @@ def run_and_save_query(
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result_df, file_path, output_directory)
     return file_path
-
-
-def sample_by_recent_ratio(lst, top_n, recent_ratio):
-    if not lst or recent_ratio < 0 or recent_ratio > 1:
-        return lst[:top_n]
-
-    # If recent_ratio is 0, return the original list up to top_n
-    if recent_ratio == 0:
-        return lst[:top_n]
-
-    if recent_ratio == 1 or 1.0:
-        # If recent_ratio is 1, return the most recent articles up to top_n
-        return sorted(lst, reverse=True)[:top_n]
-    original_set = set(lst)
-
-    # Sort the list by PMID (assuming higher PMID means more recent)
-    recent_articles = sorted(original_set, reverse=True)
-
-    # Use the original list order for cited articles
-    cited_articles = [x for x in lst if x in original_set]
-
-    result = []
-    recent_batch = max(1, int(recent_ratio * 10))  # Ensure at least 1 recent article
-    cited_batch = 10 - recent_batch
-
-    recent_index = 0
-    cited_index = 0
-
-    while len(result) < top_n and (
-        recent_index < len(recent_articles) or cited_index < len(cited_articles)
-    ):
-        # Add recent articles
-        for _ in range(recent_batch):
-            if recent_index < len(recent_articles) and len(result) < top_n:
-                result.append(recent_articles[recent_index])
-                recent_index += 1
-            else:
-                break
-
-        # Add cited articles
-        for _ in range(cited_batch):
-            if cited_index < len(cited_articles) and len(result) < top_n:
-                if cited_articles[cited_index] not in result:
-                    result.append(cited_articles[cited_index])
-                cited_index += 1
-            else:
-                break
-
-    return result[:top_n]
 
 
 def filter_term_columns(df):
@@ -198,7 +112,12 @@ def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
         "a_terms": [a_term],
         "return_pmids": True,
         "query_knowledge_graph": False,
-        "top_n_articles": 10000,
+        "top_n_articles_most_cited": config["GLOBAL_SETTINGS"].get(
+            "TOP_N_ARTICLES_MOST_CITED", 50
+        ),
+        "top_n_articles_most_recent": config["GLOBAL_SETTINGS"].get(
+            "TOP_N_ARTICLES_MOST_RECENT", 50
+        ),
     }
 
     if job_type == "km_with_gpt":
@@ -221,15 +140,8 @@ def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
             "b_terms": b_terms,
             "c_terms": c_terms,
         }
-    elif job_type in [
-        "km_with_gpt",
-        "position_km_with_gpt",
-    ]:
-        return {
-            **common_settings,
-            **job_specific_settings,
-            "b_terms": c_terms,
-        }
+    elif job_type in ["km_with_gpt", "position_km_with_gpt"]:
+        return {**common_settings, **job_specific_settings, "b_terms": c_terms}
     else:
         raise ValueError(f"Invalid job type: {job_type}")
 
@@ -249,11 +161,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     assert b_terms, "B_TERM is not defined in the configuration"
     print(f"Running and saving KM query for a_term: {a_term}...")
     km_file_path = run_and_save_query(
-        "km_with_gpt",
-        a_term,
-        b_terms,
-        config=config,
-        output_directory=output_directory,
+        "km_with_gpt", a_term, b_terms, config=config, output_directory=output_directory
     )
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
@@ -269,7 +177,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     assert sort_column in km_df.columns, f"{sort_column} is not in the km_df"
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
-    valid_rows = km_df[km_df["ab_pmid_intersection"].apply(lambda x: x != "[]")]
+    valid_rows = km_df[km_df["ab_pmid_intersection"].apply(lambda x: len(x) > 0)]
     valid_rows = filter_term_columns(valid_rows)
     filtered_file_path = os.path.join(
         output_directory,
@@ -301,34 +209,23 @@ def skim_with_gpt_workflow(config, output_directory):
         config=config,
         output_directory=output_directory,
     )
-    km_file_path = run_and_save_query(
-        "km_with_gpt",
-        config["GLOBAL_SETTINGS"]["A_TERM"],
-        read_terms_from_file(c_terms_file),
-        config=config,
-        output_directory=output_directory,
-    )
     full_skim_file_path = os.path.join(output_directory, skim_file_path)
-    full_km_file_path = os.path.join(output_directory, km_file_path)
     skim_df = pd.read_csv(full_skim_file_path, sep="\t")
-    km_df = pd.read_csv(full_km_file_path, sep="\t")
-    km_df.rename(columns={"ab_pmid_intersection": "ac_pmid_intersection"}, inplace=True)
-    ac_pmid_intersection_values = km_df.iloc[0]["ac_pmid_intersection"]
-    skim_df["ac_pmid_intersection"] = [ac_pmid_intersection_values] * len(skim_df)
-    os.remove(full_km_file_path)
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get(
         "SORT_COLUMN", "bc_sort_ratio"
     )
     skim_df = skim_df.sort_values(by=sort_column, ascending=False)
     valid_rows = skim_df[
-        (skim_df["bc_pmid_intersection"].apply(lambda x: x != "[]"))
-        & (skim_df["ab_pmid_intersection"].apply(lambda x: x != "[]"))
+        (skim_df["bc_pmid_intersection"].apply(len) > 0)
+        | (skim_df["ab_pmid_intersection"].apply(len) > 0)
+        | (skim_df["ac_pmid_intersection"].apply(len) > 0)
     ]
     if valid_rows.empty:
         print(
-            "No SKIM results after filtering. Returning None to indicate no SKIM results."
+            "No SKIM results after filtering. All intersection columns are empty. Returning None."
         )
         return None
+
     skim_df = valid_rows
     skim_df = filter_term_columns(skim_df)
     full_skim_file_path = os.path.join(

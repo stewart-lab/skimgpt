@@ -1,10 +1,9 @@
-import ssh_helper as ssh
+from ssh_helper import SSHHelper
 import argparse
 import skim_and_km_api as skim
 from datetime import datetime
 from functools import partial
 from eval_JSON_results import extract_and_write_scores
-import re
 import shutil
 import json
 import itertools
@@ -34,11 +33,7 @@ class GlobalClass(object):
         )
 
 
-# Ron is using: "./configRMS_needSpecialTunnel.json"
-
-
 def initialize_workflow():
-
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_output_dir = "../output"
     os.makedirs(base_output_dir, exist_ok=True)
@@ -56,42 +51,24 @@ def initialize_workflow():
 
 
 def initialize_eval_workflow(tsv_dir):
-    # Generate a timestamp string
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-
-    # Define the base output directory and ensure it exists
     base_output_dir = "../relevance_tests"
     os.makedirs(base_output_dir, exist_ok=True)
-
-    # Define the name of the timestamped output directory
     timestamp_dir_name = f"eval_{timestamp}"
-
-    # Create the timestamped output directory within 'output'
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
-
-    # Set timestamp_output_path to just the name of the timestamped directory
-    # This holds just the directory name, not the full path
     timestamp_output_path = timestamp_dir_name
-
-    # Copy the config file into the timestamped output directory
     shutil.copy(
-        GlobalClass.config_file,  # Assuming GlobalClass.config_file is defined elsewhere
+        GlobalClass.config_file,
         os.path.join(output_directory, "config.json"),
     )
-
     generated_file_paths = []
     for test_file in glob(f"{tsv_dir}/*.tsv"):
         output_path = os.path.join(output_directory, test_file.split("/")[-1])
         shutil.copy(test_file, output_path)
         generated_file_paths.append(output_path)
-
-    # Assuming get_config is a function that reads and returns the configuration
-    # Use the full path here for reading the config
     config = get_config(output_directory)
     assert config, "Configuration is empty or invalid"
-
-    # Return the configuration, the full path to the output directory, and the lowest level directory name
     return config, output_directory, timestamp_output_path, generated_file_paths
 
 
@@ -99,7 +76,6 @@ def get_config(output_directory):
     config_path = os.path.join(output_directory, "config.json")
     with open(config_path, "r") as f:
         config = json.load(f)
-
     job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
@@ -109,10 +85,8 @@ def get_config(output_directory):
     if not pubmed_api_key:
         raise ValueError("PUBMED_API_KEY environment variable not set.")
     config["PUBMED_API_KEY"] = pubmed_api_key
-
     with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
-
     return config
 
 
@@ -127,44 +101,30 @@ def write_to_json(data, file_path, output_directory):
 
 
 def create_corrected_file_path(original_path):
-    # Split the original path into name and extension
     file_name, file_extension = os.path.splitext(original_path)
-    # Create a new path with "corrected" appended
     new_path = f"{file_name}_corrected{file_extension}"
     return new_path
 
 
 def organize_output(directory):
-    # Create 'results' and 'debug' directories if they don't exist
     results_dir = os.path.join(directory, "results")
     debug_dir = os.path.join(directory, "debug")
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(debug_dir, exist_ok=True)
-
     for root, dirs, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)
-
-            # Move .json files (except config.json) to 'results'
             if file.endswith(".json") and file != "config.json":
                 shutil.move(file_path, os.path.join(results_dir, file))
-
-            # Move .tsv, .log, .err, .sub, and .out files to 'debug'
             elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
                 shutil.move(file_path, os.path.join(debug_dir, file))
-
-            # Delete all other files except config.json
             elif file != "config.json":
                 os.remove(file_path)
-
-    # Remove empty directories
     for root, dirs, files in os.walk(directory, topdown=False):
         for dir in dirs:
             dir_path = os.path.join(root, dir)
             if not os.listdir(dir_path):
                 os.rmdir(dir_path)
-
-    # Remove the filtered directory and its components
     filtered_dir = os.path.join(directory, "filtered")
     if os.path.exists(filtered_dir):
         shutil.rmtree(filtered_dir)
@@ -185,9 +145,10 @@ def main():
 
     GlobalClass.config_file = args.config_file
     if not args.tsv_dir:
-        # Assuming initialize_workflow loads the config file and sets up the output directory
         config, output_directory, timestamp_output_path = initialize_workflow()
-
+        ssh_config = config.get("SSH", {})
+        if ssh_config:
+            ssh_helper = SSHHelper(ssh_config)
         c_terms = skim.read_terms_from_file(
             config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
         )
@@ -199,12 +160,9 @@ def main():
             a_terms = skim.read_terms_from_file(
                 config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
             )
-
         if config["JOB_TYPE"] == "skim_with_gpt":
-            # Generate all combinations of a_terms and c_terms
             terms = list(itertools.product(a_terms, c_terms))
             if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get("position", False):
-                # If the position setting is true, combine a_terms, b_terms, and c_terms
                 terms = list(zip(a_terms, b_terms, c_terms))
         else:
             a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
@@ -213,8 +171,6 @@ def main():
                     config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
                 )
             terms = a_terms
-            # print(terms)
-
         workflow = partial(
             main_workflow, config, output_directory, timestamp_output_path
         )
@@ -227,73 +183,24 @@ def main():
 
     ssh_config = config.get("SSH", {})
     if ssh_config and generated_file_paths:
-        # Create SSH client using the key for authentication
-        ssh_client = ssh.create_ssh_client(
-            ssh_config["server"],
-            ssh_config["port"],
-            ssh_config["user"],
-            ssh_config.get("key_path"),
-        )
+        ssh_helper = SSHHelper(ssh_config)
 
-        # Create the subdirectory in the remote path
         remote_subdir_path = os.path.join(
             ssh_config["remote_path"], timestamp_output_path
         )
         remote_src_path = os.path.join(ssh_config["remote_path"], "src")
-        ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_src_path}")
-        ssh.execute_remote_command(ssh_client, f"mkdir -p {remote_subdir_path}")
-
-        config_path = os.path.join(output_directory, "config.json")
-        files_path = os.path.join(output_directory, "files.txt")
 
         try:
-            # Transfer generated files to the newly created subdirectory
-            remote_file_paths = []
-            dynamic_file_names = []
-            for path_item in generated_file_paths:
-                # Normalize handling for both individual path items and lists
-                if not isinstance(path_item, list):
-                    path_item = [path_item]
-                for file_path in path_item:
-                    # Get the absolute path of the file
-                    local_file = os.path.abspath(file_path)
-                    file_name = os.path.basename(file_path)  # Extract the file name
-                    # Make a safe file name
-                    safe_file_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", file_name)
-                    with open(os.path.join(output_directory, "config.json"), "w") as f:
-                        json.dump(config, f, indent=4)
-                    # Construct the remote path with file name
-                    remote_file_path = os.path.join(remote_subdir_path, safe_file_name)
-                    remote_file_paths.append(remote_file_path.split("/")[-1])
-                    dynamic_file_names.append(f"filtered_{safe_file_name}")
-                    ssh.transfer_files(ssh_client, local_file, remote_file_path)
-            ssh.transfer_files(ssh_client, ssh_config["src_path"], remote_src_path)
-            # Transfer the config.json file from a local path specified in ssh_config to the remote subdirectory
-            remote_config_path = os.path.join(remote_subdir_path, "config.json")
-            ssh.transfer_files(ssh_client, config_path, remote_config_path)
+            ssh_helper.prepare_remote_directories(remote_src_path, remote_subdir_path)
 
-            with open(files_path, "w+") as f:
-                for remote_file in remote_file_paths:
-                    f.write(f"{remote_file}\n")
-
-            ssh.transfer_files(ssh_client, files_path, remote_subdir_path)
-            ssh.execute_remote_command(
-                ssh_client, f"cp {remote_src_path}/run.sub {remote_subdir_path}"
-            )
-            ssh.execute_remote_command(
-                ssh_client, f"cp {remote_src_path}/run.sh {remote_subdir_path}"
-            )
-            ssh.execute_remote_command(
-                ssh_client,
-                f"cd {remote_subdir_path} && condor_submit -verbose -debug run.sub",
+            remote_file_paths, dynamic_file_names = ssh_helper.transfer_files_to_remote(
+                output_directory, remote_subdir_path, generated_file_paths
             )
 
-            # Informative print to know what files are being waited on
-            print(f"Waiting for files: {dynamic_file_names}")
-            # Wait for the dynamically specified files
-            print(len(b_terms))
-            ssh.monitor_files_and_extensions(
-                ssh_client,
+            ssh_helper.setup_and_submit_job(remote_src_path, remote_subdir_path)
+
+            print(f"Job submitted. Monitoring {len(dynamic_file_names)} files...")
+            ssh_helper.monitor_files_and_extensions(
                 remote_subdir_path,
                 f"{output_directory}/filtered",
                 dynamic_file_names,
@@ -302,15 +209,19 @@ def main():
                 interval=10,
             )
 
-            print("Files transferred successfully.")
-            # Cleanup
-            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_src_path}")
-            ssh.execute_remote_command(ssh_client, f"rm -rf {remote_subdir_path}")
+            print("Job completed. Cleaning up remote directories...")
+            ssh_helper.cleanup_remote_directories(remote_src_path, remote_subdir_path)
+
+            print("Organizing output and extracting scores...")
             organize_output(output_directory)
             extract_and_write_scores(output_directory)
+
+            print(f"Analysis complete. Results are in {output_directory}")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
         finally:
-            # Close the SSH connection
-            ssh_client.close()
+            # Don't close the connection here, as it should persist for future use
+            pass
     else:
         print("SSH configuration not found or no files to transfer.")
         return
