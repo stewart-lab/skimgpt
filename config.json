@@ -1,76 +1,75 @@
 {
-    "JOB_TYPE": "skim_with_gpt",
-    "KM_hypothesis": "Use of {b_term} will worsen {a_term}.",
-    "SKIM_hypotheses": {
-        "BC": "There exists an interaction between the disease {c_term} and the gene {b_term}.",
-        "AB": "There exists an interaction between the organ {a_term} and the gene {b_term}.",
-        "AC": "There exists an interaction between the disease {c_term} and the organ {a_term}.",
-        "ABC": "The gene {b_term} links the organ {a_term} to the disease {c_term}."
+  "JOB_TYPE": "km_with_gpt",
+  "KM_hypothesis": "Treatment with {b_term} will worsen {a_term}.",
+  "SKIM_hypotheses": {
+    "BC": "There exists an interaction between the disease {c_term} and the gene {b_term}.",
+    "AB": "There exists an interaction between the organ {a_term} and the gene {b_term}.",
+    "AC": "There exists an interaction between the disease {c_term} and the organ {a_term}.",
+    "ABC": "The gene {b_term} links the organ {a_term} to the disease {c_term}."
+  },
+  "Evaluate_single_abstract": false,
+  "GLOBAL_SETTINGS": {
+    "A_TERM": "Breast Cancer",
+    "A_TERM_SUFFIX": "",
+    "TOP_N_ARTICLES_MOST_CITED": 300,
+    "TOP_N_ARTICLES_MOST_RECENT": 0,
+    "POST_N": 20,
+    "MIN_WORD_COUNT": 98,
+    "MODEL": "gpt-4o-2024-08-06",
+    "MAX_TOKENS": 1000,
+    "API_URL": "http://localhost:5099/skim/api/jobs",
+    "PORT": "5081",
+    "RATE_LIMIT": 3,
+    "DELAY": 10,
+    "MAX_RETRIES": 10,
+    "RETRY_DELAY": 5
+  },
+  "SSH": {
+    "server": "ap2002.chtc.wisc.edu",
+    "port": 22,
+    "user": "jfreeman23",
+    "key_path": "/w5home/jfreeman/.ssh/chtc2",
+    "config_path": "../config.json",
+    "src_path": "./",
+    "remote_path": "/home/jfreeman23/kmGPT/"
+  },
+  "abstract_filter": {
+    "MODEL": "lexu14/porpoise1",
+    "TEMPERATURE": 0,
+    "TOP_K": 20,
+    "TOP_P": 0.95,
+    "MAX_COT_TOKENS": 500,
+    "DEBUG": false,
+    "TEST_LEAKAGE": true,
+    "TEST_LEAKAGE_TYPE": "empty"
+  },
+  "JOB_SPECIFIC_SETTINGS": {
+    "km_with_gpt": {
+      "position": false,
+      "A_TERM_LIST": false,
+      "A_TERMS_FILE": "../input_lists/test/km_a.txt",
+      "B_TERMS_FILE": "../input_lists/leakage_b_terms.txt",
+      "SORT_COLUMN": "ab_sort_ratio",
+      "NUM_B_TERMS": 25,
+      "km_with_gpt": {
+        "ab_fet_threshold": 1,
+        "censor_year": 2024
+      }
     },
-    "Evaluate_single_abstract": false,
-    "GLOBAL_SETTINGS": {
-        "A_TERM": "Thymus",
-        "A_TERM_SUFFIX": "",
-        "TOP_N_ARTICLES_MOST_CITED": 300,
-        "TOP_N_ARTICLES_MOST_RECENT": 0,
-        "POST_N": 20,
-        "MIN_WORD_COUNT": 98,
-        "MODEL": "gpt-4o-2024-08-06",
-        "MAX_TOKENS": 1000,
-        "API_URL": "http://localhost:5099/skim/api/jobs",
-        "PORT": "5081",
-        "RATE_LIMIT": 3,
-        "DELAY": 10,
-        "MAX_RETRIES": 10,
-        "RETRY_DELAY": 5
-    },
-    "SSH": {
-        "server": "ap2002.chtc.wisc.edu",
-        "port": 22,
-        "user": "jfreeman23",
-        "key_path": "/w5home/jfreeman/.ssh/chtc2",
-        "config_path": "../config.json",
-        "src_path": "./",
-        "remote_path": "/home/jfreeman23/kmGPT/"
-    },
-    "abstract_filter": {
-        "MODEL": "lexu14/porpoise1",
-        "TEMPERATURE": 0.0,
-        "TOP_K": 20,
-        "TOP_P": 0.95,
-        "MAX_COT_TOKENS": 500,
-        "DEBUG": false,
-        "TEST_LEAKAGE": true,
-        "TEST_LEAKAGE_TYPE": "neutral"
-    },
-    "JOB_SPECIFIC_SETTINGS": {
-        "km_with_gpt": {
-            "position": false,
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "../input_lists/test/km_a.txt",
-            "B_TERMS_FILE": "../input_lists/leakage_b_terms.txt",
-            "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 25,
-            "km_with_gpt": {
-                "ab_fet_threshold": 1,
-                "censor_year": 2024,
-                "top_n": 300
-            }
-        },
-        "skim_with_gpt": {
-            "position": false,
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "../input_lists/exercise3/skim_a.txt",
-            "B_TERMS_FILE": "../input_lists/genes_no_syn.txt",
-            "NUM_B_TERMS": 20000,
-            "C_TERMS_FILE": "../input_lists/down_syndrome.txt",
-            "SORT_COLUMN": "bc_sort_ratio",
-            "skim": {
-                "ab_fet_threshold": 0.1,
-                "bc_fet_threshold": 0.5,
-                "censor_year": 2024,
-                "top_n": 300
-            }
-        }
+    "skim_with_gpt": {
+      "position": false,
+      "A_TERM_LIST": false,
+      "A_TERMS_FILE": "../input_lists/exercise3/skim_a.txt",
+      "B_TERMS_FILE": "../input_lists/genes_no_syn.txt",
+      "NUM_B_TERMS": 20000,
+      "C_TERMS_FILE": "../input_lists/down_syndrome.txt",
+      "SORT_COLUMN": "bc_sort_ratio",
+      "skim": {
+        "ab_fet_threshold": 0.1,
+        "bc_fet_threshold": 0.5,
+        "censor_year": 2024,
+        "top_n": 300
+      }
     }
+  }
 }
