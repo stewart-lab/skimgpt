@@ -64,8 +64,9 @@ def update_ab_pmid_intersection(filtered_data, leakage_data, text_type="neutral"
     assert text_type.lower() in [
         "neutral",
         "negative",
+        "positive",
         "empty",
-    ], "text_type must be 'neutral', 'negative', or 'empty'"
+    ], "text_type must be 'neutral', 'negative', 'positive', or 'empty'"
 
     if text_type.lower() == "empty":
         # Set all ab_pmid_intersection values to an empty string

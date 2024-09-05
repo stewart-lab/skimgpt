@@ -95,12 +95,18 @@ class SSHHelper:
                     f"cp {remote_src_path}/{file} {remote_subdir_path}", silent=True
                 )
             else:
-                print(f"Warning: {file} not found in {remote_src_path}")
+                logging.warning(f"{file} not found in {remote_src_path}")
+                return False  # Indicate that job submission failed
 
-        stdout, _ = self.execute_command(
-            f"cd {remote_subdir_path} && condor_submit run.sub", silent=True
-        )
-        print("Job submitted:", stdout.strip())
+        try:
+            stdout, _ = self.execute_command(
+                f"cd {remote_subdir_path} && condor_submit run.sub", silent=True
+            )
+            logging.info(f"Job submitted: {stdout.strip()}")
+            return True  # Indicate successful job submission
+        except Exception as e:
+            logging.error(f"Error submitting job: {str(e)}")
+            return False  # Indicate that job submission failed
 
     def cleanup_remote_directories(self, remote_src_path, remote_subdir_path):
         self.execute_command(f"rm -rf {remote_src_path}", silent=True)
@@ -171,6 +177,22 @@ class SSHHelper:
                                         occurrences = content.count("Job terminated")
                                         if occurrences >= expected_termination_count:
                                             job_terminated = True
+
+                                    if self.check_and_handle_transfer_error(
+                                        local_file_path
+                                    ):
+                                        print("Attempting to resubmit the job...")
+                                        if self.setup_and_submit_job(
+                                            remote_subdir_path, remote_subdir_path
+                                        ):
+                                            err_out_count = 0  # Reset the count
+                                            job_terminated = (
+                                                False  # Reset job termination flag
+                                            )
+                                        else:
+                                            print(
+                                                "Failed to resubmit the job. Continuing monitoring..."
+                                            )
                         except Exception as e:
                             logging.error(
                                 f"Error downloading file {remote_file_path}: {str(e)}"
@@ -213,6 +235,9 @@ class SSHHelper:
             current_time = time.time()
             if current_time - last_summary_time >= 300:  # 5 minutes in seconds
                 last_summary_time = current_time
+                logging.info(
+                    f"Summary: {total_files_transferred} files transferred. Job terminated: {job_terminated}. Error/Out count: {err_out_count}"
+                )
 
         if job_terminated and err_out_count >= expected_file_count:
             try:
@@ -372,3 +397,25 @@ class SSHHelper:
         except subprocess.CalledProcessError as e:
             print(f"Failed to {action} file/directory: {e}")
             raise
+
+    def check_and_handle_transfer_error(self, log_file_path):
+        with open(log_file_path, "r") as log_file:
+            log_content = log_file.read()
+        if (
+            "Failed to transfer files" in log_content
+            and "No such file or directory" in log_content
+        ):
+            print(
+                "Detected file transfer error. Attempting to create missing directory..."
+            )
+            match = re.search(r"/home/.*?/src/", log_content)
+            if match:
+                missing_dir = match.group()
+                try:
+                    self.execute_command(f"mkdir -p {missing_dir}", silent=True)
+                    print(f"Created directory: {missing_dir}")
+                    return True
+                except Exception as e:
+                    print(f"Failed to create directory: {str(e)}")
+                    return False
+        return False
