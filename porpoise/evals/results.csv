@@ -1,0 +1,16 @@
+,group,y_hat,y,accuracy
+0,Background Information,"[0, 1, 1, 0, 1, 1, 1, 1, 0, 1]",[0 0 0 0 0 0 0 0 0 0],0.3
+1,Comparative Study,"[0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0]",[0 0 0 0 0 0 0 0 0 0 0 0 0 0],0.42857142857142855
+2,Conflicting Evidence,"[1, 1, 1]",[1 1 1],1.0
+3,In Vitro Interaction,"[1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1],1.0
+4,Inconclusive,"[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1 1 1 1 1 1],1.0
+5,List Mention,"[0, 0, 1, 0, 0, 0, 1, 0]",[0 0 0 0 0 0 0 0],0.75
+6,Mild Interaction,"[1, 1, 1, 1, 1]",[1 1 1 1 1],1.0
+7,Moderate Interaction,"[1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1],1.0
+8,No Significant Interaction,"[1, 1, 1, 1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1 1 1 1],1.0
+9,Non-Drug Mention,"[0, 0, 0, 1, 0, 1, 0]",[0 0 0 0 0 0 0],0.7142857142857143
+10,Potential Interaction,"[1, 1, 1]",[1 1 1],1.0
+11,Rare Interaction,"[1, 1]",[1 1],1.0
+12,Separate Contexts,"[0, 0, 0, 0, 0, 0, 0]",[0 0 0 0 0 0 0],1.0
+13,Strong Interaction,"[1, 1, 1]",[1 1 1],1.0
+14,Variable Interaction,"[1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1],1.0
