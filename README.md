@@ -2,18 +2,6 @@
 This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given A_TERM and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. We also accept A_TERM lists to perfrom multiple queries agaisnt a B_TERM list. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
 
 
-## Directory Structure
-
- ```bash
- ├── src/
- ├── exampleConfigs/
- ├── requirements.txt
- ├── Dockerfile
- ├── input_lists/(A, B and C terms)
- ├── config.json
- └── test/
-```
-
  ## Requirements
 
  - Python 3.11
