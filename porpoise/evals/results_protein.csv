@@ -1,0 +1,15 @@
+,group,y_hat,y,accuracy
+0,Conflicting Evidence,"[1, 1, 1, 1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1 1 1 1],1.0
+1,Different Cellular Compartments,"[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]",[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0],0.95
+2,Direct Physical Interaction,"[1, 1, 1]",[1 1 1],1.0
+3,Enzyme-Substrate Interaction,"[1, 1, 1, 1, 1]",[1 1 1 1 1],1.0
+4,Functional Association,"[1, 1, 1]",[1 1 1],1.0
+5,Genetic Interaction,"[1, 1, 1, 1, 1]",[1 1 1 1 1],1.0
+6,No Direct Interaction,"[1, 1, 1, 1]",[1 1 1 1],1.0
+7,Non-Interacting Proteins,"[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]",[0 0 0 0 0 0 0 0 0 0 0 0 0],1.0
+8,Parallel Functions,"[0, 1, 0, 1, 0, 0, 1, 0, 0, 1]",[0 0 0 0 0 0 0 0 0 0],0.6
+9,Protein Complex Formation,"[1, 1, 1, 1]",[1 1 1 1],1.0
+10,Protein Modification,"[1, 1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1 1],1.0
+11,Regulatory Interaction,"[1, 1]",[1 1],1.0
+12,Separate Pathways,"[0, 0, 0, 0, 0, 0, 0, 0, 0]",[0 0 0 0 0 0 0 0 0],1.0
+13,Signal Transduction Interaction,"[1, 1, 1, 1, 1, 1]",[1 1 1 1 1 1],1.0
