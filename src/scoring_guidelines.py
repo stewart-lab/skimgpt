@@ -181,13 +181,13 @@ def biomedical_hypothesis_strength():
 
 
 def skim():
-    return (
-        "-2 Points: The hypothesis is strongly refuted by the provided texts. There is substantial evidence suggesting the hypothesis is false, offering little to no potential for further research or exploration.\n"
-        "-1 Point: The hypothesis is likely refuted based on the provided texts. The evidence leans towards negating the hypothesis, diminishing its potential for further valuable inquiry.\n"
-        "0 Points: The hypothesis is neither strongly supported nor refuted by the provided texts. The evidence is inconclusive, making its potential for further research unclear.\n"
-        "1 Point: The hypothesis is likely true based on the provided texts. The available evidence is promising and suggests that further exploration could yield valuable insights or discoveries.\n"
-        "2 Points: The hypothesis is strongly supported by the provided texts. The evidence is compelling and indicates significant potential for novel discoveries or important theoretical advancements.\n"
-    )
+    return """
+- **-2 Points:** The hypothesis is **strongly refuted** by the provided texts. There is substantial evidence suggesting the hypothesis is false or that the interactions have the **opposite effect** of what is proposed.
+- **-1 Point:** The hypothesis is **likely refuted** based on the provided texts. The evidence leans towards negating the hypothesis or indicates that the interactions may be **detrimental** to the proposed outcome.
+- **0 Points:** The hypothesis is **neither strongly supported nor refuted** by the provided texts. The evidence is inconclusive, mixed, lacks sufficient detail, or there is a lack of direct evidence.
+- **1 Point:** The hypothesis is **likely true** based on the provided texts. The available evidence is promising, and the interactions appear **beneficial** to the proposed outcome.
+- **2 Points:** The hypothesis is **strongly supported** by the provided texts. The evidence is compelling and consistent, indicating that the interactions are **beneficial** and support the proposed outcome.
+"""
 
 
 def skim_finer():

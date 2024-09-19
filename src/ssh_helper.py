@@ -311,14 +311,16 @@ class SSHHelper:
             capture_output=True,
             text=True,
         )
+        if result.returncode != 0:
+            error_msg = f"Command '{' '.join(result.args)}' failed with exit status {result.returncode}. STDERR: {result.stderr}"
+            logging.error(error_msg)
+            raise subprocess.CalledProcessError(
+                result.returncode, result.args, result.stdout, result.stderr
+            )
         if not silent:
             print("STDOUT:", result.stdout)
             print("STDERR:", result.stderr)
             print(f"Exit Status: {result.returncode}")
-        if result.returncode != 0:
-            raise subprocess.CalledProcessError(
-                result.returncode, result.args, result.stdout, result.stderr
-            )
         return result.stdout, result.stderr
 
     def transfer_files(self, source_path, target_path, action="upload", silent=False):

@@ -75,8 +75,8 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
 
 def getAbstractMap(config: json, pmids: list[str]) -> dict:
     returned_pmids = []
-    returned_abstracts = []
-    Entrez.email = "leoxu27@gmail.com"
+    returned_contents = []
+    Entrez.email = "your_email@example.com"  # Replace with your email
     Entrez.api_key = config["PUBMED_API_KEY"]
     Entrez.max_tries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
     Entrez.sleep_between_tries = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
@@ -86,27 +86,26 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
     output = Entrez.read(efetch)
     efetch.close()
     for paper in output["PubmedArticle"]:
-        pmid = paper["MedlineCitation"]["PMID"]
+        pmid = str(paper["MedlineCitation"]["PMID"])
+        article = paper["MedlineCitation"]["Article"]
+
+        # Extract the title
+        title = article.get("ArticleTitle", "No title available")
+
+        # Extract the abstract
         abstract_text = " ".join(
-            paper["MedlineCitation"]["Article"]
-            .get("Abstract", {})
-            .get("AbstractText", ["No abstract available"])
+            article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
         )
 
         # Check if the abstract has at least 50 words
         if len(abstract_text.split()) >= 50:
-            returned_pmids.append(str(pmid))
-            returned_abstracts.append(abstract_text)
+            returned_pmids.append(pmid)
+            # Format the content with PMID, Title, and Abstract
+            content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}"
+            returned_contents.append(content)
 
-    return dict(
-        zip(
-            returned_pmids,
-            [
-                f"PMID: {pmid} {abstract}"
-                for pmid, abstract in zip(returned_pmids, returned_abstracts)
-            ],
-        )
-    )
+    # Create a dictionary mapping PMIDs to their content
+    return dict(zip(returned_pmids, returned_contents))
 
 
 # Packages all the inputted data into the provided dataframes

@@ -61,23 +61,95 @@ def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c
 {consolidated_abstracts}
 
 Assessment Task:
-Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} through their own interactions with {b_term}. The texts provided above come from PubMed and each abstract will include only two of the three terms at any one time. The texts need to be your only source of information for arriving at your classification result.
+Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} through their own interactions with {b_term}. Use only the provided abstracts from PubMed, each containing only two of the three terms at a time ({a_term} + {b_term}, or {b_term} + {c_term}), to inform your analysis.
 
-Hypothesis:
+Your evaluation should:
+
+- **Integrate evidence from all abstracts** to discern how {a_term}, {b_term}, and {c_term} might be interconnected.
+- **Employ logical reasoning** based on A-B and B-C interactions, especially when direct evidence between {a_term} and {c_term} (A-C) is lacking.
+- **Assess the nature and directionality of the interactions**, determining whether they are beneficial or detrimental to the proposed outcome in the hypothesis.
+- **Be vigilant for any evidence that contradicts or challenges the hypothesis**, explicitly addressing any contradictions in your reasoning.
+- **Avoid inferring effects not supported by the texts**, ensuring that all conclusions are based solely on the provided information.
+- **Ensure that your scoring reflects an unbiased assessment based solely on the provided evidence. Do not let the examples bias your evaluation.**
+
+**Examples:**
+
+- **Example 1: Positive Outcome**
+  - **Hypothesis:** If {c_term} treats {a_term} through {b_term}.
+  - **Evidence:**
+      - {c_term} inhibits {b_term}.
+      - Inhibition of {b_term} reduces {a_term}.
+  - **Logical Conclusion:**
+      - Since {c_term} inhibits {b_term}, and inhibition of {b_term} reduces {a_term}, {c_term} may treat {a_term}.
+      - **Scoring:**
+          - The interactions are beneficial and support the hypothesis.
+          - **Assigned Score:** 2 
+
+- **Example 2: Neutral Outcome**
+  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
+  - **Evidence:**
+      - No direct evidence linking {c_term} to {b_term}.
+      - Indirect evidence is inconclusive.
+  - **Logical Conclusion:**
+      - Lacking sufficient evidence to support or refute the hypothesis.
+      - **Scoring:**
+          - The evidence is inconclusive.
+          - **Assigned Score:** 0 
+
+- **Example 3: Negative Outcome**
+  - **Hypothesis:** If {c_term} treats {a_term} through {b_term}.
+  - **Evidence:**
+      - Activation of {b_term} worsens {a_term}.
+      - {c_term} activates {b_term}.
+  - **Logical Conclusion:**
+      - Since {c_term} activates {b_term}, which worsens {a_term}, {c_term} may worsen {a_term}.
+      - This contradicts the hypothesis proposing a beneficial effect.
+      - **Scoring:**
+          - The interactions are detrimental and contradict the hypothesis.
+          - **Assigned Score:** -2 
+
+**Note:** The examples are provided to illustrate how to apply the scoring guidelines in different scenarios. They are not exhaustive. Base your scoring solely on the evidence in the provided abstracts, without bias from the examples.
+
+Your goal is to determine the degree of support for the hypothesis:
+
 {hypothesis_template}
 
 Instructions:
 1. Review each abstract to understand how {a_term}, {b_term}, and {c_term} might be interconnected based on the available information.
 2. Analyze the presence and implications of each term pairing ({a_term} + {b_term}, {b_term} + {c_term}) in the context of the hypothesis.
 3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
-4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
-5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on:
+    - **Explaining the logical connections and the directionality of relationships.**
+    - **Determining whether the interactions support or contradict the hypothesis, even if only indirect evidence is available.**
+    - **Assessing if the interactions are beneficial or detrimental to the proposed outcome.**
+5. **Be vigilant for any evidence that suggests the interactions may have the opposite effect of what the hypothesis proposes. Address any contradictions explicitly in your reasoning.**
+6. **If indirect evidence suggests that the interactions are detrimental to the hypothesis, reflect this in your scoring according to the guidelines.**
+7. Verify any assumptions about the roles and effects of {a_term}, {b_term}, and {c_term} as presented in the abstracts. Avoid inferring effects not supported by the texts.
+8. **In your final assessment, explicitly cite the scoring guideline that corresponds to your conclusion. Explain why the evidence meets the criteria for that specific score.**
+
+Note: Pay close attention to the nature of the interactions between entities. An interaction that activates or stimulates a process may have different implications than one that inhibits or suppresses it. Consider whether such interactions are beneficial or detrimental to the hypothesis.
+
+**Checklist Before Finalizing Your Response:**
+- Have you addressed whether the interactions support or contradict the hypothesis?
+- Have you assessed if the interactions are beneficial or detrimental?
+- Have you explicitly cited the scoring guideline that matches your conclusion?
+- Have you explained why the evidence meets the criteria for the assigned score?
 
 Format your response as:
-Score: [Number] - Reasoning: [Reasoning]
+Score: [Number] Points - Reasoning: [Reasoning]
 
 Scoring Guidelines:
-{sg.skim()}"""
+
+- **-2:** The hypothesis is **strongly refuted** by the provided texts. There is substantial evidence suggesting the hypothesis is false or that the interactions have the opposite effect of what is proposed.
+
+- **-1:** The hypothesis is **likely refuted** based on the provided texts. The evidence leans towards negating the hypothesis or indicates that the interactions may be detrimental to the proposed outcome.
+
+- **0:** The hypothesis is **neither strongly supported nor refuted** by the provided texts. The evidence is inconclusive, mixed, lacks sufficient detail, or there is a lack of direct evidence.
+
+- **1:** The hypothesis is **likely true** based on the provided texts. The available evidence is promising, and the interactions appear beneficial to the proposed outcome.
+
+- **2:** The hypothesis is **strongly supported** by the provided texts. The evidence is compelling and consistent, indicating that the interactions are beneficial and support the proposed outcome.
+"""
 
 
 def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):

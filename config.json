@@ -1,19 +1,19 @@
 {
-  "JOB_TYPE": "km_with_gpt",
-  "KM_hypothesis": "Treatment with {b_term} will worsen {a_term}.",
+  "JOB_TYPE": "skim_with_gpt",
+  "KM_hypothesis": "Use of {b_term} will worsen {a_term}.",
   "SKIM_hypotheses": {
-    "BC": "There exists an interaction between the disease {c_term} and the gene {b_term}.",
-    "AB": "There exists an interaction between the organ {a_term} and the gene {b_term}.",
-    "AC": "There exists an interaction between the disease {c_term} and the organ {a_term}.",
-    "ABC": "The gene {b_term} links the organ {a_term} to the disease {c_term}."
+    "BC": "There exists an interaction between the drug {c_term} and the gene {b_term}.",
+    "AB": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
+    "AC": "There exists an interaction between the drug {c_term} and the disease {a_term}.",
+    "ABC": "{c_term} treats {a_term} through its effect on {b_term}."
   },
   "Evaluate_single_abstract": false,
   "GLOBAL_SETTINGS": {
     "A_TERM": "Breast Cancer",
     "A_TERM_SUFFIX": "",
-    "TOP_N_ARTICLES_MOST_CITED": 300,
-    "TOP_N_ARTICLES_MOST_RECENT": 0,
-    "POST_N": 20,
+    "TOP_N_ARTICLES_MOST_CITED": 50,
+    "TOP_N_ARTICLES_MOST_RECENT": 50,
+    "POST_N": 5,
     "MIN_WORD_COUNT": 98,
     "MODEL": "gpt-4o-2024-08-06",
     "MAX_TOKENS": 1000,
@@ -40,7 +40,7 @@
     "TOP_P": 0.95,
     "MAX_COT_TOKENS": 500,
     "DEBUG": false,
-    "TEST_LEAKAGE": true,
+    "TEST_LEAKAGE": false,
     "TEST_LEAKAGE_TYPE": "empty"
   },
   "JOB_SPECIFIC_SETTINGS": {
@@ -57,12 +57,12 @@
       }
     },
     "skim_with_gpt": {
-      "position": false,
-      "A_TERM_LIST": false,
+      "position": true,
+      "A_TERM_LIST": true,
       "A_TERMS_FILE": "../input_lists/exercise3/skim_a.txt",
-      "B_TERMS_FILE": "../input_lists/genes_no_syn.txt",
+      "B_TERMS_FILE": "../input_lists/exercise3/skim_b.txt",
       "NUM_B_TERMS": 20000,
-      "C_TERMS_FILE": "../input_lists/down_syndrome.txt",
+      "C_TERMS_FILE": "../input_lists/exercise3/skim_c.txt",
       "SORT_COLUMN": "bc_sort_ratio",
       "skim": {
         "ab_fet_threshold": 0.1,
