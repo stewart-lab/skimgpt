@@ -21,7 +21,6 @@ class SSHHelper:
         connections_dir = os.path.expanduser("~/.ssh/connections")
         os.makedirs(connections_dir, exist_ok=True)
         control_path = f"{connections_dir}/{self.ssh_config.get('user')}@{self.ssh_config.get('server')}:{self.ssh_config.get('port', 22)}"
-
         if not self._check_persistent_connection(control_path):
             print("Creating new SSH connection...")
             control_path, server, port, username = self._create_persistent_connection(

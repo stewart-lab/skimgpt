@@ -196,6 +196,11 @@ def main():
             remote_file_paths, dynamic_file_names = ssh_helper.transfer_files_to_remote(
                 output_directory, remote_subdir_path, generated_file_paths
             )
+            if not remote_file_paths:
+                print(
+                    "No files were transferred. Skipping job submission and monitoring."
+                )
+                return
 
             ssh_helper.setup_and_submit_job(remote_src_path, remote_subdir_path)
 

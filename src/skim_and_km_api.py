@@ -150,47 +150,88 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     assert config, "No configuration provided"
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
-    if config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]:
+
+    if config["GLOBAL_SETTINGS"].get("A_TERM_SUFFIX"):
         a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
-        a_term = str(a_term) + str(a_term_suffix)
+        a_term = f"{a_term}{a_term_suffix}"
+
     print("Executing KM workflow...")
     print("Reading terms from files...")
+
     b_terms = read_terms_from_file(
         config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
     )
     assert b_terms, "B_TERM is not defined in the configuration"
+
     print(f"Running and saving KM query for a_term: {a_term}...")
     km_file_path = run_and_save_query(
         "km_with_gpt", a_term, b_terms, config=config, output_directory=output_directory
     )
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
+
     if os.path.getsize(full_km_file_path) <= 1:
         print("KM results are empty. Returning None to indicate no KM results.")
         return None
 
+    # Read the KM results
     km_df = pd.read_csv(full_km_file_path, sep="\t")
 
+    # Ensure the sort_column exists
     sort_column = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get(
         "SORT_COLUMN", "ab_sort_ratio"
     )
     assert sort_column in km_df.columns, f"{sort_column} is not in the km_df"
+
+    # Sort the dataframe
     km_df = km_df.sort_values(by=sort_column, ascending=False)
     assert not km_df.empty, "KM results are empty"
+
+    # Parse the 'ab_pmid_intersection' from string to list
+    km_df["ab_pmid_intersection"] = km_df["ab_pmid_intersection"].apply(
+        ast.literal_eval
+    )
+
+    # Filter rows with non-empty 'ab_pmid_intersection'
     valid_rows = km_df[km_df["ab_pmid_intersection"].apply(lambda x: len(x) > 0)]
+
+    # Apply additional filtering if necessary
     valid_rows = filter_term_columns(valid_rows)
+
+    # Define the path for the filtered results
     filtered_file_path = os.path.join(
         output_directory,
-        os.path.splitext(km_file_path)[0].replace(" ", "_") + "_filtered.tsv",
+        f"{os.path.splitext(km_file_path)[0].replace(' ', '_')}_filtered.tsv",
     )
-    valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
 
+    # Save the filtered results
+    valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
     print(f"Filtered KM query results saved to {filtered_file_path}")
+
+    # Identify removed rows (those with empty 'ab_pmid_intersection')
+    removed_rows = km_df[~km_df.index.isin(valid_rows.index)].copy()
+
+    if not removed_rows.empty:
+        # Extract 'a_term' and 'b_term' columns
+        no_results_df = removed_rows[["a_term", "b_term"]]
+
+        # Define the path for the no_results.txt file
+        no_results_file_path = os.path.join(output_directory, "no_results.txt")
+
+        # Write the a_term and b_term to the file
+        no_results_df.to_csv(no_results_file_path, sep="\t", index=False, header=True)
+
+        print(f"No-result entries saved to {no_results_file_path}")
+    else:
+        print("All KM queries returned results. No entries to write to no_results.txt.")
+
+    # Check if there are valid results to return
     if len(valid_rows) == 0:
         print(
             "No KM results after filtering. Returning None to indicate no KM results."
         )
         return None
+
     return filtered_file_path
 
 
