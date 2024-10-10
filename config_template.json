@@ -27,7 +27,7 @@
     "SSH": {
         "server": "ap2002.chtc.wisc.edu",
         "port": 22,
-        "user": "",
+        "chtc_username": "",
         "key_path": "",
         "config_path": "",
         "src_path": "",

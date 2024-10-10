@@ -116,6 +116,8 @@ def organize_output(directory):
             file_path = os.path.join(root, file)
             if file.endswith(".json") and file != "config.json":
                 shutil.move(file_path, os.path.join(results_dir, file))
+            elif file == "no_results.txt":
+                shutil.move(file_path, os.path.join(results_dir, file))
             elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
                 shutil.move(file_path, os.path.join(debug_dir, file))
             elif file != "config.json":

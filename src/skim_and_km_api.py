@@ -116,7 +116,8 @@ def filter_term_columns(df):
     """
     for column in ["a_term", "b_term", "c_term"]:
         if column in df.columns:
-            df[column] = df[column].apply(
+            # Use .loc to explicitly set the values
+            df.loc[:, column] = df[column].apply(
                 lambda x: x.split("|")[0] if "|" in str(x) else x
             )
     return df

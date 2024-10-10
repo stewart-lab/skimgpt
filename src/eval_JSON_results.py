@@ -7,7 +7,7 @@ import sys
 def extract_and_write_scores(directory):
     results = []
     # Define the outer keys to look for
-    outer_keys = ["A_B_C_Relationship", "A_C_Relationship"]
+    outer_keys = ["A_B_C_Relationship", "A_C_Relationship", "A_B_Relationship"]
 
     # Walk through all files in the directory
     for root, dirs, files in os.walk(directory):
@@ -36,7 +36,7 @@ def extract_and_write_scores(directory):
                                 for detail in score_details:
                                     # Using regex to find the score pattern
                                     match = re.search(
-                                        r"Score:\s*\**([-+]?\d+)\**", detail
+                                        r"\**Score:\**\s*([-+]?\d+)", detail
                                     )
                                     if match:
                                         score = match.group(1)

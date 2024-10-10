@@ -10,6 +10,11 @@ from classifier import process_single_row, write_to_json, calculate_relevance_ra
 from itertools import chain
 from leakage import load_data, update_ab_pmid_intersection, save_updated_data
 import re
+import logging
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def getHypothesis(
@@ -76,15 +81,20 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
 def getAbstractMap(config: json, pmids: list[str]) -> dict:
     returned_pmids = []
     returned_contents = []
+    delimiter = "\n\n===END OF ABSTRACT===\n\n"
     Entrez.email = "your_email@example.com"  # Replace with your email
     Entrez.api_key = config["PUBMED_API_KEY"]
     Entrez.max_tries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
     Entrez.sleep_between_tries = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
 
-    efetch = Entrez.efetch(db="pubmed", id=pmids, retmode="xml", rettype="abstract")
+    try:
+        efetch = Entrez.efetch(db="pubmed", id=pmids, retmode="xml", rettype="abstract")
+        output = Entrez.read(efetch)
+        efetch.close()
+    except Exception as e:
+        logging.error(f"Error fetching abstracts: {e}")
+        return {}
 
-    output = Entrez.read(efetch)
-    efetch.close()
     for paper in output["PubmedArticle"]:
         pmid = str(paper["MedlineCitation"]["PMID"])
         article = paper["MedlineCitation"]["Article"]
@@ -96,16 +106,24 @@ def getAbstractMap(config: json, pmids: list[str]) -> dict:
         abstract_text = " ".join(
             article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
         )
-
         # Check if the abstract has at least 50 words
         if len(abstract_text.split()) >= 50:
             returned_pmids.append(pmid)
-            # Format the content with PMID, Title, and Abstract
-            content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}"
+            # Format the content with PMID, Title, and Abstract, separated by delimiter
+            # Even though there's typically one abstract per PMID, the delimiter is included for consistency
+            content = (
+                f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
+            )
             returned_contents.append(content)
 
-    # Create a dictionary mapping PMIDs to their content
-    return dict(zip(returned_pmids, returned_contents))
+    if not returned_pmids:
+        logging.warning("No valid abstracts found with at least 50 words.")
+        return {}
+
+    # Create a dictionary mapping PMIDs to their content with delimiters
+    abstract_dict = dict(zip(returned_pmids, returned_contents))
+
+    return abstract_dict
 
 
 # Packages all the inputted data into the provided dataframes
