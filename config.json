@@ -1,6 +1,6 @@
 {
   "JOB_TYPE": "km_with_gpt",
-  "KM_hypothesis": "Use of {b_term} will worsen {a_term}.",
+  "KM_hypothesis": "{b_term} directly cause(s) the disease {a_term} (not just that {b_term} is associated with the disease {a_term}).",
   "SKIM_hypotheses": {
     "BC": "There exists an interaction between the drug {c_term} and the gene {b_term}.",
     "AB": "There exists an interaction between the disease {a_term} and the gene {b_term}.",
@@ -11,9 +11,9 @@
   "GLOBAL_SETTINGS": {
     "A_TERM": "Cervical Cancer",
     "A_TERM_SUFFIX": "",
-    "TOP_N_ARTICLES_MOST_CITED": 50,
-    "TOP_N_ARTICLES_MOST_RECENT": 50,
-    "POST_N": 5,
+    "TOP_N_ARTICLES_MOST_CITED": 0,
+    "TOP_N_ARTICLES_MOST_RECENT": 300,
+    "POST_N": 20,
     "MIN_WORD_COUNT": 98,
     "MODEL": "o1-preview",
     "API_URL": "http://localhost:5099/skim/api/jobs",
@@ -26,7 +26,7 @@
   "SSH": {
     "server": "ap2002.chtc.wisc.edu",
     "port": 22,
-    "user": "jfreeman23",
+    "chtc_username": "jfreeman23",
     "key_path": "/w5home/jfreeman/.ssh/chtc2",
     "config_path": "../config.json",
     "src_path": "./",
@@ -40,19 +40,19 @@
     "MAX_COT_TOKENS": 500,
     "DEBUG": false,
     "TEST_LEAKAGE": false,
-    "TEST_LEAKAGE_TYPE": "empty"
+    "TEST_LEAKAGE_TYPE": "neutral"
   },
   "JOB_SPECIFIC_SETTINGS": {
     "km_with_gpt": {
       "position": false,
       "A_TERM_LIST": false,
       "A_TERMS_FILE": "../input_lists/test/km_a.txt",
-      "B_TERMS_FILE": "../input_lists/hpv.txt",
+      "B_TERMS_FILE": "/w5home/jfreeman/kmGPT/input_lists/cervical_cancer_b_terms.txt",
       "SORT_COLUMN": "ab_sort_ratio",
       "NUM_B_TERMS": 25,
       "km_with_gpt": {
         "ab_fet_threshold": 1,
-        "censor_year": 1980
+        "censor_year": 2010
       }
     },
     "skim_with_gpt": {

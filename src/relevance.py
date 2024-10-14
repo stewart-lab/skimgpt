@@ -1,6 +1,5 @@
 from __future__ import annotations
 import pandas as pd
-import json
 from Bio import Entrez
 import vllm
 import argparse
@@ -11,6 +10,8 @@ from itertools import chain
 from leakage import load_data, update_ab_pmid_intersection, save_updated_data
 import re
 import logging
+from typing import List, Dict, Any
+import time
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -74,54 +75,117 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
     )
 
 
-# Returns a dictionary for each PMID & Abstract Pair
-# This method is needed since Entrez automatically removes duplicates in the pmid list
+def validate_pmids(pmids: List[Any]) -> List[str]:
+    """Validate PMIDs to ensure they are numeric."""
+    valid_pmids = []
+    for pmid in pmids:
+        pmid_str = str(pmid)  # Convert to string
+        if pmid_str.isdigit() and len(pmid_str) > 0:
+            valid_pmids.append(pmid_str)
+        else:
+            logging.warning(f"Invalid PMID detected and skipped: {pmid}")
+    return valid_pmids
 
 
-def getAbstractMap(config: json, pmids: list[str]) -> dict:
-    returned_pmids = []
-    returned_contents = []
-    delimiter = "\n\n===END OF ABSTRACT===\n\n"
-    Entrez.email = "your_email@example.com"  # Replace with your email
-    Entrez.api_key = config["PUBMED_API_KEY"]
-    Entrez.max_tries = config["GLOBAL_SETTINGS"]["MAX_RETRIES"]
-    Entrez.sleep_between_tries = config["GLOBAL_SETTINGS"]["RETRY_DELAY"]
+def batch_pmids(pmids: List[str], batch_size: int = 200) -> List[List[str]]:
+    """Splits PMIDs into batches of specified size."""
+    return [pmids[i : i + batch_size] for i in range(0, len(pmids), batch_size)]
 
-    try:
-        efetch = Entrez.efetch(db="pubmed", id=pmids, retmode="xml", rettype="abstract")
-        output = Entrez.read(efetch)
-        efetch.close()
-    except Exception as e:
-        logging.error(f"Error fetching abstracts: {e}")
-        return {}
 
-    for paper in output["PubmedArticle"]:
-        pmid = str(paper["MedlineCitation"]["PMID"])
-        article = paper["MedlineCitation"]["Article"]
+def fetch_with_retry(
+    batch: List[str], config: dict, max_retries: int, backoff_factor: float
+) -> Dict[str, str]:
+    """Fetch abstracts for a batch of PMIDs with retry logic."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            with Entrez.efetch(
+                db="pubmed", id=batch, retmode="xml", rettype="abstract"
+            ) as efetch:
+                output = Entrez.read(efetch)
 
-        # Extract the title
-        title = article.get("ArticleTitle", "No title available")
+            returned_pmids = []
+            returned_contents = []
+            delimiter = "\n\n===END OF ABSTRACT===\n\n"
 
-        # Extract the abstract
-        abstract_text = " ".join(
-            article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
-        )
-        # Check if the abstract has at least 50 words
-        if len(abstract_text.split()) >= 50:
-            returned_pmids.append(pmid)
-            # Format the content with PMID, Title, and Abstract, separated by delimiter
-            # Even though there's typically one abstract per PMID, the delimiter is included for consistency
-            content = (
-                f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
+            for paper in output.get("PubmedArticle", []):
+                pmid = str(paper["MedlineCitation"]["PMID"])
+                article = paper["MedlineCitation"]["Article"]
+
+                # Extract the title
+                title = article.get("ArticleTitle", "No title available")
+
+                # Extract the abstract
+                abstract_text = " ".join(
+                    article.get("Abstract", {}).get(
+                        "AbstractText", ["No abstract available"]
+                    )
+                )
+                # Check if the abstract has at least 50 words
+                if len(abstract_text.split()) >= 50:
+                    returned_pmids.append(pmid)
+                    content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
+                    returned_contents.append(content)
+
+            # Identify any missing PMIDs in the response
+            fetched_pmids = [
+                str(paper["MedlineCitation"]["PMID"])
+                for paper in output.get("PubmedArticle", [])
+            ]
+            missing_pmids = set(batch) - set(fetched_pmids)
+
+            if missing_pmids:
+                logging.warning(f"PMIDs not fetched in batch {batch}: {missing_pmids}")
+                # Optionally, attempt to fetch missing PMIDs individually here
+                # Or log them for manual review
+
+            # Create and return the abstract dictionary for this batch
+            return dict(zip(returned_pmids, returned_contents))
+
+        except Exception as e:
+            logging.error(
+                f"Attempt {attempt} - Error fetching abstracts for batch {batch}: {e}"
             )
-            returned_contents.append(content)
+            if attempt < max_retries:
+                sleep_time = backoff_factor * (2 ** (attempt - 1))
+                logging.info(f"Retrying after {sleep_time} seconds...")
+                time.sleep(sleep_time)
+            else:
+                logging.error(
+                    f"Max retries reached for batch {batch}. Skipping this batch."
+                )
+                return {}
 
-    if not returned_pmids:
-        logging.warning("No valid abstracts found with at least 50 words.")
+
+def getAbstractMap(
+    config: dict, pmids: List[str], max_retries: int = 10, backoff_factor: float = 0.5
+) -> Dict[str, str]:
+    """Fetch abstracts for a list of PMIDs with validation, batching, and retries."""
+    Entrez.email = "your_email@example.com"  # Replace with your email
+    Entrez.api_key = config.get("PUBMED_API_KEY", "")
+    Entrez.max_tries = config.get("GLOBAL_SETTINGS", {}).get("MAX_RETRIES", 3)
+    Entrez.sleep_between_tries = config.get("GLOBAL_SETTINGS", {}).get("RETRY_DELAY", 5)
+
+    # Validate PMIDs
+    pmids = validate_pmids(pmids)
+    if not pmids:
+        logging.error("No valid PMIDs to fetch.")
         return {}
 
-    # Create a dictionary mapping PMIDs to their content with delimiters
-    abstract_dict = dict(zip(returned_pmids, returned_contents))
+    # Batch PMIDs
+    batches = batch_pmids(pmids, batch_size=200)
+    abstract_dict = {}
+
+    for batch in batches:
+        # Fetch abstracts with retry logic
+        batch_result = fetch_with_retry(batch, config, max_retries, backoff_factor)
+        if batch_result:
+            abstract_dict.update(batch_result)
+        time.sleep(0.34)  # Sleep to respect rate limit (3 requests per second)
+
+    if not abstract_dict:
+        logging.error("No abstracts fetched successfully.")
+    else:
+        logging.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
 
     return abstract_dict
 

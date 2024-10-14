@@ -36,7 +36,7 @@ def extract_and_write_scores(directory):
                                 for detail in score_details:
                                     # Using regex to find the score pattern
                                     match = re.search(
-                                        r"\**Score:\**\s*([-+]?\d+)", detail
+                                        r"\**Score:\**\s*\**([-+]?\d+)\**", detail
                                     )
                                     if match:
                                         score = match.group(1)
