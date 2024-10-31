@@ -45,7 +45,7 @@ def getHypothesis(
             return hypothesis_template.format(b_term=b_term, c_term=c_term)
 
         elif a_term and c_term and not b_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("AC")
+            hypothesis_template = config.get("SKIM_hypotheses", "").get("rel_AC")
             return hypothesis_template.format(a_term=a_term, c_term=c_term)
 
     else:
@@ -238,7 +238,7 @@ def optimize_text_length(df, model="gpt-4"):
     enc = tiktoken.encoding_for_model(model)
 
     # Define maximum tokens
-    max_tokens = 100000
+    max_tokens = 10000000
 
     # Check for presence of columns
     has_bc = "bc_pmid_intersection" in df.columns
@@ -311,6 +311,8 @@ def interleave_and_get_top_n_pmids(text, n):
 
     # Create a sorted copy of PMIDs in descending order
     sorted_pmids = sorted(pmids, reverse=True)
+    print(f"Original PMIDs: {pmids}")
+    print(f"Sorted PMIDs: {sorted_pmids}")
 
     # Interleave the original and sorted PMIDs
     interleaved = []
@@ -482,7 +484,7 @@ def main():
                 terms="ac",
                 shape=[ac_pmids.shape],
             )
-
+    # save the updated dataframe and add "pre" to the name
     out_df = process_dataframe(out_df, config)
 
     if config.test_leakage:

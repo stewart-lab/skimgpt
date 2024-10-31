@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import json
 import re
@@ -34,12 +36,20 @@ def extract_and_write_scores(directory):
                                 )
                                 score_details = relationship_data.get("Result", [])
                                 for detail in score_details:
-                                    # Using regex to find the score pattern
+                                    # Updated regex to capture numbers and 'N/A'
                                     match = re.search(
-                                        r"\**Score:\**\s*\**([-+]?\d+)\**", detail
+                                        r"\**Score:\**\s*\**([-+]?\d+|N/A)\**",
+                                        detail,
+                                        re.IGNORECASE,
                                     )
                                     if match:
-                                        score = match.group(1)
+                                        score = match.group(1).strip()
+                                        if score.upper() == "N/A":
+                                            # Convert 'N/A' to '0 (not enough information)'
+                                            score = "0 (not enough information)"
+                                        else:
+                                            # Optionally, you can convert the score to an integer or keep as string
+                                            score = score
                                         results.append(
                                             {
                                                 "Relationship_Type": outer_key,
@@ -66,28 +76,17 @@ def extract_and_write_scores(directory):
     print(f"Results written to {results_file_path}")
 
 
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Extract and write scores from JSON files."
-    )
-    parser.add_argument(
-        "--directory",
-        required=True,
-        help="Path to the directory containing JSON result files.",
-    )
-    args = parser.parse_args()
-
-    extract_and_write_scores(args.directory)
-
-
 def main():
     if len(sys.argv) != 2:
         print("Usage: python eval_JSON_results.py <directory_path>")
         sys.exit(1)
 
     directory_path = sys.argv[1]
+
+    if not os.path.isdir(directory_path):
+        print(f"Error: The path '{directory_path}' is not a valid directory.")
+        sys.exit(1)
+
     extract_and_write_scores(directory_path)
 
 
