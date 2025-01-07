@@ -13,8 +13,40 @@ from jobs import main_workflow
 from glob import glob
 import sys
 import os
+import logging
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def setup_logging(output_directory=None):
+    handlers = []
+
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+    handlers.append(console_handler)
+
+    # Create file handler if output directory is provided
+    if output_directory:
+        file_handler = logging.FileHandler(
+            os.path.join(output_directory, "workflow.log")
+        )
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        )
+        handlers.append(file_handler)
+
+    # Remove any existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Configure logging with new handlers
+    logging.basicConfig(level=logging.INFO, handlers=handlers)
 
 
 class Singleton(type):
@@ -40,6 +72,14 @@ def initialize_workflow():
     timestamp_dir_name = f"output_{timestamp}"
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
+
+    # Configure logging to write to the output directory
+    logging.basicConfig(
+        filename=os.path.join(output_directory, "workflow.log"),
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+    )
+
     timestamp_output_path = timestamp_dir_name
     shutil.copy(
         GlobalClass.config_file,
@@ -133,6 +173,8 @@ def organize_output(directory):
 
 
 def main():
+    start_time = time.time()
+    logging.info("Main workflow started.")
     parser = argparse.ArgumentParser("arg_parser")
     parser.add_argument(
         "-config",
@@ -146,8 +188,14 @@ def main():
     args = parser.parse_args()
 
     GlobalClass.config_file = args.config_file
+    # Set up initial console-only loggin
+    setup_logging()
+
+    start_time = time.time()
+    logging.info("Main workflow started.")
     if not args.tsv_dir:
         config, output_directory, timestamp_output_path = initialize_workflow()
+        setup_logging(output_directory)
         ssh_config = config.get("SSH", {})
         if ssh_config:
             ssh_helper = SSHHelper(ssh_config)
@@ -182,7 +230,9 @@ def main():
         config, output_directory, timestamp_output_path, generated_file_paths = (
             initialize_eval_workflow(args.tsv_dir)
         )
-
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    logging.info(f"Main workflow completed in {elapsed_time:.2f} seconds.")
     ssh_config = config.get("SSH", {})
     if ssh_config and generated_file_paths:
         ssh_helper = SSHHelper(ssh_config)

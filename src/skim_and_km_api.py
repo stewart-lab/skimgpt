@@ -45,31 +45,35 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
-    def wait_for_job_completion(self, url, job_id, max_retries=100):
+    def wait_for_job_completion(self, url, job_id):
         """Wait for an API job to complete and return the result."""
-        retries = 0
-        while retries < max_retries:
+        start_time = time.time()
+        last_report_time = start_time
+
+        while True:
             try:
                 response_json = self.get_api_request(url, job_id)
-                job_status = response_json["status"]
-                if job_status in ["finished", "failed"]:
-                    break
-                time.sleep(5)
-                retries += 1
+                status = response_json["status"]
+
+                current_time = time.time()
+                if current_time - last_report_time >= 300:  # 5 minutes
+                    elapsed = int((current_time - start_time) / 60)
+                    logging.info(f"Job status after {elapsed} minutes: {status}")
+                    last_report_time = current_time
+
+                if status == "finished":
+                    logging.info("Job completed successfully")
+                    return response_json.get("result")
+                elif status == "failed":
+                    raise AssertionError(f"Job failed with status: {status}")
+                elif status in ["queued", "started"]:
+                    time.sleep(5)
+                else:
+                    raise ValueError(f"Unknown job status: {status}")
+
             except Exception as e:
-                logging.error(
-                    f"Attempt {retries+1}/{max_retries} failed with error: {e}"
-                )
-                retries += 1
-
-        if "result" not in response_json:
-            logging.error(
-                f"Job did not complete successfully after {max_retries} retries."
-            )
-            raise AssertionError("Job did not complete successfully.")
-
-        logging.info("Job completed successfully.")
-        return response_json.get("result", None)
+                logging.error(f"API request failed: {e}")
+                time.sleep(5)
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""

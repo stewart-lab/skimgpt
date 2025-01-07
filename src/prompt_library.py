@@ -25,8 +25,7 @@ Format your response as:
 Score: [Number] - Reasoning: [Reasoning]
 
 Scoring Guidelines:
-{sg.biomedical_hypothesis_strength()}
-"""
+{sg.ab_scoring_guidelines(a_term, b_term)}"""
 
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
@@ -138,11 +137,7 @@ Your goal is to determine the degree of support for the hypothesis:
 Score: \[Number\] Point(s) - Reasoning: \[Reasoning\]
 
 **Scoring Guidelines:**
-• **-2:** The hypothesis is **refuted** by consistent evidence indicating that the interaction between {a_term} and {c_term} **contradicts** the proposed outcome.
-• **-1:** The hypothesis is **likely refuted** based on the evidence. There is moderate indication that the interaction between {a_term} and {c_term} **contradicts** the proposed outcome, but some uncertainty or contradictory evidence exists.
-• **0:** The hypothesis is **neither supported nor refuted** by the provided texts. The evidence regarding the interaction between {a_term} and {c_term} is inconclusive, mixed, lacks sufficient detail, or there is a lack of evidence.
-• **+1:** The hypothesis is **likely supported** by the provided texts. The evidence suggests that the interaction between {a_term} and {c_term} may **align with** the proposed outcome, but some uncertainty or contradictory evidence exists.
-• **+2:** The hypothesis is **supported** by consistent evidence indicating that the interaction between {a_term} and {c_term} **aligns with** the proposed outcome, with no significant contradictory evidence."""
+{sg.ac_scoring_guidelines(a_term, c_term)}"""
 
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
@@ -331,17 +326,7 @@ Your goal is to determine the degree of support for the hypothesis:
 Score: [Number] Point(s) - Reasoning: [Reasoning]
 
 **Scoring Guidelines:**
-
-- **-2:** The hypothesis is **refuted** by consistent evidence indicating that the interactions between {a_term}-{b_term} and/or {b_term}-{c_term} **contradict** the proposed outcome.
-
-- **-1:** The hypothesis is **likely refuted** based on the evidence. There is moderate indication that the interactions between {a_term}-{b_term} and/or {b_term}-{c_term} **contradict** the proposed outcome, but some uncertainty or contradictory evidence exists.
-
-- **0:** The hypothesis is **neither supported nor refuted** by the provided texts. The evidence regarding the interactions between {a_term}-{b_term} and {b_term}-{c_term} is inconclusive, mixed, lacks sufficient detail, or there is a lack of evidence.
-
-- **+1:** The hypothesis is **likely supported** by the provided texts. The evidence suggests that the interactions between {a_term}-{b_term} and {b_term}-{c_term} may **align with** the proposed outcome, but some uncertainty or contradictory evidence exists.
-
-- **+2:** The hypothesis is **supported** by consistent evidence indicating that the interactions between {a_term}-{b_term} and {b_term}-{c_term} **align with** the proposed outcome, with no significant contradictory evidence.
-"""
+{sg.abc_scoring_guidelines(a_term, b_term, c_term)}"""
 
 
 def hypothesis_confirmation(b_term, a_term, consolidated_abstracts):

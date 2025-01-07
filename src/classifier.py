@@ -136,6 +136,12 @@ def process_single_row(row, config):
 
 
 def extract_pmids_and_generate_urls(text: str) -> list:
+    if not isinstance(text, str):
+        logging.error(
+            f"Expected string for 'text', but got {type(text)}. Converting to string."
+        )
+        text = str(text)
+
     # Regular expression to find PMIDs
     pmid_pattern = r"PMID:\s*(\d+)"
 

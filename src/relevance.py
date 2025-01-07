@@ -496,7 +496,7 @@ def main():
         f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
         sep="\t",
     )
-
+    # out_df = pd.read_csv("output_filtered.tsv", sep="\t")
     ##################### Classify ############################
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
@@ -518,4 +518,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    start_time = time.time()
+    logging.info("Relevance script started.")
+
+    main()  # Call the existing main function
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    logging.info(f"Relevance script completed in {elapsed_time:.2f} seconds.")

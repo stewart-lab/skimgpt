@@ -1,3 +1,120 @@
+def ab_scoring_guidelines(a_term, b_term):
+    return (
+        "• **-2:** The hypothesis is **refuted** by consistent evidence indicating that the interaction between "
+        f"{a_term} and {b_term} **contradicts** the proposed outcome.\n"
+        "• **-1:** The hypothesis is **likely refuted** based on the evidence. There is moderate indication that "
+        f"the interaction between {a_term} and {b_term} **contradicts** the proposed outcome, but some uncertainty "
+        "or contradictory evidence exists.\n"
+        "• **0:** The hypothesis is **neither supported nor refuted** by the provided texts. The evidence regarding "
+        f"the interaction between {a_term} and {b_term} is inconclusive, mixed, lacks sufficient detail, or there "
+        "is a lack of evidence.\n"
+        "• **+1:** The hypothesis is **likely supported** by the provided texts. The evidence suggests that the "
+        f"interaction between {a_term} and {b_term} may **align with** the proposed outcome, but some uncertainty "
+        "or contradictory evidence exists.\n"
+        "• **+2:** The hypothesis is **supported** by consistent evidence indicating that the interaction between "
+        f"{a_term} and {b_term} **aligns with** the proposed outcome, with no significant contradictory evidence."
+    )
+
+
+def ac_scoring_guidelines(a_term, c_term):
+    return (
+        "• **-2:** The hypothesis is **refuted** by consistent evidence indicating that the interaction between "
+        f"{a_term} and {c_term} **contradicts** the proposed outcome.\n"
+        "• **-1:** The hypothesis is **likely refuted** based on the evidence. There is moderate indication that "
+        f"the interaction between {a_term} and {c_term} **contradicts** the proposed outcome, but some uncertainty "
+        "or contradictory evidence exists.\n"
+        "• **0:** The hypothesis is **neither supported nor refuted** by the provided texts. The evidence regarding "
+        f"the interaction between {a_term} and {c_term} is inconclusive, mixed, lacks sufficient detail, or there "
+        "is a lack of evidence.\n"
+        "• **+1:** The hypothesis is **likely supported** by the provided texts. The evidence suggests that the "
+        f"interaction between {a_term} and {c_term} may **align with** the proposed outcome, but some uncertainty "
+        "or contradictory evidence exists.\n"
+        "• **+2:** The hypothesis is **supported** by consistent evidence indicating that the interaction between "
+        f"{a_term} and {c_term} **aligns with** the proposed outcome, with no significant contradictory evidence."
+    )
+
+
+def abc_scoring_guidelines(a_term, b_term, c_term):
+    return (
+        "• **-2:** The hypothesis is **refuted** by consistent evidence indicating that the interactions between "
+        f"{a_term}-{b_term} and/or {b_term}-{c_term} **contradict** the proposed outcome.\n"
+        "• **-1:** The hypothesis is **likely refuted** based on the evidence. There is moderate indication that the "
+        f"interactions between {a_term}-{b_term} and/or {b_term}-{c_term} **contradict** the proposed outcome, but "
+        "some uncertainty or contradictory evidence exists.\n"
+        "• **0:** The hypothesis is **neither supported nor refuted** by the provided texts. The evidence regarding "
+        f"the interactions between {a_term}-{b_term} and {b_term}-{c_term} is inconclusive, mixed, lacks sufficient "
+        "detail, or there is a lack of evidence.\n"
+        "• **+1:** The hypothesis is **likely supported** by the provided texts. The evidence suggests that the "
+        f"interactions between {a_term}-{b_term} and {b_term}-{c_term} may **align with** the proposed outcome, but "
+        "some uncertainty or contradictory evidence exists.\n"
+        "• **+2:** The hypothesis is **supported** by consistent evidence indicating that the interactions between "
+        f"{a_term}-{b_term} and {b_term}-{c_term} **align with** the proposed outcome, with no significant "
+        "contradictory evidence."
+    )
+
+
+def cont_ab_scoring_guidelines(a_term, b_term):
+    """
+    Provides continuous scoring guidelines for evaluating the support of a hypothesis
+    regarding the interaction between two biomedical terms.
+
+    The scoring scale ranges from -100 to +100, where:
+    - Negative scores indicate refutation of the hypothesis.
+    - Positive scores indicate support for the hypothesis.
+    - A score of 0 indicates neutrality or insufficient evidence.
+
+    Parameters:
+    - a_term (str): The first biomedical term in the interaction.
+    - b_term (str): The second biomedical term in the interaction.
+
+    Returns:
+    - str: A formatted string containing the scoring guidelines.
+    """
+    return f"""
+**Continuous Scoring Guidelines (-100 to +100):**
+
+• **-100:** The hypothesis is **strongly refuted** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term} **directly contradicts** the proposed outcome.
+  
+• **-75:** The hypothesis is **significantly refuted** with substantial evidence suggesting that the interaction between {a_term} and {b_term} **contradicts** the proposed outcome.
+  
+• **-50:** The hypothesis is **moderately refuted** by evidence indicating a contradiction in the interaction between {a_term} and {b_term}.
+  
+• **-25:** The hypothesis is **slightly refuted** based on limited evidence suggesting that the interaction between {a_term} and {b_term} **contradicts** the proposed outcome.
+  
+• **0:** The hypothesis is **neutral**, meaning there is **no clear support or refutation** regarding the interaction between {a_term} and {b_term} based on the provided abstracts.
+  
+• **+25:** The hypothesis is **slightly supported** by limited evidence suggesting that the interaction between {a_term} and {b_term} **aligns with** the proposed outcome.
+  
+• **+50:** The hypothesis is **moderately supported** by evidence indicating that the interaction between {a_term} and {b_term} **aligns with** the proposed outcome.
+  
+• **+75:** The hypothesis is **significantly supported** by substantial evidence suggesting that the interaction between {a_term} and {b_term} **aligns with** the proposed outcome.
+  
+• **+100:** The hypothesis is **strongly supported** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term} **directly aligns with** the proposed outcome.
+
+**Guidelines for Intermediate Scores:**
+
+- **Proportional Scoring:** Assign scores between the defined anchor points based on the relative strength and consistency of the evidence. For example, a score of +60 would indicate support stronger than moderate but not as strong as significant.
+
+- **Avoid Clustering:** Do not disproportionately favor specific integer values unless the evidence explicitly warrants it. Ensure that scores are distributed across the range to reflect the nuanced degree of support or refutation.
+
+- **Evidence-Based Justification:** Base the score on the cumulative evidence from the abstracts. Consider the number of abstracts supporting or refuting the hypothesis, the quality of the evidence, and the presence of any contradictory information.
+
+- **Neutrality and Insufficiency:** A score close to **0** should be assigned when the evidence is inconclusive, mixed, or insufficient to determine the support or refutation of the hypothesis.
+
+- **Consistent Reasoning:** Ensure that the reasoning provided for the score directly correlates with the assigned value, clearly demonstrating how the evidence leads to that specific score.
+
+**Best Practices to Maintain Objectivity:**
+
+- **Clear Definitions:** Utilize the anchor points to anchor your scoring decisions, ensuring each score has a clear and objective basis.
+
+- **Comprehensive Review:** Thoroughly analyze all provided abstracts to capture the full scope of evidence before assigning a score.
+
+- **Unit Consistency:** Keep the scoring consistent across different hypotheses by adhering strictly to these guidelines, avoiding subjective or arbitrary score assignments.
+
+By following these continuous scoring guidelines, you can provide a nuanced and objective assessment of the hypothesis' support level based on the interaction between {a_term} and {b_term}.
+"""
+
+
 def gpt_customized_scoring_system(b_term, a_term):
     return (
         "Scoring Guidelines:\n"
