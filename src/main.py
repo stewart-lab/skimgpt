@@ -136,8 +136,12 @@ def read_tsv_to_dataframe(file_path):
 
 def write_to_json(data, file_path, output_directory):
     full_path = os.path.join(output_directory, file_path)
-    with open(full_path, "w") as outfile:
-        json.dump(data, outfile, indent=4)
+    try:
+        with open(full_path, "w", encoding='utf-8') as outfile:
+            json.dump(data, outfile, indent=4, ensure_ascii=False)
+    except Exception as e:
+        logging.error(f"Error writing JSON file {full_path}: {str(e)}")
+        raise
 
 
 def create_corrected_file_path(original_path):
@@ -151,25 +155,40 @@ def organize_output(directory):
     debug_dir = os.path.join(directory, "debug")
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(debug_dir, exist_ok=True)
+    
     for root, dirs, files in os.walk(directory):
         for file in files:
-            file_path = os.path.join(root, file)
-            if file.endswith(".json") and file != "config.json":
-                shutil.move(file_path, os.path.join(results_dir, file))
-            elif file == "no_results.txt":
-                shutil.move(file_path, os.path.join(results_dir, file))
-            elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
-                shutil.move(file_path, os.path.join(debug_dir, file))
-            elif file != "config.json":
-                os.remove(file_path)
+            try:
+                file_path = os.path.join(root, file)
+                if file.endswith(".json") and file != "config.json":
+                    shutil.move(file_path, os.path.join(results_dir, file))
+                elif file == "no_results.txt":
+                    shutil.move(file_path, os.path.join(results_dir, file))
+                elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
+                    shutil.move(file_path, os.path.join(debug_dir, file))
+                elif file != "config.json":
+                    os.remove(file_path)
+            except Exception as e:
+                logging.error(f"Error processing file {file}: {str(e)}")
+                continue
+
+    # Clean up empty directories
     for root, dirs, files in os.walk(directory, topdown=False):
         for dir in dirs:
-            dir_path = os.path.join(root, dir)
-            if not os.listdir(dir_path):
-                os.rmdir(dir_path)
+            try:
+                dir_path = os.path.join(root, dir)
+                if not os.listdir(dir_path):
+                    os.rmdir(dir_path)
+            except Exception as e:
+                logging.error(f"Error removing directory {dir}: {str(e)}")
+                continue
+
     filtered_dir = os.path.join(directory, "filtered")
     if os.path.exists(filtered_dir):
-        shutil.rmtree(filtered_dir)
+        try:
+            shutil.rmtree(filtered_dir)
+        except Exception as e:
+            logging.error(f"Error removing filtered directory: {str(e)}")
 
 
 def main():
