@@ -77,8 +77,10 @@ class APIClient:
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""
+        logging.debug(f"Initiating API query with payload: {payload}")
         initial_response = self.post_api_request(url, payload)
         job_id = initial_response["id"]
+        logging.debug(f"Received job ID: {job_id}")
         return self.wait_for_job_completion(url, job_id)
 
 
@@ -129,6 +131,9 @@ def filter_term_columns(df):
 
 def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
     """Configure a job based on the provided type and terms."""
+    logging.debug(f"Configuring job of type: {job_type}")
+    logging.debug(f"Terms - A: {a_term}, B: {b_terms}, C: {c_terms}")
+    
     assert config, "No configuration provided"
 
     common_settings = {
@@ -190,10 +195,14 @@ def process_query_results(
     Returns:
         pd.DataFrame: Filtered DataFrame with valid rows.
     """
+    logging.debug(f"Processing {job_type} results with {len(df)} rows")
+    logging.debug(f"Intersection columns to process: {intersection_columns}")
+
     # Determine sort column from config or use default
     sort_column = config["JOB_SPECIFIC_SETTINGS"][job_type].get(
         "SORT_COLUMN", sort_column_default
     )
+    logging.debug(f"Using sort column: {sort_column}")
     if sort_column not in df.columns:
         raise KeyError(f"Sort column '{sort_column}' not found in {job_type} results.")
 
@@ -205,6 +214,7 @@ def process_query_results(
     # Parse intersection columns
     for col in intersection_columns:
         if col in df_sorted.columns:
+            logging.debug(f"Parsing intersection column: {col}")
             df_sorted[col] = df_sorted[col].apply(ast.literal_eval)
         else:
             raise KeyError(f"Expected column '{col}' not found in {job_type} results.")
@@ -222,6 +232,7 @@ def process_query_results(
     # Apply additional term column filtering
     valid_rows = filter_term_columns(valid_rows)
 
+    logging.debug(f"Found {len(valid_rows)} valid rows after filtering")
     return valid_rows
 
 
@@ -266,7 +277,7 @@ def save_filtered_results(
             else ["a_term", "b_term"]
         )
         no_results_df = removed_rows[columns_to_extract]
-
+        logging.debug(f"No-result entries: {no_results_df}")
         # Define the path for the no_results.txt file
         no_results_file_path = os.path.join(output_directory, "no_results.txt")
 
@@ -286,6 +297,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     """
     Execute the KM workflow.
     """
+    logging.debug("Starting KM workflow")
     assert config, "No configuration provided"
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
@@ -351,6 +363,7 @@ def skim_with_gpt_workflow(config, output_directory):
     """
     Run the SKIM workflow.
     """
+    logging.debug("Starting SKIM workflow")
     assert config, "No configuration provided"
     a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
     assert a_term, "A_TERM is not defined in the configuration"
