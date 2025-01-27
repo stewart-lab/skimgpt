@@ -4,6 +4,9 @@ import requests
 import time
 import ast
 import logging
+from utils import setup_logger
+
+logger = logging.getLogger("SKiM-GPT")
 
 # Configure logging
 logging.basicConfig(
@@ -26,6 +29,7 @@ def save_to_tsv(data, filename, output_directory):
     full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
     df.to_csv(full_path, sep="\t", index=False)
+    logger.info(f"Data saved to {full_path}")
 
 
 # API Calls
@@ -282,6 +286,37 @@ def save_filtered_results(
     return filtered_file_path
 
 
+def read_terms_from_file_with_retry(filename, max_retries=3, delay=1):
+    """
+    Read terms from a file with retry mechanism.
+    
+    Args:
+        filename (str): Path to the file
+        max_retries (int): Maximum number of retry attempts
+        delay (float): Delay between retries in seconds
+    """
+    for attempt in range(max_retries):
+        try:
+            if os.path.exists(filename):
+                with open(filename, "r") as f:
+                    terms = [line.strip() for line in f]
+                    terms = list(filter(None, terms))
+                    if terms:
+                        logging.info(f"Successfully read {len(terms)} terms from {filename}")
+                        return terms
+            
+            if attempt < max_retries - 1:
+                logging.warning(f"Attempt {attempt + 1}: File {filename} empty or not ready, retrying in {delay} seconds...")
+                time.sleep(delay)
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                logging.warning(f"Attempt {attempt + 1}: Error reading {filename}: {e}, retrying in {delay} seconds...")
+                time.sleep(delay)
+            
+    raise ValueError(f"Failed to read terms from {filename} after {max_retries} attempts")
+
+
 def km_with_gpt_workflow(config=None, output_directory=None):
     """
     Execute the KM workflow.
@@ -298,7 +333,8 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     logging.info("Reading terms from files...")
 
     b_terms_file = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
-    b_terms = read_terms_from_file(b_terms_file)
+    logging.info(f"Reading B terms from file: {b_terms_file}")
+    b_terms = read_terms_from_file_with_retry(b_terms_file)
     assert b_terms, "B_TERMS_FILE is empty or not defined in the configuration"
 
     logging.info(f"Running and saving KM query for a_term: {a_term}...")
@@ -361,15 +397,30 @@ def skim_with_gpt_workflow(config, output_directory):
 
     logging.info("Executing SKIM workflow...")
 
-    b_terms_file = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
-    c_terms_file = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
+    # Add error checking for B_TERMS_FILE configuration
+    if "skim_with_gpt" not in config["JOB_SPECIFIC_SETTINGS"]:
+        raise KeyError("'skim_with_gpt' section missing from JOB_SPECIFIC_SETTINGS")
+    
+    skim_config = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]
+    if "B_TERMS_FILE" not in skim_config:
+        raise KeyError("B_TERMS_FILE not defined in skim_with_gpt configuration")
+    
+    b_terms_file = skim_config["B_TERMS_FILE"]
+    c_terms_file = skim_config["C_TERMS_FILE"]
 
-    logging.info("Reading B and C terms from files...")
-    b_terms = read_terms_from_file(b_terms_file)
-    c_terms = read_terms_from_file(c_terms_file)
+    logging.info(f"Reading B terms from file: {b_terms_file}")
+    logging.info(f"Reading C terms from file: {c_terms_file}")
+    
+    b_terms = read_terms_from_file_with_retry(b_terms_file)
+    c_terms = read_terms_from_file_with_retry(c_terms_file)
 
-    assert b_terms, "B_TERMS_FILE is empty or not defined in the configuration"
-    assert c_terms, "C_TERMS_FILE is empty or not defined in the configuration"
+    if not b_terms:
+        logging.error(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
+        raise ValueError(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
+    
+    if not c_terms:
+        logging.error(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
+        raise ValueError(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
 
     logging.info(f"Running and saving SKIM query for a_term: {a_term}...")
     skim_file_path = run_and_save_query(

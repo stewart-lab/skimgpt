@@ -2,8 +2,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import json
-from abstract_comprehension import read_tsv_to_dataframe
 import os
+import logging
+from typing import Optional
 
 
 class RaggedTensor:
@@ -177,3 +178,33 @@ class Config:
         ), "Input TSV must have an ab_pmid_intersection."
         assert "a_term" in self.data.columns, "Input TSV must have an a_term."
         assert "b_term" in self.data.columns, "Input TSV must have a b_term."
+
+
+def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKiM-GPT") -> logging.Logger:
+    """Configure centralized logging for SKiM-GPT"""
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # File handler (if output directory is provided)
+    if output_directory:
+        log_file = os.path.join(output_directory, "workflow.log")
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    return logger
+
+def read_tsv_to_dataframe(file_path: str) -> pd.DataFrame:
+    """Read a TSV file into a pandas DataFrame."""
+    return pd.read_csv(file_path, sep="\t")

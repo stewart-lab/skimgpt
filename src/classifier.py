@@ -4,20 +4,12 @@ import openai
 import time
 import json
 import importlib
-import inspect
 import re
-import logging
-from typing import Tuple, List, Dict
-from utils import Config  # **Import Config**
-from Bio import Entrez
+from typing import Any
+from utils import Config, setup_logger  # Import setup_logger
 
-# Configure logging at the beginning of your script
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("classifier.log"), logging.StreamHandler()],
-)
-
+# Initialize the centralized logger
+logger = setup_logger()
 
 def write_to_json(data, file_path):
     with open(file_path, "w") as outfile:
@@ -56,7 +48,7 @@ def process_single_row(row, config):
         "position_km_with_gpt",
         "skim_with_gpt",
     ]:
-        logging.error("Invalid job type (caught in process_single_row)")
+        logger.error("Invalid job type (caught in process_single_row)")
         return None
 
     # Initialize the result dictionary
@@ -68,7 +60,7 @@ def process_single_row(row, config):
         b_term = row.get("b_term")
         c_term = row.get("c_term")
         if not all([a_term, b_term, c_term]):
-            logging.error(
+            logger.error(
                 f"Missing one or more terms in row {row.get('id', 'Unknown')}."
             )
             return None
@@ -109,7 +101,7 @@ def process_single_row(row, config):
         b_term = row.get("b_term")
 
         if not all([a_term, b_term]):
-            logging.error(
+            logger.error(
                 f"Missing 'a_term' or 'b_term' in row {row.get('id', 'Unknown')}."
             )
             return None
@@ -130,14 +122,14 @@ def process_single_row(row, config):
 
     else:
         # Existing logic for other job types can be added here
-        logging.warning(f"Job type '{job_type}' is not specifically handled.")
+        logger.warning(f"Job type '{job_type}' is not specifically handled.")
 
     return processed_results if any(processed_results.values()) else None
 
 
-def extract_pmids_and_generate_urls(text: str) -> list:
+def extract_pmids_and_generate_urls(text: Any) -> list:
     if not isinstance(text, str):
-        logging.error(
+        logger.error(
             f"Expected string for 'text', but got {type(text)}. Converting to string."
         )
         text = str(text)
@@ -178,7 +170,7 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
         bc_abstracts = ""  # Not used
         ac_abstracts = ""  # Not used
     else:
-        logging.error(f"Unknown relationship type: {relationship_type}")
+        logger.error(f"Unknown relationship type: {relationship_type}")
         return ["Score: N/A"], "", {}
 
     # Define URLs based on relationship type
@@ -200,19 +192,19 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
     # Conditions for early exit based on abstracts availability
     if relationship_type == "A_B_C":
         if not ab_abstracts or not bc_abstracts:
-            logging.info(
+            logger.info(
                 f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ab_abstracts' or 'bc_abstracts'."
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_C":
         if not ac_abstracts:
-            logging.info(
+            logger.info(
                 f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_B":
         if not ab_abstracts:
-            logging.info(
+            logger.info(
                 f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
             )
             return ["Score: N/A"], "", urls
@@ -237,7 +229,7 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
         )
         return result, prompt_text, urls
     except Exception as e:
-        logging.error(f"Error during analysis: {e}")
+        logger.error(f"Error during analysis: {e}")
         return ["Score: N/A"], "", urls
 
 
@@ -251,7 +243,7 @@ def analyze_abstract_with_gpt4(
     relationship_type: str,
 ) -> tuple:
     if not a_term:
-        logging.error("A term is empty.")
+        logger.error("A term is empty.")
         return [], ""
 
     api_key = config.api_key or os.getenv("OPENAI_API_KEY")
@@ -274,7 +266,7 @@ def analyze_abstract_with_gpt4(
         relationship_type=relationship_type,
     )
     if not prompt_text:
-        logging.error("Failed to generate prompt.")
+        logger.error("Failed to generate prompt.")
         return ["Score: N/A"], prompt_text
 
     response = call_openai(openai_client, prompt_text, config)
@@ -316,12 +308,12 @@ def generate_prompt(
                 a_term=a_term, b_term=b_term
             )
         else:
-            logging.error(
+            logger.error(
                 f"Unknown relationship type for skim_with_gpt: {relationship_type}"
             )
             return ""
     else:
-        logging.error(f"Unknown job type: {job_type}")
+        logger.error(f"Unknown job type: {job_type}")
         return ""
 
     # Select the appropriate prompt function based on relationship_type

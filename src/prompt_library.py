@@ -1,4 +1,4 @@
-import few_shot_library as fsl
+import dev.few_shot_library as fsl
 import scoring_guidelines as sg
 
 
