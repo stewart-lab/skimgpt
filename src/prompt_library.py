@@ -1,4 +1,4 @@
-import dev.few_shot_library as fsl
+
 import scoring_guidelines as sg
 
 
@@ -514,14 +514,3 @@ def exercise_3_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         f"{consolidated_abstracts}"
     )
 
-
-def exercise_3_few_shot_prompt_2(b_term, a_term, consolidated_abstracts):
-    return (
-        "Few-Shot Learning Examples:\n"
-        "These are examples showing how to apply the scoring guidelines to specific hypotheses based on the provided abstracts. Review these examples to understand how to analyze the texts and justify the scoring.\n"
-        f"Example 1: {fsl.fictitious_disease_example_1()}\n"
-        f"Example 2: {fsl.fictitious_disease_example_2()}\n"
-        f"Example 3: {fsl.fictitious_disease_example_3()}\n"
-        f"Example 4: {fsl.fictitious_disease_example_4()}\n"
-        f"Example 5: {fsl.fictitious_disease_example_5()}\n"
-    )
