@@ -18,22 +18,43 @@ class SSHHelper:
         )
 
     def _setup_ssh_connection(self):
+        """Set up SSH connection with better error handling and logging."""
         connections_dir = os.path.expanduser("~/.ssh/connections")
         os.makedirs(connections_dir, exist_ok=True)
+        
         control_path = f"{connections_dir}/{self.ssh_config.get('chtc_username')}@{self.ssh_config.get('server')}:{self.ssh_config.get('port', 22)}"
+        server = self.ssh_config.get("server")
+        port = self.ssh_config.get("port", 22)
+        username = self.ssh_config.get("chtc_username")
+
         if not self._check_persistent_connection(control_path):
-            print("Creating new SSH connection...")
-            control_path, server, port, username = self._create_persistent_connection(
-                self.ssh_config.get("server"),
-                self.ssh_config.get("port", 22),
-                self.ssh_config.get("chtc_username"),
-                self.ssh_config.get("key_path"),
-            )
+            logging.info("Creating new SSH connection...")
+            try:
+                control_path, server, port, username = self._create_persistent_connection(
+                    server,
+                    port,
+                    username,
+                    self.ssh_config.get("key_path")
+                )
+                # Remove the connection test here since we just created it
+                logging.info("SSH connection established successfully")
+            except Exception as e:
+                logging.error(f"Failed to create SSH connection: {str(e)}")
+                raise
         else:
-            print("Reusing existing SSH connection.")
-            server = self.ssh_config.get("server")
-            port = self.ssh_config.get("port", 22)
-            username = self.ssh_config.get("chtc_username")
+            logging.info("Reusing existing SSH connection")
+            # Only test existing connections
+            try:
+                self.execute_command("echo test", silent=True)
+            except Exception as e:
+                logging.warning("Existing connection test failed, creating new connection")
+                self._cleanup_connection(control_path)
+                control_path, server, port, username = self._create_persistent_connection(
+                    server,
+                    port,
+                    username,
+                    self.ssh_config.get("key_path")
+                )
 
         return control_path, server, port, username
 
@@ -256,45 +277,111 @@ class SSHHelper:
             logging.warning("Monitoring ended without meeting all conditions.")
 
     def _create_persistent_connection(self, server, port, username, key_file_path):
+        """Create a new persistent SSH connection with timeout."""
         connections_dir = os.path.expanduser("~/.ssh/connections")
         os.makedirs(connections_dir, exist_ok=True)
 
         control_path = f"{connections_dir}/{username}@{server}:{port}"
 
-        if not os.path.exists(control_path):
-            subprocess.run(
-                [
-                    "ssh",
-                    "-M",
-                    "-N",
-                    "-f",
-                    "-o",
-                    "ControlMaster=auto",
-                    "-o",
-                    f"ControlPath={control_path}",
-                    "-o",
-                    "ControlPersist=2h",
-                    "-i",
-                    key_file_path,
-                    "-p",
-                    str(port),
-                    f"{username}@{server}",
-                ],
-                check=True,
-            )
-            print("Persistent SSH connection established.")
-        else:
-            print("Reusing existing SSH connection.")
+        try:
+            if not os.path.exists(control_path):
+                # Create persistent connection with interactive auth
+                subprocess.run(
+                    [
+                        "ssh",
+                        "-M",
+                        "-N",
+                        "-f",
+                        "-o", "ControlMaster=auto",
+                        "-o", f"ControlPath={control_path}",
+                        "-o", "ControlPersist=2h",
+                        "-o", "ConnectTimeout=120",
+                        "-o", "ServerAliveInterval=60",
+                        "-i", key_file_path,
+                        "-p", str(port),
+                        f"{username}@{server}",
+                    ],
+                    check=True,
+                    timeout=120
+                )
+                logging.info("Persistent SSH connection established")
+        except Exception as e:
+            logging.error(f"Error with SSH connection: {str(e)}")
+            if os.path.exists(control_path):
+                self._cleanup_connection(control_path)
+            raise
 
         return control_path, server, port, username
 
     def _check_persistent_connection(self, control_path):
-        result = subprocess.run(
-            ["ssh", "-O", "check", "-S", control_path, "dummy"],
-            capture_output=True,
-            text=True,
-        )
-        return result.returncode == 0
+        """
+        Check if the SSH connection is alive and responsive.
+        Returns True if connection is valid and responsive, False otherwise.
+        """
+        try:
+            # First check if control socket exists
+            if not os.path.exists(control_path):
+                logging.info("No existing control socket found")
+                return False
+
+            # Try to check the connection with timeout
+            result = subprocess.run(
+                ["ssh", "-O", "check", "-S", control_path, "dummy"],
+                capture_output=True,
+                text=True,
+                timeout=10  # Add timeout of 10 seconds
+            )
+            
+            # Test the connection with a simple command
+            test_result = subprocess.run(
+                [
+                    "ssh",
+                    "-S", control_path,
+                    "-o", "ConnectTimeout=10",
+                    "-o", "BatchMode=yes",
+                    "dummy",
+                    "echo test"
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode != 0 or test_result.returncode != 0:
+                logging.info("Existing connection is stale or unresponsive")
+                self._cleanup_connection(control_path)
+                return False
+            
+            return True
+
+        except subprocess.TimeoutExpired:
+            logging.warning("Connection check timed out")
+            self._cleanup_connection(control_path)
+            return False
+        except Exception as e:
+            logging.warning(f"Error checking connection: {str(e)}")
+            self._cleanup_connection(control_path)
+            return False
+
+    def _cleanup_connection(self, control_path):
+        """Clean up a stale connection."""
+        try:
+            # Try to stop the control master
+            subprocess.run(
+                ["ssh", "-O", "stop", "-S", control_path, "dummy"],
+                capture_output=True,
+                timeout=5
+            )
+        except Exception as e:
+            logging.warning(f"Error stopping control master: {str(e)}")
+        
+        try:
+            # Remove the control socket if it exists
+            if os.path.exists(control_path):
+                os.remove(control_path)
+                logging.info("Removed stale control socket")
+        except Exception as e:
+            logging.warning(f"Error removing control socket: {str(e)}")
 
     def execute_command(self, command, silent=False):
         result = subprocess.run(
