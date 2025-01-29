@@ -513,3 +513,4 @@ def exercise_3_few_shot_prompt(b_term, a_term, consolidated_abstracts):
         f"{consolidated_abstracts}"
     )
 
+
