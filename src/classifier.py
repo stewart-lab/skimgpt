@@ -6,7 +6,8 @@ import json
 import importlib
 import re
 from typing import Any
-from utils import Config, setup_logger  # Import setup_logger
+from src.utils import Config, setup_logger  # Import setup_logger
+from src import prompt_library as prompts_module # Static import of prompt_library
 
 # Initialize the centralized logger
 logger = setup_logger()
@@ -286,10 +287,6 @@ def generate_prompt(
     relationship_type: str,
 ) -> str:
     job_type_lower = job_type.lower()
-
-    # Dynamically import the prompts module (assuming this module contains relevant prompt generation functions)
-    prompts_module = importlib.import_module("prompt_library")
-    assert prompts_module, "Failed to import the prompts module."
 
     # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":

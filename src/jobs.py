@@ -1,4 +1,4 @@
-import skim_and_km_api as skim
+import src.skim_and_km_api as skim
 import copy
 import sys
 import os

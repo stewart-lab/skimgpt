@@ -125,7 +125,7 @@ class Config:
             self.job_config = json.load(config_file)
 
         # Load data from a TSV file
-        self.data = read_tsv_to_dataframe(args.km_output)
+        self.data = read_tsv_to_dataframe_from_files_txt(args.km_output)
 
         # Access global settings directly from the loaded JSON
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
@@ -208,3 +208,30 @@ def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKi
 def read_tsv_to_dataframe(file_path: str) -> pd.DataFrame:
     """Read a TSV file into a pandas DataFrame."""
     return pd.read_csv(file_path, sep="\t")
+
+def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
+    """
+    Read the first file path from files.txt and load that TSV into a pandas DataFrame.
+
+    Args:
+        files_txt_path: Path to the files.txt file.
+
+    Returns:
+        pandas.DataFrame: DataFrame loaded from the first TSV file listed in files.txt.
+                          Returns an empty DataFrame if files.txt is empty or file not found.
+    """
+    try:
+        with open(files_txt_path, "r") as f:
+            first_file_path = f.readline().strip()
+            if not first_file_path:
+                logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
+    except FileNotFoundError:
+        logging.error(f"{files_txt_path} not found.")
+        return pd.DataFrame()  # Return empty DataFrame if files.txt not found
+
+    try:
+        return pd.read_csv(first_file_path, sep="\t")
+    except FileNotFoundError:
+        logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
+        return pd.DataFrame() # Return empty DataFrame if TSV file not found

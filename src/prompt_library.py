@@ -1,5 +1,4 @@
-
-import scoring_guidelines as sg
+import src.scoring_guidelines as sg
 
 
 def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):

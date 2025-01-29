@@ -4,7 +4,7 @@ import requests
 import time
 import ast
 import logging
-from utils import setup_logger
+from src.utils import setup_logger
 
 logger = logging.getLogger("SKiM-GPT")
 
