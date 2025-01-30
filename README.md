@@ -1,5 +1,5 @@
-# GPT4-based Abstract Analysis for co-occurence-identified Relationships (Note: Must be on Mir-81)
-This repository provides tools to SKIM through PubMed abstracts and analyze the relationship between a given A_TERM and a SKIM/KM identified (B_TERM and/or C_TERM) using the KM API, the PubMed API and the GPT-4 model. We also accept A_TERM lists to perfrom multiple queries agaisnt a B_TERM list. The primary goal is to extract, consolidate, and categorize abstracts from scientific papers into use-case specfic classifications.
+# Evaluating hypotheses using SKiM-GPT (Note: Must be on Mir-81)
+This repository provides tools to SKIM through PubMed abstracts to evalaute hypotheses.
 
 
  ## Requirements
@@ -8,6 +8,7 @@ This repository provides tools to SKIM through PubMed abstracts and analyze the 
  - Libraries specified in `requirements.txt`
  - OpenAI API key
  - Pubmed API key
+ - CHTC auth token
  - Mir-81 access 
 
  ## Getting Started
@@ -32,36 +33,17 @@ This repository provides tools to SKIM through PubMed abstracts and analyze the 
   ```bash
     export OPENAI_API_KEY=your_api_key_here
     export PUBMED_API_KEY=your_api_key_here
+    export HTCONDOR_TOKEN=your_token_here
 ```
-4. **Setting up SSH Key pair**
-  ```bash
-    ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-    chmod 600 ~/.ssh/<your_key>
-    chmod 600 ~/.ssh/<your_key>.pub
-    ssh-copy-id -i /path/to/.ssh/<your_key>.pub <chtc_username>@ap2002.chtc.wisc.edu
-    
-```
-   
 
 4. **Configuring Parameters**
-The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job. Additionally, we need to set up your gateway to CHTC:
-   ```bash
-    "SSH": {
-        "server": "ap2002.chtc.wisc.edu",
-        "port": 22,
-        "user": <your_chtc_username>",
-        "key_path": <~/.ssh/<your_key>,
-        "config_path": "../config.json",
-        "src_path": "./",
-        "remote_path": "<your_chtc_home_dir>/kmGPT/"
-    },
-   ```
+The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job.
 
 5. **Running the script**
 
    ```bash
    
-   source run_analysis.sh
+   python main.py
  
    ```
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -77,8 +59,9 @@ This configuration file contains various settings for different job types. Below
 - `SKIM_hypotheses`: A dictionary of hypothesis templates for SKIM analysis (Must use f-string format).
   - `AB`: Relevance hyopthesis between `{a_term}` and `{b_term}` (e.g., `"There exists an interaction between the organ {a_term} and the gene {b_term}."`).
   - `BC`: Relevance hyopthesis between`{c_term}` and `{b_term}` (e.g., `"There exists an interaction between the disease {c_term} and the gene {b_term}."`).
-  - `AC`: Relevance hyopthesis between `{c_term}` and `{a_term}` (e.g., `"There exists an interaction between the disease {c_term} and the organ {a_term}."`).
+  - `rel_AC`: Relevance hyopthesis between `{c_term}` and `{a_term}` (e.g., `"There exists an interaction between the disease {c_term} and the organ {a_term}."`).
   - `ABC`: Evaluation hypothesis (e.g., `"The gene {b_term} links the organ {a_term} to the disease {c_term}."`).
+  - `AC`: Evaluation hypothesis (e.g., `"The gene {a_term} influences the disease {c_term}."`).
 - `Evaluate_single_abstract`: Boolean flag to evaluate a single abstract (e.g., `false`).
 
 ## Global Settings
@@ -97,16 +80,6 @@ This configuration file contains various settings for different job types. Below
 - `DELAY`: Time in seconds to wait before making a new request (e.g., `10`).
 - `MAX_RETRIES`: Maximum number of retry attempts after a failed request (e.g., `10`).
 - `RETRY_DELAY`: Delay in seconds before retrying a failed request (e.g., `5`).
-
-## SSH Settings
-
-- `server`: SSH server address (e.g., `"ap2002.chtc.wisc.edu"`).
-- `port`: SSH port number (e.g., `22`).
-- `user`: SSH username (e.g., `"jfreeman23"`).
-- `key_path`: Path to the SSH key file (e.g., `"/w5home/jfreeman/.ssh/chtc2"`).
-- `config_path`: Path to the configuration file (e.g., `"../config.json"`).
-- `src_path`: Source path for files to be transferred (e.g., `"./"`).
-- `remote_path`: Remote directory path on the SSH server (e.g., `"/home/jfreeman23/kmGPT/"`).
 
 ## Abstract Filter Settings
 
@@ -151,8 +124,3 @@ This configuration file contains various settings for different job types. Below
 This configuration is critical for tailoring the behavior of the system to specific job types and requirements. Ensure all file paths and parameters are correctly set before execution to avoid runtime errors.
 ## Contributions
 Feel free to contribute to this repository by submitting a pull request or opening an issue for suggestions and bugs.
-## Acknowledgments
-Thanks to OpenAI for providing the GPT model which powers the analysis in this tool.
-
-
-
