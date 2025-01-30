@@ -24,15 +24,15 @@
         "MAX_RETRIES": 10,
         "RETRY_DELAY": 5
     },
-    "SSH": {
-        "server": "ap2002.chtc.wisc.edu",
-        "port": 22,
-        "chtc_username": "",
-        "key_path": "",
-        "config_path": "",
-        "src_path": "",
-        "remote_path": ""
-    },
+    "HTCONDOR": {
+        "collector_host": "cm.chtc.wisc.edu",
+        "submit_host": "ap2002.chtc.wisc.edu",
+        "request_gpus": "1",
+        "request_cpus": "1",
+        "request_memory": "24GB",
+        "request_disk": "50GB",
+        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
+      },
     "abstract_filter": {
         "MODEL": "lexu14/porpoise1",
         "TEMPERATURE": 0,

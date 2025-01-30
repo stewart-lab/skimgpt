@@ -1,0 +1,159 @@
+import htcondor
+import time
+import os
+from typing import List, Dict, Any
+from src.utils import setup_logger
+
+# Get the centralized logger instance
+logger = setup_logger()
+
+class HTCondorHelper:
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize HTCondor helper with configuration"""
+        self.config = config
+        self.token = config["token"]
+        # Remove debug logging
+        # htcondor.enable_debug()
+        self._setup_connection()
+        logger.info("HTCondor helper initialized")
+
+    def _setup_connection(self):
+        """Setup connection to HTCondor submit node"""
+        try:
+            # Disable SciTokens cache directory setting and transfer history
+            os.environ['_CONDOR_SCITOKENS_DISABLE_CACHE'] = 'true'
+            os.environ['_CONDOR_STATS_HISTORY_FILE'] = '/dev/null'
+            
+            self.collector = htcondor.Collector(self.config["collector_host"])
+            test = htcondor.classad.quote(self.config["submit_host"])
+            
+            # Setup security manager with token
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.token))
+                schedd_ad = self.collector.query(
+                    htcondor.AdTypes.Schedd,
+                    constraint=f"Name=?={test}",
+                    projection=["Name", "MyAddress", "DaemonCoreDutyCycle"]
+                )[0]
+                self.schedd = htcondor.Schedd(schedd_ad)
+            logger.info("Successfully connected to HTCondor submit node")
+        except Exception as e:
+            logger.error(f"Failed to setup HTCondor connection: {e}")
+            raise
+
+    def submit_jobs(self, files_txt_path: str, output_directory: str) -> int:
+        """Submit jobs to HTCondor using files.txt"""
+        try:
+            # Get absolute paths
+            abs_output_dir = os.path.abspath(output_directory)
+            abs_files_txt = os.path.abspath(files_txt_path)
+            
+            # Read the files list
+            with open(abs_files_txt, 'r') as f:
+                files = [line.strip() for line in f if line.strip()]
+            
+            # Create submit description
+            submit_desc = htcondor.Submit({
+                "universe": "docker",
+                "docker_image": self.config["docker_image"],
+                "docker_pull_policy": "missing",
+                "executable": "./run.sh",
+                "arguments": "$(item_filename)",
+                "should_transfer_files": "YES",
+                "when_to_transfer_output": "ON_EXIT",
+                "transfer_input_files": ".",
+                "output": "run_$(Cluster)_$(Process).out",
+                "error": "run_$(Cluster)_$(Process).err",
+                "log": "run_$(Cluster).log",
+                "request_gpus": self.config["request_gpus"],
+                "request_cpus": self.config["request_cpus"],
+                "request_memory": self.config["request_memory"],
+                "request_disk": self.config["request_disk"],
+                "requirements": "(CUDACapability >= 8.0)",
+                "+WantGPULab": "true",
+                "+GPUJobLength": '"short"',
+                "stream_error": "true",
+                "stream_output": "true",
+                "transfer_output_files": ".",
+                "environment": f"KM_OUTPUT_FILE=$(item_filename)",
+                "+item_filename": "$(Item)",
+            })
+
+            # Submit jobs for each file using itemdata
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.token))
+                result = self.schedd.submit(submit_desc, count=len(files), itemdata=[
+                    {"Item": f} for f in files
+                ], spool=True)
+                cluster_id = result.cluster()
+                
+                # Spool the files
+                self.schedd.spool(list(submit_desc.jobs(clusterid=cluster_id)))
+                
+            logger.info(f"Successfully submitted {len(files)} jobs in cluster {cluster_id}")
+            return cluster_id
+
+        except Exception as e:
+            logger.error(f"Failed to submit jobs: {e}")
+            raise
+
+    def monitor_jobs(self, cluster_id: int, check_interval: int = 60) -> bool:
+        """Monitor job progress"""
+        try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.token))
+                while True:
+                    ads = self.schedd.query(
+                        constraint=f"ClusterId == {cluster_id}",
+                        projection=["ProcID", "JobStatus"]
+                    )
+                    
+                    if not ads:
+                        logger.warning(f"No jobs found for cluster {cluster_id}")
+                        return False
+                    
+                    # Check if all jobs completed
+                    if all(ad.get("JobStatus") == 4 for ad in ads):
+                        logger.info(f"All jobs in cluster {cluster_id} completed successfully")
+                        return True
+                    
+                    # Log status counts
+                    status_counts = {}
+                    for ad in ads:
+                        status = ad.get("JobStatus", 0)
+                        status_counts[status] = status_counts.get(status, 0) + 1
+                    
+                    status_desc = {
+                        1: "Idle", 2: "Running", 3: "Removed",
+                        4: "Completed", 5: "Held", 6: "Transferring Output",
+                        7: "Suspended"
+                    }
+                    
+                    status_msg = ", ".join(f"{status_desc.get(k, f'Unknown({k})')}: {v}" 
+                                         for k, v in status_counts.items())
+                    logger.info(f"Cluster {cluster_id} status: {status_msg}")
+                    
+                    time.sleep(check_interval)
+
+        except Exception as e:
+            logger.error(f"Error monitoring jobs: {e}")
+            raise
+
+    def retrieve_output(self, cluster_id: int):
+        """Retrieve output files from completed jobs"""
+        try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.token))
+                self.schedd.retrieve(f"ClusterId == {cluster_id}")
+            logger.info(f"Successfully retrieved output for cluster {cluster_id}")
+        except Exception as e:
+            logger.error(f"Failed to retrieve output: {e}")
+            raise
+
+    def cleanup(self, cluster_id: int):
+        """Clean up after job completion"""
+        try:
+            logger.info(f"Cleanup completed for cluster {cluster_id}")
+        except Exception as e:
+            logger.error(f"Cleanup failed: {e}")
+            raise 

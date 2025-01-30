@@ -183,6 +183,26 @@ class Config:
 def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKiM-GPT") -> logging.Logger:
     """Configure centralized logging for SKiM-GPT"""
     logger = logging.getLogger(logger_name)
+    
+    # Prevent propagation to root logger
+    logger.propagate = False
+    
+    # If logger already has handlers, assume it's configured
+    if logger.handlers:
+        # If output directory is provided, add file handler if not already present
+        if output_directory:
+            has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+            if not has_file_handler:
+                log_file = os.path.join(output_directory, "workflow.log")
+                file_handler = logging.FileHandler(log_file)
+                file_handler.setFormatter(logging.Formatter(
+                    '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S'
+                ))
+                logger.addHandler(file_handler)
+        return logger
+
+    # If no handlers exist, set up logging from scratch
     logger.setLevel(logging.INFO)
 
     # Create formatter

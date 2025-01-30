@@ -8,9 +8,7 @@ from typing import List, Dict, Any
 import time
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
-import logging
-import os
-import json
+
 
 # Initialize the centralized logger
 logger = setup_logger()
@@ -263,12 +261,6 @@ def main():
     # Final processing and output
     out_df = process_dataframe(out_df, config, pubmed_fetcher)
     logger.info("Completed dataframe processing")
-
-    if config.test_leakage:
-        leakage_data = load_data("leakage.csv")
-        out_df = update_ab_pmid_intersection(out_df, leakage_data, config.test_leakage_type)
-        logger.info("Updated leakage intersection data")
-
     output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
     out_df.to_csv(output_file, sep="\t")
     logger.info(f"Saved processed data to {output_file}")

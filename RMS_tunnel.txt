@@ -1,2 +1,0 @@
-ssh -p 22 -C -l rstewart -L 5081:localhost:5099 mir-81.morgridge.us
- 
