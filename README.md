@@ -9,7 +9,7 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
  - OpenAI API key
  - Pubmed API key
  - CHTC auth token
- - Mir-81 access 
+ - Rstewart2 access
 
  ## Getting Started
 
@@ -28,13 +28,22 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
     conda activate {myenv}
     pip install -r requirements.txt
     ```
+3. **Get CHTC auth token**
+   Log onto CHTC's submit node (ap2002.chtc.wisc.edu) and get you auth token using:
+   ```bash
+   condor_token_fetch -file my_token
+   ```
+   Copy the token to set youe environment variable back on rstewart2
+   
 3. **Environment Variables**
-   Before running the script, ensure you have set up your OpenAI API key in your environment. We recommend setting in your shell profile. You can set it using (NOTE: you must source your shell profile after setting the API keys:
+   Before running the script, ensure you have set up your environment variables. We recommend setting in your shell profile. You must source your shell profile after setting 
+   the environment variables (Jack has our OpenAI and Pubmed keys in his .bashrc on the server FYI):
+   
   ```bash
     export OPENAI_API_KEY=your_api_key_here
     export PUBMED_API_KEY=your_api_key_here
     export HTCONDOR_TOKEN=your_token_here
-```
+   ```
 
 4. **Configuring Parameters**
 The `config.json` file includes global parameters as well as several job types, each with unique paramenters. Please view the [`config` Module Overview](#config-overview) to help set up your job.
