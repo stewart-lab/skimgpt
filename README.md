@@ -4,7 +4,7 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
 
  ## Requirements
 
- - Python 3.11
+ - Python 3.9^
  - Libraries specified in `requirements.txt`
  - OpenAI API key
  - Pubmed API key
@@ -24,7 +24,7 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
  2. **Install Dependencies (with conda)**
     Install the required packages using pip:
     ```bash
-    conda create --name {myenv} python=3.11.3
+    conda create --name {myenv} python=3.9
     conda activate {myenv}
     pip install -r requirements.txt
     ```
