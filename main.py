@@ -6,7 +6,6 @@ from src.eval_JSON_results import extract_and_write_scores
 import shutil
 import json
 import itertools
-import pandas as pd
 import multiprocessing
 from src.jobs import main_workflow
 from glob import glob
@@ -115,10 +114,6 @@ def get_config(output_directory):
     with open(os.path.join(output_directory, "config.json"), "w") as f:
         json.dump(config, f, indent=4)
     return config
-
-
-def read_tsv_to_dataframe(file_path):
-    return pd.read_csv(file_path, sep="\t")
 
 
 def write_to_json(data, file_path, output_directory):
