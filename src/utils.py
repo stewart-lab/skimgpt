@@ -125,7 +125,7 @@ class Config:
             self.job_config = json.load(config_file)
 
         # Load data from a TSV file
-        self.data = read_tsv_to_dataframe(args.km_output)
+        self.data = read_tsv_to_dataframe_from_files_txt(args.km_output)
 
         # Access global settings directly from the loaded JSON
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
@@ -185,7 +185,27 @@ class Config:
 def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKiM-GPT") -> logging.Logger:
     """Configure centralized logging for SKiM-GPT"""
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.DEBUG)
+    
+    # Prevent propagation to root logger
+    logger.propagate = False
+    
+    # If logger already has handlers, assume it's configured
+    if logger.handlers:
+        # If output directory is provided, add file handler if not already present
+        if output_directory:
+            has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+            if not has_file_handler:
+                log_file = os.path.join(output_directory, "workflow.log")
+                file_handler = logging.FileHandler(log_file)
+                file_handler.setFormatter(logging.Formatter(
+                    '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S'
+                ))
+                logger.addHandler(file_handler)
+        return logger
+
+    # If no handlers exist, set up logging from scratch
+    logger.setLevel(logging.INFO)
 
     # Create formatter
     formatter = logging.Formatter(
@@ -210,3 +230,30 @@ def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKi
 def read_tsv_to_dataframe(file_path: str) -> pd.DataFrame:
     """Read a TSV file into a pandas DataFrame."""
     return pd.read_csv(file_path, sep="\t")
+
+def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
+    """
+    Read the first file path from files.txt and load that TSV into a pandas DataFrame.
+
+    Args:
+        files_txt_path: Path to the files.txt file.
+
+    Returns:
+        pandas.DataFrame: DataFrame loaded from the first TSV file listed in files.txt.
+                          Returns an empty DataFrame if files.txt is empty or file not found.
+    """
+    try:
+        with open(files_txt_path, "r") as f:
+            first_file_path = f.readline().strip()
+            if not first_file_path:
+                logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
+    except FileNotFoundError:
+        logging.error(f"{files_txt_path} not found.")
+        return pd.DataFrame()  # Return empty DataFrame if files.txt not found
+
+    try:
+        return pd.read_csv(first_file_path, sep="\t")
+    except FileNotFoundError:
+        logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
+        return pd.DataFrame() # Return empty DataFrame if TSV file not found

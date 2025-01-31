@@ -4,15 +4,10 @@ import requests
 import time
 import ast
 import logging
-from utils import setup_logger
+from src.utils import setup_logger
 
-logger = logging.getLogger("SKiM-GPT")
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
+# Get the centralized logger instance
+logger = setup_logger()
 
 # File Operations
 def read_terms_from_file(filename):
@@ -257,7 +252,7 @@ def save_filtered_results(
 
     # Save the filtered results
     valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
-    logging.info(f"Filtered {job_type} query results saved to {filtered_file_path}")
+    logger.info(f"Filtered {job_type} query results saved to {filtered_file_path}")
 
     # Identify removed rows
     removed_rows = skim_df[~skim_df.index.isin(valid_rows.index)].copy()
@@ -277,9 +272,9 @@ def save_filtered_results(
         # Write the no_results to the file
         no_results_df.to_csv(no_results_file_path, sep="\t", index=False, header=True)
 
-        logging.info(f"No-result entries saved to {no_results_file_path}")
+        logger.info(f"No-result entries saved to {no_results_file_path}")
     else:
-        logging.info(
+        logger.info(
             f"All {job_type} queries returned results. No entries to write to no_results.txt."
         )
 
@@ -302,16 +297,16 @@ def read_terms_from_file_with_retry(filename, max_retries=3, delay=1):
                     terms = [line.strip() for line in f]
                     terms = list(filter(None, terms))
                     if terms:
-                        logging.info(f"Successfully read {len(terms)} terms from {filename}")
+                        logger.debug(f"Successfully read {len(terms)} terms from {filename}")
                         return terms
             
             if attempt < max_retries - 1:
-                logging.warning(f"Attempt {attempt + 1}: File {filename} empty or not ready, retrying in {delay} seconds...")
+                logger.warning(f"Attempt {attempt + 1}: File {filename} empty or not ready, retrying in {delay} seconds...")
                 time.sleep(delay)
             
         except Exception as e:
             if attempt < max_retries - 1:
-                logging.warning(f"Attempt {attempt + 1}: Error reading {filename}: {e}, retrying in {delay} seconds...")
+                logger.warning(f"Attempt {attempt + 1}: Error reading {filename}: {e}, retrying in {delay} seconds...")
                 time.sleep(delay)
             
     raise ValueError(f"Failed to read terms from {filename} after {max_retries} attempts")
@@ -329,15 +324,15 @@ def km_with_gpt_workflow(config=None, output_directory=None):
         a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
         a_term = f"{a_term}{a_term_suffix}"
 
-    logging.info("Executing KM workflow...")
-    logging.info("Reading terms from files...")
+    logger.info("Executing KM workflow...")
+    logger.debug("Reading terms from files...")
 
     b_terms_file = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
-    logging.info(f"Reading B terms from file: {b_terms_file}")
+    logger.debug(f"Reading B terms from file: {b_terms_file}")
     b_terms = read_terms_from_file_with_retry(b_terms_file)
     assert b_terms, "B_TERMS_FILE is empty or not defined in the configuration"
 
-    logging.info(f"Running and saving KM query for a_term: {a_term}...")
+    logger.info(f"Running and saving KM query for a_term: {a_term}...")
     km_file_path = run_and_save_query(
         "km_with_gpt", a_term, b_terms, config=config, output_directory=output_directory
     )
@@ -345,7 +340,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     full_km_file_path = os.path.join(output_directory, km_file_path)
 
     if not os.path.exists(full_km_file_path) or os.path.getsize(full_km_file_path) <= 1:
-        logging.warning(
+        logger.warning(
             "KM results are empty. Returning None to indicate no KM results."
         )
         return None
@@ -375,7 +370,7 @@ def km_with_gpt_workflow(config=None, output_directory=None):
 
     # Check if there are valid results to return
     if valid_rows.empty:
-        logging.warning(
+        logger.warning(
             "No KM results after filtering. Returning None to indicate no KM results."
         )
         return None
@@ -395,7 +390,7 @@ def skim_with_gpt_workflow(config, output_directory):
         a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
         a_term = f"{a_term}{a_term_suffix}"
 
-    logging.info("Executing SKIM workflow...")
+    logger.info("Executing SKIM workflow...")
 
     # Add error checking for B_TERMS_FILE configuration
     if "skim_with_gpt" not in config["JOB_SPECIFIC_SETTINGS"]:
@@ -408,21 +403,21 @@ def skim_with_gpt_workflow(config, output_directory):
     b_terms_file = skim_config["B_TERMS_FILE"]
     c_terms_file = skim_config["C_TERMS_FILE"]
 
-    logging.info(f"Reading B terms from file: {b_terms_file}")
-    logging.info(f"Reading C terms from file: {c_terms_file}")
+    logger.debug(f"Reading B terms from file: {b_terms_file}")
+    logger.debug(f"Reading C terms from file: {c_terms_file}")
     
     b_terms = read_terms_from_file_with_retry(b_terms_file)
     c_terms = read_terms_from_file_with_retry(c_terms_file)
 
     if not b_terms:
-        logging.error(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
+        logger.error(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
         raise ValueError(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
     
     if not c_terms:
-        logging.error(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
+        logger.error(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
         raise ValueError(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
 
-    logging.info(f"Running and saving SKIM query for a_term: {a_term}...")
+    logger.info(f"Running and saving SKIM query for a_term: {a_term}...")
     skim_file_path = run_and_save_query(
         "skim_with_gpt",
         a_term,
@@ -438,7 +433,7 @@ def skim_with_gpt_workflow(config, output_directory):
         not os.path.exists(full_skim_file_path)
         or os.path.getsize(full_skim_file_path) <= 1
     ):
-        logging.warning(
+        logger.warning(
             "SKIM results are empty. Returning None to indicate no SKIM results."
         )
         return None
@@ -471,7 +466,7 @@ def skim_with_gpt_workflow(config, output_directory):
 
     # Check if there are valid results to return
     if valid_rows.empty:
-        logging.warning(
+        logger.warning(
             "No SKIM results after filtering. Returning None to indicate no SKIM results."
         )
         return None

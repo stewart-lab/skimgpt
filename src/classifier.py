@@ -3,10 +3,10 @@ import os
 import openai
 import time
 import json
-import importlib
 import re
 from typing import Any
-from utils import Config, setup_logger  # Import setup_logger
+from src.utils import setup_logger
+from src import prompt_library as prompts_module 
 
 # Initialize the centralized logger
 logger = setup_logger()
@@ -287,10 +287,6 @@ def generate_prompt(
 ) -> str:
     job_type_lower = job_type.lower()
 
-    # Dynamically import the prompts module (assuming this module contains relevant prompt generation functions)
-    prompts_module = importlib.import_module("prompt_library")
-    assert prompts_module, "Failed to import the prompts module."
-
     # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
@@ -371,95 +367,95 @@ def call_openai(client, prompt, config):
             if content:
                 return content
             else:
-                print("Empty response received from OpenAI API.")
+                logger.warning("Empty response received from OpenAI API.")
                 time.sleep(retry_delay)
 
         # Specific Exceptions First
-
         except openai.AuthenticationError as e:
-            print(
-                "AuthenticationError: Your API key or token was invalid, expired, or revoked."
+            logger.error(
+                "AuthenticationError: Your API key or token was invalid, expired, or revoked.\n"
+                "Solution: Check your API key or token and make sure it is correct and active. "
+                "You may need to generate a new one from your account dashboard."
             )
-            print(
-                "Solution: Check your API key or token and make sure it is correct and active. You may need to generate a new one from your account dashboard."
-            )
-            print(e)
+            logger.debug(str(e))
             break  # Authentication issues won't resolve with retries
 
         except openai.BadRequestError as e:
-            print(
-                "BadRequestError: Your request was malformed or missing some required parameters."
+            logger.error(
+                "BadRequestError: Your request was malformed or missing some required parameters.\n"
+                "Solution: Check the error message for specifics, ensure all required parameters "
+                "are provided, and verify the format and size of your request data."
             )
-            print(
-                "Solution: Check the error message for specifics, ensure all required parameters are provided, and verify the format and size of your request data."
-            )
-            print(e)
+            logger.debug(str(e))
             break  # Bad requests won't resolve with retries
 
         except openai.PermissionDeniedError as e:
-            print(
-                "PermissionDeniedError: You don't have access to the requested resource."
-            )
-            print(
+            logger.error(
+                "PermissionDeniedError: You don't have access to the requested resource.\n"
                 "Solution: Ensure you are using the correct API key, organization ID, and resource ID."
             )
-            print(e)
+            logger.debug(str(e))
             break  # Permission issues won't resolve with retries
 
         except openai.NotFoundError as e:
-            print("NotFoundError: The requested resource does not exist.")
-            print("Solution: Ensure you are using the correct resource identifier.")
-            print(e)
+            logger.error(
+                "NotFoundError: The requested resource does not exist.\n"
+                "Solution: Ensure you are using the correct resource identifier."
+            )
+            logger.debug(str(e))
             break  # Not found errors won't resolve with retries
 
         except openai.ConflictError as e:
-            print("ConflictError: The resource was updated by another request.")
-            print(
-                "Solution: Try to update the resource again and ensure no other requests are attempting to update it simultaneously."
+            logger.error(
+                "ConflictError: The resource was updated by another request.\n"
+                "Solution: Try to update the resource again and ensure no other requests "
+                "are attempting to update it simultaneously."
             )
-            print(e)
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.UnprocessableEntityError as e:
-            print(
-                "UnprocessableEntityError: Unable to process the request despite the format being correct."
+            logger.error(
+                "UnprocessableEntityError: Unable to process the request despite the format being correct.\n"
+                "Solution: Please try the request again."
             )
-            print("Solution: Please try the request again.")
-            print(e)
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.RateLimitError as e:
-            print("A 429 status code was received; we should back off a bit.")
-            print(e)
+            logger.warning("A 429 status code was received; we should back off a bit.")
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.APITimeoutError as e:
-            print("APITimeoutError: The request timed out.")
-            print(
+            logger.error(
+                "APITimeoutError: The request timed out.\n"
                 "Solution: Retry your request after a brief wait and contact OpenAI if the issue persists."
             )
-            print(e)
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.APIConnectionError as e:
-            print("APIConnectionError: Issue connecting to OpenAI services.")
-            print(
+            logger.error(
+                "APIConnectionError: Issue connecting to OpenAI services.\n"
                 "Solution: Check your network settings, proxy configuration, SSL certificates, or firewall rules."
             )
-            print(e)
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.APIStatusError as e:
             # General APIStatusError should come after specific APIStatusError subclasses
-            print("APIStatusError: Another non-200-range status code was received.")
-            print(f"Status Code: {e.status_code}")
-            print(f"Response: {e.response}")
-            print(f"Cause: {e.__cause__}")
+            logger.error(
+                f"APIStatusError: Another non-200-range status code was received.\n"
+                f"Status Code: {e.status_code}\n"
+                f"Response: {e.response}\n"
+                f"Cause: {e.__cause__}"
+            )
             time.sleep(retry_delay)
 
         except Exception as e:
-            print("An unexpected error occurred.")
-            print(e)
+            logger.error("An unexpected error occurred.")
+            logger.debug(str(e))
             time.sleep(retry_delay)
 
     return None

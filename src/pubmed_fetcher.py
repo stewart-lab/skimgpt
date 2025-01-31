@@ -1,5 +1,5 @@
 from Bio import Entrez
-from utils import setup_logger
+from src.utils import setup_logger
 import time
 import re
 from typing import List, Dict, Any
