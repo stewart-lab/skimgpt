@@ -138,10 +138,12 @@ class PubMedFetcher:
 
         return abstract_dict
 
-    def sort_by_year(self, text: str, n: int = None) -> str:
+    def interleave_abstracts(self, text: str, n: int = None, top_n_most_cited: int = 0, top_n_most_recent: int = 0) -> str:
         """
-        Sort and interleave abstracts between original order (most cited) and year-sorted order.
-        Returns a mix of most-cited and most-recent abstracts.
+        Interleave abstracts based on citation count and recency with configurable ratios.
+        If top_n_most_cited is 0, only returns most recent abstracts.
+        If top_n_most_recent is 0, only returns most cited abstracts.
+        Otherwise, interleaves based on the ratio of cited:recent.
         """
         if not isinstance(text, str) or text == "[]":
             return ""
@@ -155,6 +157,7 @@ class PubMedFetcher:
 
         # Keep original order (most cited)
         original_entries = entries.copy()
+
         logger.debug("Original order (most cited):")
         for entry in original_entries[:3]:  # Show first 3 for brevity
             pmid_match = re.search(r"PMID: (\d+)", entry)
@@ -176,37 +179,119 @@ class PubMedFetcher:
         year_sorted_entries = [entry for _, entry in sorted(entries_with_years, key=lambda x: x[0], reverse=True)]
         
         logger.debug("\nYear-sorted order (most recent):")
-        for entry in year_sorted_entries[:3]:  # Show first 3 for brevity
+        pmids_logged = []
+        for entry in year_sorted_entries[:15]:  # Show first 3 for brevity
             pmid_match = re.search(r"PMID: (\d+)", entry)
             if pmid_match:
                 pmid = pmid_match.group(1)
                 year = self.pmid_years.get(pmid, 0)
-                logger.debug(f"PMID: {pmid}, Year: {year}")
-
+                if pmid not in pmids_logged:
+                    logger.debug(f"PMID: {pmid}, Year: {year}")
+                pmids_logged.append(pmid)
         # If n is specified, limit both lists before interleaving
         if n is not None:
             original_entries = original_entries[:n]
             year_sorted_entries = year_sorted_entries[:n]
             logger.debug(f"\nLimiting to top {n} entries from each list")
+        # Handle special cases
+        if top_n_most_cited == 0 and top_n_most_recent > 0:
+            # Only return most recent
+            result = year_sorted_entries
+            logger.debug(f"Returning only {n} most recent entries")
+        
+        elif top_n_most_recent == 0 and top_n_most_cited > 0:
+            # Only return most cited
+            result = original_entries
+            logger.debug(f"Returning only {n} most cited entries")
+        
+        else:
+            # Calculate interleaving ratio
+            ratio = top_n_most_cited / top_n_most_recent if top_n_most_recent > 0 else float('inf')
+            logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
 
-        # Interleave the two lists
-        interleaved = []
-        for i, (orig, year_sorted) in enumerate(zip(original_entries, year_sorted_entries)):
-            if i < 3:  # Show first 3 pairs for brevity
-                orig_pmid = re.search(r"PMID: (\d+)", orig).group(1)
-                year_pmid = re.search(r"PMID: (\d+)", year_sorted).group(1)
-                logger.debug(f"\nInterleaving pair {i+1}:")
-                logger.debug(f"Most cited: PMID {orig_pmid}, Year: {self.pmid_years.get(orig_pmid, 0)}")
-                logger.debug(f"Most recent: PMID {year_pmid}, Year: {self.pmid_years.get(year_pmid, 0)}")
-            interleaved.extend([orig, year_sorted])
+            # Interleave based on ratio
+            result = []
+            cited_idx = recent_idx = 0
+            used_pmids = set()  # Track which PMIDs we've already added
+            
+            def get_pmid(entry):
+                """Helper function to extract PMID from an entry"""
+                pmid_match = re.search(r"PMID: (\d+)", entry)
+                return pmid_match.group(1) if pmid_match else None
+            
+            def add_entry(entry):
+                """Helper function to add entry if not already present"""
+                pmid = get_pmid(entry)
+                if pmid and pmid not in used_pmids:
+                    result.append(entry)
+                    used_pmids.add(pmid)
+                    return True
+                return False
+        
+            while cited_idx < len(original_entries) or recent_idx < len(year_sorted_entries):
+                made_progress = False
+                
+                # Handle ratio > 1 (more cited than recent)
+                if ratio > 1 and cited_idx < len(original_entries):
+                    expected_cited = round(recent_idx * ratio)
+                    # Add enough to catch up to the expected count
+                    while cited_idx < min(expected_cited, len(original_entries)):
+                        if add_entry(original_entries[cited_idx]):
+                            made_progress = True
+                        cited_idx += 1
+                    # Add one recent entry after the batch of cited entries
+                    if recent_idx < len(year_sorted_entries):
+                        if add_entry(year_sorted_entries[recent_idx]):
+                            made_progress = True
+                        recent_idx += 1
+                    # If we can't add a recent entry but still have cited entries, add one more cited
+                    elif cited_idx < len(original_entries):
+                        if add_entry(original_entries[cited_idx]):
+                            made_progress = True
+                        cited_idx += 1
+                
+                # Handle ratio < 1 (more recent than cited)
+                elif ratio < 1 and recent_idx < len(year_sorted_entries):
+                    expected_recent = round(cited_idx / ratio)
+                    while recent_idx < min(expected_recent, len(year_sorted_entries)):
+                        if add_entry(year_sorted_entries[recent_idx]):
+                            made_progress = True
+                        recent_idx += 1
+                    # Add one cited entry after the batch of recent entries
+                    if cited_idx < len(original_entries):
+                        if add_entry(original_entries[cited_idx]):
+                            made_progress = True
+                        cited_idx += 1
+                    # If we can't add a cited entry but still have recent entries, add one more recent
+                    elif recent_idx < len(year_sorted_entries):
+                        if add_entry(year_sorted_entries[recent_idx]):
+                            made_progress = True
+                        recent_idx += 1
 
-        # Add any remaining entries if lengths were uneven
-        remaining = original_entries[len(year_sorted_entries):] + year_sorted_entries[len(original_entries):]
-        if remaining:
-            logger.debug(f"\nAdding {len(remaining)} remaining entries")
-        interleaved.extend(remaining)
+                # Handle ratio == 1 (equal numbers of cited and recent)
+                elif ratio == 1:
+                    if cited_idx < len(original_entries):
+                        if add_entry(original_entries[cited_idx]):
+                            made_progress = True
+                        cited_idx += 1
+                    if recent_idx < len(year_sorted_entries):
+                        if add_entry(year_sorted_entries[recent_idx]):
+                            made_progress = True
+                        recent_idx += 1
 
-        return "===END OF ABSTRACT===\n\n".join(interleaved) + "===END OF ABSTRACT===\n\n"
+                # If we didn't make any progress in this iteration, break to avoid infinite loop
+                if not made_progress:
+                    break
+
+                # Break if we've processed all entries from both lists
+                if cited_idx >= len(original_entries) and recent_idx >= len(year_sorted_entries):
+                    break
+
+            logger.debug(f"Cited entries used: {cited_idx}, Recent entries used: {recent_idx}")
+            logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
+        logger.debug(f"Final interleaved list contains {len(result)} entries")
+            
+        return "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
 
     def optimize_text_length(self, text: str | list, max_tokens: int = 110000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
         """

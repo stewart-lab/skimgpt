@@ -156,6 +156,8 @@ class Config:
         self.is_skim_gpt = self.job_type == "skim_with_gpt"
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
         self.post_n = self.global_settings["POST_N"]
+        self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
+        self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
 
         # Additional checks for specific configurations
         self.has_ac = (
@@ -183,7 +185,7 @@ class Config:
 def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKiM-GPT") -> logging.Logger:
     """Configure centralized logging for SKiM-GPT"""
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     # Create formatter
     formatter = logging.Formatter(

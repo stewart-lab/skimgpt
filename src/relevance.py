@@ -128,9 +128,10 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
         # Sort by year and limit to top N if configured
         if config.post_n > 0:
             out_df[column] = out_df[column].apply(
-                lambda x: pubmed_fetcher.sort_by_year(x, config.post_n)
+                lambda x: pubmed_fetcher.interleave_abstracts(x, config.post_n, config.top_n_articles_most_cited, config.top_n_articles_most_recent)
             )
-    
+    #def interleave_abstracts(self, text: str, n: int = None, top_n_most_cited: int = 0, top_n_most_recent: int = 0) -> str:
+
     out_df = calculate_relevance_ratios(out_df)
     return out_df
 
