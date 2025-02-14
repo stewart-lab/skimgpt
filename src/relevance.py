@@ -8,6 +8,7 @@ from typing import List, Dict, Any
 import time
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
+import socket
 
 
 # Initialize the centralized logger
@@ -167,6 +168,15 @@ def main():
     start_time = time.time()
     logger.info("Starting relevance analysis...")
     
+    try:
+        # DNS resolution test in Python
+        host = "eutils.ncbi.nlm.nih.gov"
+        ip_address = socket.gethostbyname(host)
+        logger.info(f"Python DNS resolution test: Successfully resolved '{host}' to '{ip_address}'")
+    except socket.gaierror as e:
+        logger.error(f"Python DNS resolution test: Failed to resolve '{host}'. Error: {e}")
+        raise  # Re-raise the exception to stop script execution
+
     parser = argparse.ArgumentParser(description="Mistral7B Inference")
     parser.add_argument(
         "--km_output",
