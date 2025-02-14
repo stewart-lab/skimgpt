@@ -7,9 +7,41 @@ echo "Number of arguments received: $#"
 echo "Arguments received: $*"
 echo "First argument (\$1): '$1'"
 echo "Second argument (\$2): '$2'" # Just in case something unexpected is happening
+exec 2>> run_$(Cluster)_$(Process).err
 
-# Debugging: Print the value of KM_OUTPUT_FILE environment variable
-echo "KM_OUTPUT_FILE (env var): $KM_OUTPUT_FILE"
+echo "--- Network Connectivity Test (using curl) ---"
+date
+
+# Function to test URL and check HTTP status
+test_url() {
+  URL="$1"
+  NAME="$2"
+  echo "--- Testing ${NAME} (URL: ${URL}) ---"
+  if status_code=$(curl -Is --connect-timeout 10 --max-time 30 "${URL}" -o /dev/null | head -n 1 | awk '{print $2}'); then
+    if [[ "$status_code" =~ ^(2|3)[0-9]{2}$ ]]; then # Check if status code starts with 2 or 3 (success)
+      echo "--- ${NAME} connectivity test: SUCCESS, Status Code: ${status_code} ---"
+    else
+      echo "--- ${NAME} connectivity test: WARNING, Unexpected Status Code: ${status_code} ---"
+    fi
+  else
+    echo "--- ${NAME} connectivity test: FAILED ---"
+    echo "--- FATAL ERROR: Connectivity to ${NAME} failed. Exiting script. ---"
+    exit 1
+  fi
+}
+
+# Test Google (basic internet)
+test_url "http://google.com" "Google (HTTP)"
+
+# Test PubMed E-utilities (HTTPS)
+test_url "https://eutils.ncbi.nlm.nih.gov" "PubMed E-utilities (HTTPS)"
+
+# Test Hugging Face (HTTPS)
+test_url "https://huggingface.co" "Hugging Face (HTTPS)"
+
+
+echo "--- End Network Connectivity Test ---"
+
 
 # Debugging: Try printing standard HTCondor environment variables
 echo "--- HTCondor Environment Variables ---"
