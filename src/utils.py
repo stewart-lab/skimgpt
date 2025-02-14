@@ -227,6 +227,7 @@ def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKi
 
     return logger
 
+# Extra func: To remove
 def read_tsv_to_dataframe(file_path: str) -> pd.DataFrame:
     """Read a TSV file into a pandas DataFrame."""
     return pd.read_csv(file_path, sep="\t")
@@ -244,16 +245,25 @@ def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
     """
     try:
         with open(files_txt_path, "r") as f:
-            first_file_path = f.readline().strip()
-            if not first_file_path:
+            file_paths = [line.strip() for line in f.readlines() if line.strip()]
+            
+            if len(file_paths) > 1:
+                logging.error(f"Multiple files detected in {files_txt_path}")
+                return pd.DataFrame()
+            
+            if not file_paths:
                 logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
                 return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
+            
+            first_file_path = file_paths[0] if file_paths else ""
+
     except FileNotFoundError:
         logging.error(f"{files_txt_path} not found.")
         return pd.DataFrame()  # Return empty DataFrame if files.txt not found
 
     try:
         return pd.read_csv(first_file_path, sep="\t")
+    
     except FileNotFoundError:
         logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
         return pd.DataFrame() # Return empty DataFrame if TSV file not found

@@ -14,6 +14,7 @@ import os
 import time
 from src.utils import Config, setup_logger
 from src.htcondor_helper import HTCondorHelper
+import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -268,7 +269,8 @@ def main():
         # Create files.txt for HTCondor queue
         files_txt_path = os.path.join(output_directory, "files.txt")
         logger.info(f"Creating files.txt at {files_txt_path}")
-        
+
+        # Write to files.txt first
         with open(files_txt_path, "w") as f:
             for file_path in flattened_file_paths:
                 filename = os.path.basename(file_path)
@@ -278,6 +280,49 @@ def main():
         # Verify files.txt was created
         if not os.path.exists(files_txt_path):
             raise FileNotFoundError(f"Failed to create {files_txt_path}")
+        
+        # TODO: CONCAT .tsvs
+        with open(files_txt_path, "r") as f:
+            tsv_files = [os.path.join(output_directory, line.strip()) for line in f if line.strip()]
+
+        if len(tsv_files) > 1:
+            logger.info(f"Concatenating {len(tsv_files)} TSV files")
+
+            try: 
+                first_filename = os.path.basename(tsv_files[0])
+                job_prefix = first_filename.split("_")[0]
+
+                # Extract and sort all terms from filenames
+                extracted_terms = []
+                for file_path in tsv_files:
+                    filename = os.path.basename(file_path)
+                    parts = filename.split("_")
+                    
+                    # Identify where the terms are (they come between the job prefix and "_output_filtered.tsv")
+                    for i, part in enumerate(parts):
+                        if part == job_prefix and i + 2 < len(parts):
+                            term = parts[i + 2] 
+                            extracted_terms.append(term)
+                            break
+                
+                combined_terms = "_".join(sorted(set(extracted_terms)))  # Sort and remove duplicates
+                combined_filename = f"{job_prefix}_{combined_terms}_combined_output_filtered.tsv"
+                combined_tsv_path = os.path.join(output_directory, combined_filename)
+
+                # Read and concatenate TSV files
+                dataframes = [pd.read_csv(tsv, sep="\t") for tsv in tsv_files]
+                combined_df = pd.concat(dataframes, ignore_index=True)
+
+                # Write the combined TSV file
+                combined_df.to_csv(combined_tsv_path, sep="\t", index=False)
+                logger.info(f"Concatenated TSV file saved at {combined_tsv_path}")
+
+                # Update files.txt to contain only the new combined file
+                with open(files_txt_path, "w") as f:
+                    f.write(combined_filename + "\n")
+
+            except Exception as e:
+                logger.error(f"Error concatenating TSV files: {str(e)}", exc_info=True)
 
         # Copy necessary files to output directory
         src_dir = os.path.join(os.getcwd(), "src")

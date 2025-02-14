@@ -194,15 +194,34 @@ def main():
     )
     logger.info("Initialized PubMedFetcher")
 
-    # Process terms and get hypotheses
-    a_term = config.data.a_term.unique().tolist()[0].split("&")[0]
-    b_terms = config.data.b_term.unique().tolist()
+    # # Process terms and get hypotheses
+    # a_term = config.data.a_term.unique().tolist().split("&")[0]
+    # b_terms = config.data.b_term.unique().tolist()
 
-    ab_pmids = RaggedTensor([eval(lst) for lst in config.data.ab_pmid_intersection])
-    ab_hypotheses = RaggedTensor(
-        [getHypothesis(config.job_config, a_term=a_term, b_term=b_term) for b_term in b_terms]
-    )
+    # ab_pmids = RaggedTensor([eval(lst) for lst in config.data.ab_pmid_intersection])
+    # ab_hypotheses = RaggedTensor(
+    #     [getHypothesis(config.job_config, a_term=a_term, b_term=b_term) for b_term in b_terms]
+    # )
 
+    # Process each row individually
+    ab_pmids = []
+    ab_hypotheses = []
+
+    for _, row in config.data.iterrows():
+        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+        b_term = row['b_term']
+        
+        # Convert string representation of list to actual list
+        pmids = eval(row['ab_pmid_intersection'])
+        ab_pmids.append(pmids)
+        
+        # Generate hypothesis for this specific pair
+        hypothesis = getHypothesis(config.job_config, a_term=a_term, b_term=b_term)
+        ab_hypotheses.append(hypothesis)
+
+    # Convert to RaggedTensor format
+    ab_pmids = RaggedTensor(ab_pmids)
+    ab_hypotheses = RaggedTensor(ab_hypotheses)
     all_pmids = ab_pmids.flatten()
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
@@ -216,6 +235,7 @@ def main():
         all_pmids += bc_pmids.flatten()
         all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
 
+        # TODO : Handle multiple a-terms
         if config.has_ac:
             ac_pmids = RaggedTensor(eval(config.data.ac_pmid_intersection[0]))
             ac_hypothesis = RaggedTensor(
