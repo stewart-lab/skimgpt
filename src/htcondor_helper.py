@@ -97,7 +97,7 @@ class HTCondorHelper:
             logger.error(f"Failed to submit jobs: {e}")
             raise
 
-    def monitor_jobs(self, cluster_id: int, check_interval: int = 60) -> bool:
+    def monitor_jobs(self, cluster_id: int, check_interval: int = 30) -> bool:
         """Monitor job progress"""
         try:
             with htcondor.SecMan() as sess:
@@ -116,6 +116,14 @@ class HTCondorHelper:
                     if all(ad.get("JobStatus") == 4 for ad in ads):
                         logger.info(f"All jobs in cluster {cluster_id} completed successfully")
                         return True
+                    
+                    # Retrieve output files every minute
+                    logger.info(f"Attempting to retrieve intermediate output files for cluster {cluster_id}")
+                    try:
+                        self.schedd.retrieve(f"ClusterId == {cluster_id}")
+                        logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
+                    except Exception as retrieve_err:
+                        logger.warning(f"Warning: Failed to retrieve intermediate output files: {retrieve_err}")
                     
                     # Log status counts
                     status_counts = {}
