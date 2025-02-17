@@ -68,6 +68,43 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
     )
 
 
+# def postProcess(
+#     config: Config,
+#     outputs: RaggedTensor,
+#     abstracts: RaggedTensor,
+#     hypotheses: RaggedTensor,
+#     out_df: pd.DataFrame,
+#     terms: str,
+#     shape: list,
+# ):
+#     abstracts.reshape(shape)
+
+#     if not config.debug:
+#         answer_masks = outputs.map(eval)
+#         answer_masks.reshape(shape)
+#         abstracts.applyFilter(answer_masks)
+#     else:
+#         answer_masks = RaggedTensor([eval(answer[0]) for answer in outputs])
+#         answer_masks.reshape(shape)
+#         cot = RaggedTensor([answer[1:] for answer in outputs])
+#         cot.reshape(shape)
+
+#         if terms == "ac":
+#             out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
+#             out_df[f"{terms}_cot"] = cot.data * len(out_df)
+#             out_df[f"{terms}_hypothesis"] = hypotheses.data * len(out_df)
+#         else:
+#             out_df[f"{terms}_mask"] = answer_masks.data
+#             out_df[f"{terms}_cot"] = cot.data
+#             out_df[f"{terms}_hypothesis"] = hypotheses.data
+
+#     if terms == "ac":
+#         out_df[f"{terms}_pmid_intersection"] = abstracts.data * len(out_df)
+#         out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
+#     else:
+#         out_df[f"{terms}_mask"] = answer_masks.data
+#         out_df[f"{terms}_pmid_intersection"] = abstracts.data
+
 def postProcess(
     config: Config,
     outputs: RaggedTensor,
@@ -90,20 +127,16 @@ def postProcess(
         cot.reshape(shape)
 
         if terms == "ac":
-            out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
-            out_df[f"{terms}_cot"] = cot.data * len(out_df)
-            out_df[f"{terms}_hypothesis"] = hypotheses.data * len(out_df)
+            out_df[f"{terms}_mask"] = answer_masks.data
+            out_df[f"{terms}_cot"] = cot.data
+            out_df[f"{terms}_hypothesis"] = hypotheses.data
         else:
             out_df[f"{terms}_mask"] = answer_masks.data
             out_df[f"{terms}_cot"] = cot.data
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
-    if terms == "ac":
-        out_df[f"{terms}_pmid_intersection"] = abstracts.data * len(out_df)
-        out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
-    else:
-        out_df[f"{terms}_mask"] = answer_masks.data
-        out_df[f"{terms}_pmid_intersection"] = abstracts.data
+    # Simply assign the data without multiplication
+    out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
@@ -235,26 +268,63 @@ def main():
     all_pmids = ab_pmids.flatten()
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
-    if config.is_skim_gpt:
-        c_term = config.data.c_term.unique().tolist()[0]
-        bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
-        bc_hypotheses = RaggedTensor(
-            [getHypothesis(config.job_config, c_term=c_term, b_term=b_term) for b_term in b_terms]
-        )
+    # if config.is_skim_gpt:
+    #     c_term = config.data.c_term.unique().tolist()[0]
+    #     bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
+    #     bc_hypotheses = RaggedTensor(
+    #         [getHypothesis(config.job_config, c_term=c_term, b_term=b_term) for b_term in b_terms]
+    #     )
 
+    #     all_pmids += bc_pmids.flatten()
+    #     all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
+
+    #     # TODO : Handle multiple a-terms
+    #     if config.has_ac:
+    #         ac_pmids = RaggedTensor(eval(config.data.ac_pmid_intersection[0]))
+    #         ac_hypothesis = RaggedTensor(
+    #             [getHypothesis(config.job_config, a_term=a_term, c_term=c_term)]
+    #         )
+
+    #         all_pmids += ac_pmids
+    #         all_hypotheses += ac_hypothesis.expand([ac_pmids.shape])
+
+    if config.is_skim_gpt:
+        # Process BC and AC terms row by row
+        bc_pmids = []
+        bc_hypotheses = []
+        ac_pmids = []
+        ac_hypotheses = []
+
+        for _, row in config.data.iterrows():
+            b_term = row['b_term']
+            c_term = row['c_term']
+            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+            
+            # Process BC terms
+            bc_pmid_list = eval(row['bc_pmid_intersection'])
+            bc_pmids.append(bc_pmid_list)
+            bc_hypothesis = getHypothesis(config.job_config, c_term=c_term, b_term=b_term)
+            bc_hypotheses.append(bc_hypothesis)
+            
+            # Process AC terms if available
+            if config.has_ac and 'ac_pmid_intersection' in row:
+                ac_pmid_list = eval(row['ac_pmid_intersection'])
+                ac_pmids.append(ac_pmid_list)
+                ac_hypothesis = getHypothesis(config.job_config, a_term=a_term, c_term=c_term)
+                ac_hypotheses.append(ac_hypothesis)
+
+        # Convert to RaggedTensor format and add to all_pmids/hypotheses
+        bc_pmids = RaggedTensor(bc_pmids)
+        bc_hypotheses = RaggedTensor(bc_hypotheses)
         all_pmids += bc_pmids.flatten()
         all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
 
-        # TODO : Handle multiple a-terms
-        if config.has_ac:
-            ac_pmids = RaggedTensor(eval(config.data.ac_pmid_intersection[0]))
-            ac_hypothesis = RaggedTensor(
-                [getHypothesis(config.job_config, a_term=a_term, c_term=c_term)]
-            )
-
-            all_pmids += ac_pmids
-            all_hypotheses += ac_hypothesis.expand([ac_pmids.shape])
-
+        if config.has_ac and ac_pmids:
+            ac_pmids = RaggedTensor(ac_pmids)
+            ac_hypotheses = RaggedTensor(ac_hypotheses)
+            all_pmids += ac_pmids.flatten()
+            all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
+    
     # Fetch abstracts
     abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
@@ -280,13 +350,21 @@ def main():
         config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
     )
 
+    # if config.is_skim_gpt:
+    #     postProcess(
+    #         config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
+    #     )
+    #     if config.has_ac:
+    #         postProcess(
+    #             config, ac_outputs, ac_abstracts, ac_hypothesis, out_df, "ac", [ac_pmids.shape]
+    #         )
     if config.is_skim_gpt:
         postProcess(
             config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
         )
         if config.has_ac:
             postProcess(
-                config, ac_outputs, ac_abstracts, ac_hypothesis, out_df, "ac", [ac_pmids.shape]
+                config, ac_outputs, ac_abstracts, ac_hypothesis, out_df, "ac", ac_pmids.shape  # Removed the list brackets
             )
 
     # Final processing and output

@@ -1,0 +1,75 @@
+{
+    "JOB_TYPE": "km_with_gpt",
+    "KM_hypothesis": "Treatment with {b_term} will have no effect on {a_term} patient outcomes.",
+    "SKIM_hypotheses": {
+        "BC": "",
+        "AB": "",
+        "rel_AC": "",
+        "AC": "",
+        "ABC": ""
+    },
+    "Evaluate_single_abstract": false,
+    "GLOBAL_SETTINGS": {
+        "A_TERM": "",
+        "A_TERM_SUFFIX": "",
+        "TOP_N_ARTICLES_MOST_CITED": 50,
+        "TOP_N_ARTICLES_MOST_RECENT": 50,
+        "POST_N": 5,
+        "MIN_WORD_COUNT": 98,
+        "MODEL": "o1-preview",
+        "API_URL": "http://localhost:5099/skim/api/jobs",
+        "PORT": "5081",
+        "RATE_LIMIT": 3,
+        "DELAY": 10,
+        "MAX_RETRIES": 10,
+        "RETRY_DELAY": 5
+    },
+    "HTCONDOR": {
+        "collector_host": "cm.chtc.wisc.edu",
+        "submit_host": "ap2002.chtc.wisc.edu",
+        "request_gpus": "1",
+        "request_cpus": "1",
+        "request_memory": "24GB",
+        "request_disk": "50GB",
+        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
+      },
+    "abstract_filter": {
+        "MODEL": "lexu14/porpoise1",
+        "TEMPERATURE": 0,
+        "TOP_K": 20,
+        "TOP_P": 0.95,
+        "MAX_COT_TOKENS": 500,
+        "DEBUG": false,
+        "TEST_LEAKAGE": false,
+        "TEST_LEAKAGE_TYPE": "empty"
+    },
+    "JOB_SPECIFIC_SETTINGS": {
+        "km_with_gpt": {
+            "position": false,
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "./input_lists/test/km_a.txt",
+            "B_TERMS_FILE": "./input_lists/test/km_b.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "NUM_B_TERMS": 25,
+            "km_with_gpt": {
+                "ab_fet_threshold": 1,
+                "censor_year": 2025
+            }
+        },
+        "skim_with_gpt": {
+            "position": true,
+            "A_TERM_LIST": true,
+            "A_TERMS_FILE": "./input_lists/exercise3/skim_a.txt",
+            "B_TERMS_FILE": "./input_lists/exercise3/skim_b.txt",
+            "NUM_B_TERMS": 20000,
+            "C_TERMS_FILE": "./input_lists/exercise3/skim_c.txt",
+            "SORT_COLUMN": "bc_sort_ratio",
+            "skim": {
+                "ab_fet_threshold": 0.1,
+                "bc_fet_threshold": 0.5,
+                "censor_year": 2024,
+                "top_n": 300
+            }
+        }
+    }
+}
