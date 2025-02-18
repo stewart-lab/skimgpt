@@ -292,21 +292,7 @@ def main():
                 first_filename = os.path.basename(tsv_files[0])
                 job_prefix = first_filename.split("_")[0]
 
-                # Extract and sort all terms from filenames
-                extracted_terms = []
-                for file_path in tsv_files:
-                    filename = os.path.basename(file_path)
-                    parts = filename.split("_")
-                    
-                    # Identify where the terms are (they come between the job prefix and "_output_filtered.tsv")
-                    for i, part in enumerate(parts):
-                        if part == job_prefix and i + 2 < len(parts):
-                            term = parts[i + 2] 
-                            extracted_terms.append(term)
-                            break
-                
-                combined_terms = "_".join(sorted(set(extracted_terms)))  # Sort and remove duplicates
-                combined_filename = f"{job_prefix}_{combined_terms}_combined_output_filtered.tsv"
+                combined_filename = f"{job_prefix}_combined_output_filtered.tsv"
                 combined_tsv_path = os.path.join(output_directory, combined_filename)
 
                 # Read and concatenate TSV files
