@@ -5,11 +5,10 @@ import time
 import json
 import re
 from typing import Any
-from src.utils import setup_logger
+from src.utils import Config
 from src import prompt_library as prompts_module 
 
-# Initialize the centralized logger
-logger = setup_logger()
+
 
 def write_to_json(data, file_path):
     with open(file_path, "w") as outfile:
@@ -40,9 +39,9 @@ def calculate_relevance_ratios(out_df):
     return out_df
 
 
-def process_single_row(row, config):
+def process_single_row(row, config: Config):
     job_type = config.job_type
-
+    logger = config.logger
     if job_type not in [
         "km_with_gpt",
         "position_km_with_gpt",
@@ -127,7 +126,8 @@ def process_single_row(row, config):
     return processed_results if any(processed_results.values()) else None
 
 
-def extract_pmids_and_generate_urls(text: Any) -> list:
+def extract_pmids_and_generate_urls(text: Any, config: Config) -> list:
+    logger = config.logger
     if not isinstance(text, str):
         logger.error(
             f"Expected string for 'text', but got {type(text)}. Converting to string."
@@ -146,7 +146,8 @@ def extract_pmids_and_generate_urls(text: Any) -> list:
     return pubmed_urls
 
 
-def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -> tuple:
+def perform_analysis(job_type: str, row: dict, config: Config, relationship_type: str) -> tuple:
+    logger = config.logger
     if relationship_type == "A_B_C":
         b_term = row.get("b_term", "")
         a_term = row.get("a_term", "")
@@ -176,17 +177,17 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
     # Define URLs based on relationship type
     if relationship_type == "A_B_C":
         urls = {
-            "AB": extract_pmids_and_generate_urls(ab_abstracts) if ab_abstracts else [],
-            "BC": extract_pmids_and_generate_urls(bc_abstracts) if bc_abstracts else [],
+            "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
+            "BC": extract_pmids_and_generate_urls(bc_abstracts, config) if bc_abstracts else [],
             # Exclude AC URLs from ABC section
         }
     elif relationship_type == "A_C":
         urls = {
-            "AC": extract_pmids_and_generate_urls(ac_abstracts) if ac_abstracts else [],
+            "AC": extract_pmids_and_generate_urls(ac_abstracts, config) if ac_abstracts else [],
         }
     elif relationship_type == "A_B":
         urls = {
-            "AB": extract_pmids_and_generate_urls(ab_abstracts) if ab_abstracts else [],
+            "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
         }
 
     # Conditions for early exit based on abstracts availability
@@ -218,7 +219,7 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
         consolidated_abstracts = ab_abstracts
 
     try:
-        result, prompt_text = analyze_abstract_with_gpt4(
+        result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=row.get("b_term", ""),
             c_term=c_term,
@@ -233,20 +234,21 @@ def perform_analysis(job_type: str, row: dict, config, relationship_type: str) -
         return ["Score: N/A"], "", urls
 
 
-def analyze_abstract_with_gpt4(
+def analyze_abstract_with_frontier_LLM(
     a_term: str,
     b_term: str,
     c_term: str,
     consolidated_abstracts: str,
     job_type: str,
-    config,
+    config: Config,
     relationship_type: str,
 ) -> tuple:
+    logger = config.logger
     if not a_term:
         logger.error("A term is empty.")
         return [], ""
 
-    api_key = config.api_key or os.getenv("OPENAI_API_KEY")
+    api_key = config.secrets["OPENAI_API_KEY"]
     if not api_key:
         raise ValueError("OpenAI API key is not set.")
 
@@ -282,10 +284,11 @@ def generate_prompt(
     b_term: str,
     c_term: str,
     content: str,
-    config,
+    config: Config,
     relationship_type: str,
 ) -> str:
-    job_type_lower = job_type.lower()
+    logger = config.logger
+    job_type_lower = job_type.lower()   
 
     # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":
@@ -350,15 +353,15 @@ def generate_prompt(
         raise ValueError("Invalid relationship type specified.")
 
 
-def call_openai(client, prompt, config):
+def call_openai(client, prompt, config: Config):
+    logger = config.logger
     retry_delay = config.global_settings["RETRY_DELAY"]
     max_retries = config.global_settings["MAX_RETRIES"]
-    model = config.global_settings["MODEL"]
 
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model=model,
+                model=config.model,
                 messages=[
                     {"role": "user", "content": prompt},
                 ],

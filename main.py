@@ -1,10 +1,7 @@
-import argparse
-import src.skim_and_km_api as skim
 from datetime import datetime
 from functools import partial
 from src.eval_JSON_results import extract_and_write_scores
 import shutil
-import json
 import itertools
 import multiprocessing
 from src.jobs import main_workflow
@@ -12,124 +9,33 @@ from glob import glob
 import sys
 import os
 import time
-from src.utils import Config, setup_logger
+from src.utils import Config
 from src.htcondor_helper import HTCondorHelper
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Initialize logger at the module level with no output directory yet
-logger = setup_logger()
-
-class Singleton(type):
-    def __init__(cls, name, bases, dict):
-        super(Singleton, cls).__init__(name, bases, dict)
-        cls.instance = None
-
-
-class GlobalClass(object):
-    __metaclass__ = Singleton
-    config_file = "y"
-
-    def __init__():
-        print(
-            "I am global and whenever attributes are added in one instance, any other instance will be affected as well."
-        )
 
 
 def initialize_workflow():
     global logger
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    base_output_dir = os.path.abspath("output")  # Make path absolute
+    base_output_dir = os.path.abspath("output")
     os.makedirs(base_output_dir, exist_ok=True)
     timestamp_dir_name = f"output_{timestamp}"
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
 
-    # Update logger with output directory
-    logger = setup_logger(output_directory)
-    logger.info(f"Initializing workflow in {output_directory}")
-
-    timestamp_output_path = timestamp_dir_name
-    shutil.copy(
-        GlobalClass.config_file,
-        os.path.join(output_directory, "config.json"),
-    )
-    config = get_config(output_directory)
-    assert config, "Configuration is empty or invalid"
-    return config, output_directory, timestamp_output_path
-
-
-def initialize_eval_workflow(tsv_dir):
-    global logger
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    base_output_dir = os.path.abspath("../relevance_tests")  # Make path absolute
-    os.makedirs(base_output_dir, exist_ok=True)
-    timestamp_dir_name = f"eval_{timestamp}"
-    output_directory = os.path.join(base_output_dir, timestamp_dir_name)
-    os.makedirs(output_directory, exist_ok=True)
-    
-    # Update logger with output directory
-    logger = setup_logger(output_directory)
-    logger.info(f"Initializing eval workflow in {output_directory}")
-    
-    # Copy config and input files
-    shutil.copy(
-        GlobalClass.config_file,
-        os.path.join(output_directory, "config.json"),
-    )
-    
-    generated_file_paths = []
-    for test_file in glob(f"{tsv_dir}/*.tsv"):
-        output_path = os.path.join(output_directory, os.path.basename(test_file))
-        shutil.copy2(test_file, output_path)
-        generated_file_paths.append(output_path)
-        
-    config = get_config(output_directory)
-    assert config, "Configuration is empty or invalid"
-    return config, output_directory, timestamp_dir_name, generated_file_paths
-
-
-def get_config(output_directory):
+    # Copy config to output directory
     config_path = os.path.join(output_directory, "config.json")
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    job_settings = config["JOB_SPECIFIC_SETTINGS"].get(config["JOB_TYPE"], {})
+    shutil.copy("config.json", config_path)
     
-    # Get API keys from environment variables
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise ValueError("OPENAI_API_KEY environment variable not set.")
-    config["API_KEY"] = api_key
-    
-    pubmed_api_key = os.getenv("PUBMED_API_KEY", "")
-    if not pubmed_api_key:
-        raise ValueError("PUBMED_API_KEY environment variable not set.")
-    config["PUBMED_API_KEY"] = pubmed_api_key
-    
-    htcondor_token = os.getenv("HTCONDOR_TOKEN", "")
-    if not htcondor_token:
-        raise ValueError("HTCONDOR_TOKEN environment variable not set.")
-    config["HTCONDOR"]["token"] = htcondor_token
-    
-    with open(os.path.join(output_directory, "config.json"), "w") as f:
-        json.dump(config, f, indent=4)
-    return config
+    # Initialize config first
+    config = Config(config_path)
+    logger = config.logger
 
+    logger.info(f"Initializing workflow in {output_directory}")
+    return config, output_directory, logger
 
-def write_to_json(data, file_path, output_directory):
-    full_path = os.path.join(output_directory, file_path)
-    try:
-        with open(full_path, "w", encoding='utf-8') as outfile:
-            json.dump(data, outfile, indent=4, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"Error writing JSON file {full_path}: {str(e)}")
-        raise
-
-
-def create_corrected_file_path(original_path):
-    file_name, file_extension = os.path.splitext(original_path)
-    new_path = f"{file_name}_corrected{file_extension}"
-    return new_path
 
 
 def organize_output(directory):
@@ -181,72 +87,89 @@ def organize_output(directory):
 
 
 def main():
-    global logger
     start_time = time.time()
-    logger.info("Main workflow started.")
-    parser = argparse.ArgumentParser("arg_parser")
-    parser.add_argument(
-        "-config",
-        "--config_file",
-        dest="config_file",
-        help="Config file. Default=config.json.",
-        default="config.json",
-        type=str,
-    )
-    parser.add_argument("-tsv_dir", default=None, type=str)
-    args = parser.parse_args()
-
-    GlobalClass.config_file = args.config_file
     
-    if not args.tsv_dir:
-        config, output_directory, timestamp_output_path = initialize_workflow()
+    # Initialize workflow and get config
+    config, output_directory, logger = initialize_workflow()
+    config.logger.info("Loading term lists...")
+    config._load_term_lists()
+
+    # Unified term handling for both job types
+    if config.job_type == "skim_with_gpt":
+        # Use original term paths without output directory modification
+        a_terms = config.a_terms
+        b_terms = config.b_terms
+        c_terms = config.c_terms
         
-        c_terms = skim.read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["C_TERMS_FILE"]
-        )
-        b_terms = skim.read_terms_from_file(
-            config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["B_TERMS_FILE"]
-        )
-        a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
-        if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERM_LIST"]:
-            a_terms = skim.read_terms_from_file(
-                config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["A_TERMS_FILE"]
-            )
-        if config["JOB_TYPE"] == "skim_with_gpt":
-            terms = list(itertools.product(a_terms, c_terms))
-            if config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"].get("position", False):
-                terms = list(zip(a_terms, b_terms, c_terms))
+        terms = []
+        if config.position:
+            # make sure the terms are the same length
+            if len(a_terms) != len(b_terms) or len(a_terms) != len(c_terms):
+                logger.error("A, B, and C terms must be the same length for positional mapping.")
+                return
+            # Positional mapping: A1-B1-C1, A2-B2-C2
+            for a, b, c in zip(a_terms, b_terms, c_terms):
+                terms.append({
+                    "a_term": a,
+                    "b_terms": [b],  # Single B term
+                    "c_term": c
+                })
         else:
-            a_terms = [config["GLOBAL_SETTINGS"]["A_TERM"]]
-            if config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERM_LIST"]:
-                a_terms = skim.read_terms_from_file(
-                    config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["A_TERMS_FILE"]
-                )
-            terms = a_terms
-        workflow = partial(
-            main_workflow, config, output_directory, timestamp_output_path
-        )
-        with multiprocessing.Pool() as p:
-            generated_file_paths = p.map(workflow, terms)
+            # Cartesian product: A×C with all B terms
+            for a, c in itertools.product(a_terms, c_terms):
+                terms.append({
+                    "a_term": a,
+                    "b_terms": b_terms,  # All B terms
+                    "c_term": c
+                })
     else:
-        config, output_directory, timestamp_output_path, generated_file_paths = (
-            initialize_eval_workflow(args.tsv_dir)
-        )
+        # KM workflow
+        if config.position:
+            # make sure the terms are the same length
+            if len(a_terms) != len(b_terms):
+                logger.error("A and B terms must be the same length for positional mapping.")
+                return
+            # Pair A terms with B terms by index (A1-B1, A2-B2)
+            terms = [
+                {
+                    "a_term": a_term,
+                    "b_terms": [b_term]  # Single B term per A term
+                }
+                for a_term, b_term in zip(config.a_terms, config.b_terms)
+            ]
+        else:
+            # Original behavior: All B terms for each A term
+            terms = [
+                {
+                    "a_term": a_term,
+                    "b_terms": config.b_terms
+                }
+                for a_term in config.a_terms
+            ]
+
+    # Maintain the parallel execution pattern
+    workflow = partial(
+        main_workflow,
+        output_dir=output_directory,
+        config=config
+    )
+
+    with multiprocessing.Pool() as p:
+        generated_file_paths = p.map(workflow, terms)
+
     
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Main workflow completed in {elapsed_time:.2f} seconds.")
-
-    # Use HTCondor for job processing
-    if not config.get("HTCONDOR"):
+    if not config.using_htcondor:
         logger.error("HTCONDOR configuration is required but not found in config file.")
         return
 
-    htcondor_helper = HTCondorHelper(config["HTCONDOR"])
+    htcondor_helper = HTCondorHelper(config)
 
     try:
         # Create src directory in output directory
-        output_src_dir = os.path.join(output_directory, "src")
+        output_src_dir = os.path.join(output_directory, "src")  
         os.makedirs(output_src_dir, exist_ok=True)
         
         # Ensure we're working with absolute paths
