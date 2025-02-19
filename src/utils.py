@@ -254,41 +254,41 @@ class Config:
         return logger
 
 
-def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
-    """
-    Read the first file path from files.txt and load that TSV into a pandas DataFrame.
+    def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
+        """
+        Read the first file path from files.txt and load that TSV into a pandas DataFrame.
 
-    Args:
-        files_txt_path: Path to the files.txt file.
+        Args:
+            files_txt_path: Path to the files.txt file.
 
-    Returns:
-        pandas.DataFrame: DataFrame loaded from the first TSV file listed in files.txt.
-                          Returns an empty DataFrame if files.txt is empty or file not found.
-    """
-    try:
-        with open(files_txt_path, "r") as f:
-            file_paths = [line.strip() for line in f.readlines() if line.strip()]
-            
-            if len(file_paths) > 1:
-                logging.error(f"Multiple files detected in {files_txt_path}")
-                return pd.DataFrame()
-            
-            if not file_paths:
-                logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
-            
-            first_file_path = file_paths[0] if file_paths else ""
+        Returns:
+            pandas.DataFrame: DataFrame loaded from the first TSV file listed in files.txt.
+                            Returns an empty DataFrame if files.txt is empty or file not found.
+        """
+        try:
+            with open(files_txt_path, "r") as f:
+                file_paths = [line.strip() for line in f.readlines() if line.strip()]
+                
+                if len(file_paths) > 1:
+                    logging.error(f"Multiple files detected in {files_txt_path}")
+                    return pd.DataFrame()
+                
+                if not file_paths:
+                    logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                    return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
+                
+                first_file_path = file_paths[0] if file_paths else ""
 
-    except FileNotFoundError:
-        logging.error(f"{files_txt_path} not found.")
-        return pd.DataFrame()  # Return empty DataFrame if files.txt not found
+        except FileNotFoundError:
+            logging.error(f"{files_txt_path} not found.")
+            return pd.DataFrame()  # Return empty DataFrame if files.txt not found
 
-    try:
-        return pd.read_csv(first_file_path, sep="\t")
-    
-    except FileNotFoundError:
-        logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-        return pd.DataFrame() # Return empty DataFrame if TSV file not found
+        try:
+            return pd.read_csv(first_file_path, sep="\t")
+        
+        except FileNotFoundError:
+            logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
+            return pd.DataFrame() # Return empty DataFrame if TSV file not found
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
