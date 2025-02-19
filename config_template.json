@@ -22,7 +22,8 @@
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
-        "RETRY_DELAY": 5
+        "RETRY_DELAY": 5,
+        "LOG_LEVEL": "INFO"
     },
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
@@ -64,7 +65,7 @@
             "NUM_B_TERMS": 20000,
             "C_TERMS_FILE": "../input_lists/exercise3/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
-            "skim": {
+            "skim_with_gpt": {
                 "ab_fet_threshold": 0.1,
                 "bc_fet_threshold": 0.5,
                 "censor_year": 2024,

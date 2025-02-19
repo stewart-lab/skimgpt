@@ -1,21 +1,22 @@
 from Bio import Entrez
-from src.utils import setup_logger
+from src.utils import Config
 import time
 import re
 from typing import List, Dict, Any
-
-logger = setup_logger()
+import tiktoken
 
 class PubMedFetcher:
-    def __init__(self, email: str, api_key: str, max_retries: int = 10, backoff_factor: float = 0.5):
+    def __init__(self, config: Config, email: str, api_key: str, max_retries: int = 10, backoff_factor: float = 0.5):
         """Initialize PubMed fetcher with credentials and retry settings."""
+        self.config = config  # Store Config instance
+        self.logger = config.logger
         self.email = email
         self.api_key = api_key
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.pmid_years = {}  # Store PMID -> Year mapping
         self._setup_entrez()
-        logger.info("PubMedFetcher initialized")
+        self.logger.info("PubMedFetcher initialized")  # Use config's logger
 
     def _setup_entrez(self):
         """Configure Entrez with credentials."""
@@ -30,7 +31,7 @@ class PubMedFetcher:
             if pmid_str.isdigit() and len(pmid_str) > 0:
                 valid_pmids.append(pmid_str)
             else:
-                logger.warning(f"Invalid PMID detected and skipped: {pmid}")
+                self.logger.warning(f"Invalid PMID detected and skipped: {pmid}")
         return valid_pmids
 
     def _batch_pmids(self, pmids: List[str], batch_size: int = 200) -> List[List[str]]:
@@ -68,7 +69,7 @@ class PubMedFetcher:
         # Default to "0000" if no year found
         if not pub_year:
             pmid = str(paper["MedlineCitation"]["PMID"])
-            logger.warning(f"No publication year found for PMID {pmid}")
+            self.logger.warning(f"No publication year found for PMID {pmid}")
             pub_year = "0000"
             
         return pub_year
@@ -106,20 +107,20 @@ class PubMedFetcher:
                 }
 
             except Exception as e:
-                logger.error(f"Attempt {attempt} - Error fetching abstracts for batch: {e}")
+                self.logger.error(f"Attempt {attempt} - Error fetching abstracts for batch: {e}")
                 if attempt < self.max_retries:
                     sleep_time = self.backoff_factor * (2 ** (attempt - 1))
-                    logger.info(f"Retrying after {sleep_time} seconds...")
+                    self.logger.info(f"Retrying after {sleep_time} seconds...")
                     time.sleep(sleep_time)
                 else:
-                    logger.error("Max retries reached for batch. Skipping.")
+                    self.logger.error("Max retries reached for batch. Skipping.")
                     return {}
 
     def fetch_abstracts(self, pmids: List[str]) -> Dict[str, str]:
         """Fetch abstracts for a list of PMIDs."""
         pmids = self.validate_pmids(pmids)
         if not pmids:
-            logger.error("No valid PMIDs to fetch.")
+            self.logger.error("No valid PMIDs to fetch.")
             return {}
 
         batches = self._batch_pmids(pmids)
@@ -132,9 +133,9 @@ class PubMedFetcher:
             time.sleep(0.34)  # Rate limiting
 
         if not abstract_dict:
-            logger.error("No abstracts fetched successfully.")
+            self.logger.error("No abstracts fetched successfully.")
         else:
-            logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
+            self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
 
         return abstract_dict
 
@@ -158,13 +159,13 @@ class PubMedFetcher:
         # Keep original order (most cited)
         original_entries = entries.copy()
 
-        logger.debug("Original order (most cited):")
+        self.logger.debug("Original order (most cited):")
         for entry in original_entries[:3]:  # Show first 3 for brevity
             pmid_match = re.search(r"PMID: (\d+)", entry)
             if pmid_match:
                 pmid = pmid_match.group(1)
                 year = self.pmid_years.get(pmid, 0)
-                logger.debug(f"PMID: {pmid}, Year: {year}")
+                self.logger.debug(f"PMID: {pmid}, Year: {year}")
 
         # Create year-sorted version
         entries_with_years = []
@@ -178,7 +179,7 @@ class PubMedFetcher:
         # Sort by year (newest first)
         year_sorted_entries = [entry for _, entry in sorted(entries_with_years, key=lambda x: x[0], reverse=True)]
         
-        logger.debug("\nYear-sorted order (most recent):")
+        self.logger.debug("\nYear-sorted order (most recent):")
         pmids_logged = []
         for entry in year_sorted_entries[:15]:  # Show first 3 for brevity
             pmid_match = re.search(r"PMID: (\d+)", entry)
@@ -186,28 +187,28 @@ class PubMedFetcher:
                 pmid = pmid_match.group(1)
                 year = self.pmid_years.get(pmid, 0)
                 if pmid not in pmids_logged:
-                    logger.debug(f"PMID: {pmid}, Year: {year}")
+                    self.logger.debug(f"PMID: {pmid}, Year: {year}")
                 pmids_logged.append(pmid)
         # If n is specified, limit both lists before interleaving
         if n is not None:
-            original_entries = original_entries[:n]
-            year_sorted_entries = year_sorted_entries[:n]
-            logger.debug(f"\nLimiting to top {n} entries from each list")
+            original_entries = original_entries[:n//2]
+            year_sorted_entries = year_sorted_entries[:n//2]
+            self.logger.debug(f"\nLimiting to top {n} entries from each list")
         # Handle special cases
         if top_n_most_cited == 0 and top_n_most_recent > 0:
             # Only return most recent
             result = year_sorted_entries
-            logger.debug(f"Returning only {n} most recent entries")
+            self.logger.debug(f"Returning only {n} most recent entries")
         
         elif top_n_most_recent == 0 and top_n_most_cited > 0:
             # Only return most cited
             result = original_entries
-            logger.debug(f"Returning only {n} most cited entries")
+            self.logger.debug(f"Returning only {n} most cited entries")
         
         else:
             # Calculate interleaving ratio
             ratio = top_n_most_cited / top_n_most_recent if top_n_most_recent > 0 else float('inf')
-            logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
+            self.logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
 
             # Interleave based on ratio
             result = []
@@ -287,9 +288,9 @@ class PubMedFetcher:
                 if cited_idx >= len(original_entries) and recent_idx >= len(year_sorted_entries):
                     break
 
-            logger.debug(f"Cited entries used: {cited_idx}, Recent entries used: {recent_idx}")
-            logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
-        logger.debug(f"Final interleaved list contains {len(result)} entries")
+            self.logger.debug(f"Cited entries used: {cited_idx}, Recent entries used: {recent_idx}")
+            self.logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
+            self.logger.debug(f"Final interleaved list contains {len(result)} entries")
             
         return "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
 
@@ -311,10 +312,9 @@ class PubMedFetcher:
             return ""
         
         try:
-            import tiktoken
             encoding = tiktoken.get_encoding(encoding_name)
         except ImportError:
-            logger.error("tiktoken not installed. Required for token counting.")
+            self.logger.error("tiktoken not installed. Required for token counting.")
             return text
         
         # Adjust max_tokens based on number of intersections

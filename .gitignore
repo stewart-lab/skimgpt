@@ -14,3 +14,5 @@ src/__pycache__/scoring_guidelines.cpython-311.pyc
 src/__pycache__/skim_and_km_api.cpython-311.pyc
 relevance_tests
 config.json
+input_lists
+

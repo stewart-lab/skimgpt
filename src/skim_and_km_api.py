@@ -3,34 +3,22 @@ import pandas as pd
 import requests
 import time
 import ast
-import logging
-from src.utils import setup_logger
+from src.utils import Config
 
-# Get the centralized logger instance
-logger = setup_logger()
-
-# File Operations
-def read_terms_from_file(filename):
-    """Read terms from a given file and return them as a list."""
-    with open(filename, "r") as f:
-        terms = [line.strip() for line in f]
-        # Remove empty strings from the list
-        terms = list(filter(None, terms))
-    return terms
-
-
-def save_to_tsv(data, filename, output_directory):
+def save_to_tsv(data, filename, output_directory, config: Config):
     """Save the data into a TSV (Tab Separated Values) file."""
     full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
     df.to_csv(full_path, sep="\t", index=False)
-    logger.info(f"Data saved to {full_path}")
+    config.logger.info(f"Data saved to {full_path}")
 
 
 # API Calls
 class APIClient:
-    def __init__(self, username="username", password="password"):
+    def __init__(self, username="username", password="password", config=None):
         self.auth = (username, password)
+        self.config = config
+        self.logger = config.logger
 
     def post_api_request(self, url, payload):
         """Send a POST request to the API and return the JSON response."""
@@ -44,7 +32,7 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
-    def wait_for_job_completion(self, url, job_id):
+    def wait_for_job_completion(self, url, job_id):         
         """Wait for an API job to complete and return the result."""
         start_time = time.time()
         last_report_time = start_time
@@ -57,11 +45,11 @@ class APIClient:
                 current_time = time.time()
                 if current_time - last_report_time >= 300:  # 5 minutes
                     elapsed = int((current_time - start_time) / 60)
-                    logging.info(f"Job status after {elapsed} minutes: {status}")
+                    self.logger.info(f"Job status after {elapsed} minutes: {status}")
                     last_report_time = current_time
 
                 if status == "finished":
-                    logging.info("Job completed successfully")
+                    self.logger.info("Job completed successfully")
                     return response_json.get("result")
                 elif status == "failed":
                     raise AssertionError(f"Job failed with status: {status}")
@@ -71,7 +59,7 @@ class APIClient:
                     raise ValueError(f"Unknown job status: {status}")
 
             except Exception as e:
-                logging.error(f"API request failed: {e}")
+                self.logger.error(f"API request failed: {e}")
                 time.sleep(5)
 
     def run_api_query(self, payload, url):
@@ -82,41 +70,43 @@ class APIClient:
 
 
 def run_and_save_query(
-    job_type, a_term, c_terms, b_terms=None, config=None, output_directory=None
-):
-    job_config = configure_job(job_type, a_term, c_terms, b_terms, config)
-    api_url = config["GLOBAL_SETTINGS"].get("API_URL", "")
-    assert api_url, "'API_URL' is not defined in the configuration"
-
-    api_client = APIClient()
+    config: Config,
+    job_type: str,
+    a_term: str,
+    b_terms: list[str],
+    c_terms: list[str],
+    output_directory: str,
+) -> str:
+    job_config = configure_job(
+        config,
+        job_type,
+        a_term,
+        c_terms,
+        b_terms
+    )
+    api_url = config.km_api_url 
+    config.logger.debug(f"Running API query for {job_type} with a_term: {a_term}, b_terms: {b_terms}, c_terms: {c_terms}")
+    config.logger.debug(f"Job config: {job_config}")
+    api_client = APIClient(config=config)
     result = api_client.run_api_query(job_config, api_url)
 
     if not result:
-        logging.warning("API query returned no results.")
+        config.logger.warning("API query returned no results.")
         return None
 
     result_df = pd.DataFrame(result)
 
-    if job_type == "skim_with_gpt":
+    if config.is_skim_gpt:
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
     else:
         file_name = job_config["a_terms"][0]
 
     file_path = f"{job_type}_{file_name}_output.tsv"
-    save_to_tsv(result_df, file_path, output_directory)
+    save_to_tsv(result_df, file_path, output_directory, config)
     return file_path
 
 
 def filter_term_columns(df):
-    """
-    Filter the term columns by splitting on '|' and retaining the first element.
-
-    Args:
-        df (pd.DataFrame): DataFrame containing term columns.
-
-    Returns:
-        pd.DataFrame: Updated DataFrame with filtered term columns.
-    """
     for column in ["a_term", "b_term", "c_term"]:
         if column in df.columns:
             # Use .loc to explicitly set the values
@@ -126,41 +116,33 @@ def filter_term_columns(df):
     return df
 
 
-def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
-    """Configure a job based on the provided type and terms."""
-    assert config, "No configuration provided"
+def configure_job(config: Config, job_type, a_term, c_terms, b_terms=None):
+    # Fix: Ensure a_term is always a single string
+    if isinstance(a_term, list):
+        a_term = a_term[0]
 
     common_settings = {
-        "a_terms": [a_term],
+        "a_terms": [a_term],  # Wrap single string in list
         "return_pmids": True,
         "query_knowledge_graph": False,
-        "top_n_articles_most_cited": config["GLOBAL_SETTINGS"].get(
-            "TOP_N_ARTICLES_MOST_CITED", 50
-        ),
-        "top_n_articles_most_recent": config["GLOBAL_SETTINGS"].get(
-            "TOP_N_ARTICLES_MOST_RECENT", 50
-        ),
+        "top_n_articles_most_cited": config.top_n_articles_most_cited,
+        "top_n_articles_most_recent": config.top_n_articles_most_recent,
     }
 
-    job_specific_settings = {
-        "km_with_gpt": config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["km_with_gpt"],
-        "skim_with_gpt": config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]["skim"],
-    }.get(job_type)
-
+    # Get job-specific settings dynamically based on job_type
+    job_specific_settings = config.job_specific_settings.get(job_type)
     if not job_specific_settings:
-        job_specific_settings = config["JOB_SPECIFIC_SETTINGS"].get(job_type)
-        if not job_specific_settings:
-            raise ValueError(f"Invalid or unsupported job type: {job_type}")
+        raise ValueError(f"Missing JOB_SPECIFIC_SETTINGS for {job_type} in config")
 
-    if job_type in ["skim", "skim_with_gpt"]:
+    if config.is_skim_gpt:
         return {
             **common_settings,
             **job_specific_settings,
             "b_terms": b_terms,
             "c_terms": c_terms,
         }
-    elif job_type == "km_with_gpt":
-        return {**common_settings, **job_specific_settings, "b_terms": c_terms}
+    elif not config.is_skim_gpt:
+        return {**common_settings, **job_specific_settings, "b_terms": b_terms}
     else:
         raise ValueError(f"Invalid job type: {job_type}")
 
@@ -168,29 +150,14 @@ def configure_job(job_type, a_term, c_terms, b_terms=None, config=None):
 def process_query_results(
     job_type: str,
     df: pd.DataFrame,
-    config: dict,
-    output_directory: str,
+    config: Config,
     sort_column_default: str,
     intersection_columns: list,
     filter_condition: callable,
 ) -> pd.DataFrame:
-    """
-    Processes query results by sorting, parsing intersection columns, and filtering valid rows.
 
-    Args:
-        job_type (str): Type of the job (e.g., 'km_with_gpt', 'skim_with_gpt').
-        df (pd.DataFrame): DataFrame containing the query results.
-        config (dict): Configuration dictionary.
-        output_directory (str): Directory to save output files.
-        sort_column_default (str): Default sort column if not specified in config.
-        intersection_columns (list): List of intersection columns to parse.
-        filter_condition (callable): Function to determine valid rows.
-
-    Returns:
-        pd.DataFrame: Filtered DataFrame with valid rows.
-    """
-    # Determine sort column from config or use default
-    sort_column = config["JOB_SPECIFIC_SETTINGS"][job_type].get(
+    # Access config properties through object attributes
+    sort_column = config.job_specific_settings.get(
         "SORT_COLUMN", sort_column_default
     )
     if sort_column not in df.columns:
@@ -230,20 +197,9 @@ def save_filtered_results(
     valid_rows: pd.DataFrame,
     skim_df: pd.DataFrame,
     output_directory: str,
+    config: Config
 ) -> str:
-    """
-    Save the filtered results and handle no_results.txt.
 
-    Args:
-        job_type (str): Type of the job ('km_with_gpt' or 'skim_with_gpt').
-        skim_file_path (str): Path to the original skim file.
-        valid_rows (pd.DataFrame): DataFrame with valid rows.
-        skim_df (pd.DataFrame): Original skim DataFrame before filtering.
-        output_directory (str): Directory to save output files.
-
-    Returns:
-        str: Path to the filtered results file.
-    """
     # Define the path for the filtered results
     filtered_file_path = os.path.join(
         output_directory,
@@ -252,7 +208,7 @@ def save_filtered_results(
 
     # Save the filtered results
     valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
-    logger.info(f"Filtered {job_type} query results saved to {filtered_file_path}")
+    config.logger.debug(f"Filtered {job_type} query results saved to {filtered_file_path}")
 
     # Identify removed rows
     removed_rows = skim_df[~skim_df.index.isin(valid_rows.index)].copy()
@@ -261,7 +217,7 @@ def save_filtered_results(
         # Extract relevant columns based on job type
         columns_to_extract = (
             ["a_term", "b_term", "c_term"]
-            if job_type == "skim_with_gpt"
+            if config.is_skim_gpt
             else ["a_term", "b_term"]
         )
         no_results_df = removed_rows[columns_to_extract]
@@ -272,75 +228,45 @@ def save_filtered_results(
         # Write the no_results to the file
         no_results_df.to_csv(no_results_file_path, sep="\t", index=False, header=True)
 
-        logger.info(f"No-result entries saved to {no_results_file_path}")
+        config.logger.debug(f"No-result entries saved to {no_results_file_path}")
     else:
-        logger.info(
+        config.logger.debug(
             f"All {job_type} queries returned results. No entries to write to no_results.txt."
         )
 
     return filtered_file_path
 
 
-def read_terms_from_file_with_retry(filename, max_retries=3, delay=1):
-    """
-    Read terms from a file with retry mechanism.
+def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
+    """Process one A term with ALL B terms in a single API call"""
+    a_term = term["a_term"]
+    b_terms = term["b_terms"]  # Full list of B terms
     
-    Args:
-        filename (str): Path to the file
-        max_retries (int): Maximum number of retry attempts
-        delay (float): Delay between retries in seconds
-    """
-    for attempt in range(max_retries):
-        try:
-            if os.path.exists(filename):
-                with open(filename, "r") as f:
-                    terms = [line.strip() for line in f]
-                    terms = list(filter(None, terms))
-                    if terms:
-                        logger.debug(f"Successfully read {len(terms)} terms from {filename}")
-                        return terms
-            
-            if attempt < max_retries - 1:
-                logger.warning(f"Attempt {attempt + 1}: File {filename} empty or not ready, retrying in {delay} seconds...")
-                time.sleep(delay)
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                logger.warning(f"Attempt {attempt + 1}: Error reading {filename}: {e}, retrying in {delay} seconds...")
-                time.sleep(delay)
-            
-    raise ValueError(f"Failed to read terms from {filename} after {max_retries} attempts")
+    # Add suffix if configured
+    if config.global_settings.get("A_TERM_SUFFIX"):
+        a_term += config.global_settings["A_TERM_SUFFIX"]
 
-
-def km_with_gpt_workflow(config=None, output_directory=None):
-    """
-    Execute the KM workflow.
-    """
-    assert config, "No configuration provided"
-    a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
-    assert a_term, "A_TERM is not defined in the configuration"
-
-    if config["GLOBAL_SETTINGS"].get("A_TERM_SUFFIX"):
-        a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
-        a_term = f"{a_term}{a_term_suffix}"
-
-    logger.info("Executing KM workflow...")
-    logger.debug("Reading terms from files...")
-
-    b_terms_file = config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["B_TERMS_FILE"]
-    logger.debug(f"Reading B terms from file: {b_terms_file}")
-    b_terms = read_terms_from_file_with_retry(b_terms_file)
-    assert b_terms, "B_TERMS_FILE is empty or not defined in the configuration"
-
-    logger.info(f"Running and saving KM query for a_term: {a_term}...")
+    config.logger.info(f"Processing A term: {a_term} with {len(b_terms)} B terms")
+    
+    # Single API call with all B terms
     km_file_path = run_and_save_query(
-        "km_with_gpt", a_term, b_terms, config=config, output_directory=output_directory
+        config=config,
+        job_type=config.job_type,
+        a_term=a_term,
+        b_terms=b_terms,  # Pass all B terms
+        c_terms=[],
+        output_directory=output_directory
     )
+
+    # Add null check before path manipulation
+    if km_file_path is None:
+        config.logger.error("KM query failed to generate valid file path")
+        return None
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
 
     if not os.path.exists(full_km_file_path) or os.path.getsize(full_km_file_path) <= 1:
-        logger.warning(
+        config.logger.warning(
             "KM results are empty. Returning None to indicate no KM results."
         )
         return None
@@ -366,11 +292,12 @@ def km_with_gpt_workflow(config=None, output_directory=None):
         valid_rows=valid_rows,
         skim_df=km_df,
         output_directory=output_directory,
+        config=config
     )
 
     # Check if there are valid results to return
     if valid_rows.empty:
-        logger.warning(
+        config.logger.warning(
             "No KM results after filtering. Returning None to indicate no KM results."
         )
         return None
@@ -378,53 +305,26 @@ def km_with_gpt_workflow(config=None, output_directory=None):
     return filtered_file_path
 
 
-def skim_with_gpt_workflow(config, output_directory):
-    """
-    Run the SKIM workflow.
-    """
-    assert config, "No configuration provided"
-    a_term = config["GLOBAL_SETTINGS"].get("A_TERM", "")
-    assert a_term, "A_TERM is not defined in the configuration"
+def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
+    """Process Skim combination with proper B terms handling"""
+    a_term = term["a_term"]
+    c_term = term["c_term"]
+    b_terms = term["b_terms"]  # Could be single or multiple based on position
 
-    if config["GLOBAL_SETTINGS"].get("A_TERM_SUFFIX"):
-        a_term_suffix = config["GLOBAL_SETTINGS"]["A_TERM_SUFFIX"]
-        a_term = f"{a_term}{a_term_suffix}"
+    # Add suffix if configured
+    if config.global_settings.get("A_TERM_SUFFIX"):
+        a_term += config.global_settings["A_TERM_SUFFIX"]
 
-    logger.info("Executing SKIM workflow...")
+    config.logger.info(f"Processing Skim combination: {a_term} with {len(b_terms)} B terms and {c_term}")
 
-    # Add error checking for B_TERMS_FILE configuration
-    if "skim_with_gpt" not in config["JOB_SPECIFIC_SETTINGS"]:
-        raise KeyError("'skim_with_gpt' section missing from JOB_SPECIFIC_SETTINGS")
-    
-    skim_config = config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]
-    if "B_TERMS_FILE" not in skim_config:
-        raise KeyError("B_TERMS_FILE not defined in skim_with_gpt configuration")
-    
-    b_terms_file = skim_config["B_TERMS_FILE"]
-    c_terms_file = skim_config["C_TERMS_FILE"]
-
-    logger.debug(f"Reading B terms from file: {b_terms_file}")
-    logger.debug(f"Reading C terms from file: {c_terms_file}")
-    
-    b_terms = read_terms_from_file_with_retry(b_terms_file)
-    c_terms = read_terms_from_file_with_retry(c_terms_file)
-
-    if not b_terms:
-        logger.error(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
-        raise ValueError(f"B_TERMS_FILE '{b_terms_file}' is empty or could not be read")
-    
-    if not c_terms:
-        logger.error(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
-        raise ValueError(f"C_TERMS_FILE '{c_terms_file}' is empty or could not be read")
-
-    logger.info(f"Running and saving SKIM query for a_term: {a_term}...")
+    # Single API call with all relevant B terms
     skim_file_path = run_and_save_query(
-        "skim_with_gpt",
-        a_term,
-        c_terms,  # c_terms is passed as the third argument
-        b_terms,  # b_terms is passed as the fourth argument
         config=config,
-        output_directory=output_directory,
+        job_type=config.job_type,
+        a_term=a_term,
+        b_terms=b_terms,
+        c_terms=[c_term],
+        output_directory=output_directory
     )
 
     full_skim_file_path = os.path.join(output_directory, skim_file_path)
@@ -433,7 +333,7 @@ def skim_with_gpt_workflow(config, output_directory):
         not os.path.exists(full_skim_file_path)
         or os.path.getsize(full_skim_file_path) <= 1
     ):
-        logger.warning(
+        config.logger.warning(
             "SKIM results are empty. Returning None to indicate no SKIM results."
         )
         return None
@@ -443,10 +343,9 @@ def skim_with_gpt_workflow(config, output_directory):
 
     # Process the DataFrame
     valid_rows = process_query_results(
-        job_type="skim_with_gpt",
+        job_type=config.job_type,
         df=skim_df,
         config=config,
-        output_directory=output_directory,
         sort_column_default="bc_sort_ratio",
         intersection_columns=["ab_pmid_intersection", "bc_pmid_intersection"],
         filter_condition=lambda df: (
@@ -457,16 +356,17 @@ def skim_with_gpt_workflow(config, output_directory):
 
     # Save filtered results and handle no_results.txt
     filtered_file_path = save_filtered_results(
-        job_type="skim_with_gpt",
+        job_type=config.job_type,
         skim_file_path=skim_file_path,
         valid_rows=valid_rows,
         skim_df=skim_df,
         output_directory=output_directory,
+        config=config
     )
 
     # Check if there are valid results to return
     if valid_rows.empty:
-        logger.warning(
+        config.logger.warning(
             "No SKIM results after filtering. Returning None to indicate no SKIM results."
         )
         return None

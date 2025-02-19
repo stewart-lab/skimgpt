@@ -3,9 +3,7 @@ import numpy as np
 import pandas as pd
 import json
 import os
-import logging
-from typing import Optional
-
+import logging  
 
 class RaggedTensor:
     def __init__(self, data, break_point=[]):
@@ -119,33 +117,33 @@ class RaggedTensor:
 
 
 class Config:
-    def __init__(self, args: dict):
-        # Load configuration from a JSON file
-        with open(args.config, "r") as config_file:
+    def __init__(self, config_path: str):
+        self.job_config_path = config_path
+        
+        # First load config file
+        with open(self.job_config_path, "r") as config_file:
             self.job_config = json.load(config_file)
-
-        # Load data from a TSV file
-        self.data = read_tsv_to_dataframe_from_files_txt(args.km_output)
-
-        # Access global settings directly from the loaded JSON
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
+        
+        # Initialize logger EARLY
+        self.log_level_str = self.global_settings.get("LOG_LEVEL", "INFO").upper()
+        self.logger = self.setup_logger()  # Initialize logger before secrets handling
 
-        # Define output paths and ensure directories exist
-        self.km_output_dir = os.path.dirname(args.km_output)
-        self.km_output_base_name = os.path.splitext(os.path.basename(args.km_output))[0]
-        if not os.path.exists(self.km_output_dir) and self.km_output_dir != "":
-            os.makedirs(self.km_output_dir)
+        # Now handle secrets
+        self.secrets_path = os.path.join(os.path.dirname(config_path), "secrets.json")
+        if not os.path.exists(self.secrets_path):
+            self.create_secrets_file()
+            
+        self.secrets = self.load_secrets()
+        self.validate_secrets()
 
-        self.filtered_tsv_name = os.path.join(
-            self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv"
-        )
-        self.debug_tsv_name = os.path.join(
-            self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
-        )
+        # Rest of initialization...
+        self.km_output_dir = None
+        self.km_output_base_name = None
+        self.filtered_tsv_name = None
+        self.debug_tsv_name = None
 
-        # Hypotheses and job settings
-        self.api_key = self.job_config["API_KEY"]
-        self.pubmed_api_key = self.job_config["PUBMED_API_KEY"]
+        # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
@@ -158,13 +156,56 @@ class Config:
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
+        
+        # Add API configuration
+        self.km_api_url = self.global_settings["API_URL"]
+        self.model = self.global_settings["MODEL"]
+        self.rate_limit = self.global_settings["RATE_LIMIT"]
+        self.delay = self.global_settings["DELAY"]
+        self.max_retries = self.global_settings["MAX_RETRIES"]
+        self.retry_delay = self.global_settings["RETRY_DELAY"]
+        
+        # Add HTCondor configuration
+        self.htcondor_config = self.job_config.get("HTCONDOR", {})
+        
+        # Add abstract filter configuration
+        self.temperature = self.filter_config["TEMPERATURE"]
+        self.top_k = self.filter_config["TOP_K"]
+        self.top_p = self.filter_config["TOP_P"]
+        self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
+        
+        # Add HTCondor configuration validation
+        self._validate_htcondor_config()
+        
+    def load_km_output(self, km_output_path: str):
+        """Load TSV data and configure output paths when km_output is available"""
+        self.data = self.read_tsv_to_dataframe_from_files_txt(km_output_path)
+        
+        # Configure output paths
+        self.km_output_dir = os.path.dirname(km_output_path)
+        self.km_output_base_name = os.path.splitext(os.path.basename(km_output_path))[0]
+        if not os.path.exists(self.km_output_dir) and self.km_output_dir != "":
+            os.makedirs(self.km_output_dir)
 
+        self.filtered_tsv_name = os.path.join(
+            self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv"
+        )
+        self.debug_tsv_name = os.path.join(
+            self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
+        )
+
+        # Add file handler now that we have output directory
+        self.add_file_handler()
+        
+        # Validate data columns
+        self._validate_data_columns()
+
+    def _validate_data_columns(self):
         # Additional checks for specific configurations
         self.has_ac = (
             "ac_pmid_intersection" in self.data.columns
             and len(self.data["ac_pmid_intersection"].value_counts()) > 0
         )
-        self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
 
         print(f"Job type detected. Running {self.job_type}.")
         if self.is_skim_gpt:
@@ -181,56 +222,37 @@ class Config:
         assert "a_term" in self.data.columns, "Input TSV must have an a_term."
         assert "b_term" in self.data.columns, "Input TSV must have a b_term."
 
+    def add_file_handler(self):
+        """Add file handler to logger after output directory is known"""
+        if self.km_output_dir:
+            log_file = os.path.join(self.km_output_dir, "workflow.log")
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(logging.Formatter(
+                '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            self.logger.addHandler(file_handler)
 
-def setup_logger(output_directory: Optional[str] = None, logger_name: str = "SKiM-GPT") -> logging.Logger:
-    """Configure centralized logging for SKiM-GPT"""
-    logger = logging.getLogger(logger_name)
-    
-    # Prevent propagation to root logger
-    logger.propagate = False
-    
-    # If logger already has handlers, assume it's configured
-    if logger.handlers:
-        # If output directory is provided, add file handler if not already present
-        if output_directory:
-            has_file_handler = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
-            if not has_file_handler:
-                log_file = os.path.join(output_directory, "workflow.log")
-                file_handler = logging.FileHandler(log_file)
-                file_handler.setFormatter(logging.Formatter(
-                    '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S'
-                ))
-                logger.addHandler(file_handler)
+    def setup_logger(self) -> logging.Logger:
+        """Configure console logging initially"""
+        logger = logging.getLogger("SKiM-GPT")
+        logger.setLevel(getattr(logging, self.log_level_str, logging.INFO))
+        logger.propagate = False
+        
+        # Clear existing handlers
+        if logger.handlers:
+            logger.handlers = []
+
+        # Console handler only initially
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        ))
+        logger.addHandler(console_handler)
+        
         return logger
 
-    # If no handlers exist, set up logging from scratch
-    logger.setLevel(logging.INFO)
-
-    # Create formatter
-    formatter = logging.Formatter(
-        '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # File handler (if output directory is provided)
-    if output_directory:
-        log_file = os.path.join(output_directory, "workflow.log")
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    return logger
-
-# Extra func: To remove
-def read_tsv_to_dataframe(file_path: str) -> pd.DataFrame:
-    """Read a TSV file into a pandas DataFrame."""
-    return pd.read_csv(file_path, sep="\t")
 
 def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
     """
@@ -267,3 +289,181 @@ def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
     except FileNotFoundError:
         logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
         return pd.DataFrame() # Return empty DataFrame if TSV file not found
+
+    def _load_term_lists(self):
+        """Load appropriate term lists based on job configuration"""
+        if self.is_skim_gpt:
+            self._load_skim_terms()
+        elif not self.is_skim_gpt:
+            self._load_km_terms()
+        else:
+            raise ValueError(f"Unknown job type: {self.job_type}")
+
+    def _load_skim_terms(self):
+        job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]
+        self.logger.info(f"Loading skim terms for {self.job_type}")
+        self.logger.info(f"Job settings: {job_settings}")
+        
+        self.position = job_settings["position"]
+        
+        # Load C terms
+        c_terms_file = job_settings["C_TERMS_FILE"]
+        self.c_terms = self._read_terms_from_file(c_terms_file)
+        
+        # Load B terms
+        b_terms_file = job_settings["B_TERMS_FILE"]
+        self.b_terms = self._read_terms_from_file(b_terms_file)
+
+        # Load A terms
+        if job_settings.get("A_TERM_LIST", False):
+            a_terms_file = job_settings["A_TERMS_FILE"]
+            self.a_terms = self._read_terms_from_file(a_terms_file)
+        else:
+            self.a_terms = [self.global_settings["A_TERM"]]
+
+    def _load_km_terms(self):
+        """Load terms for km_with_gpt job type"""
+        job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]
+        self.position = job_settings["position"]
+        
+        # Load A terms
+        if job_settings.get("A_TERM_LIST", False):
+            a_terms_file = job_settings["A_TERMS_FILE"]
+            self.a_terms = self._read_terms_from_file(a_terms_file)
+        else:
+            self.a_terms = [self.global_settings["A_TERM"]]
+
+        # Load B terms for KM workflow
+        b_terms_file = job_settings["B_TERMS_FILE"]
+        self.b_terms = self._read_terms_from_file(b_terms_file)
+
+    def _read_terms_from_file(self, file_path: str) -> list:
+        """Read terms from a text file (one term per line)"""
+        try:
+            with open(file_path, "r") as f:
+                terms = [line.strip() for line in f if line.strip()]
+                self.logger.info(f"Read {len(terms)} terms from {file_path}")
+                return terms
+        except FileNotFoundError:
+            self.logger.error(f"Terms file not found: {file_path}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Error reading terms file {file_path}: {str(e)}")
+            raise
+
+    @property
+    def job_specific_settings(self):
+        return self.job_config["JOB_SPECIFIC_SETTINGS"][self.job_type]
+
+    @property
+    def sort_column(self):
+        return self.job_specific_settings.get("SORT_COLUMN", "ab_sort_ratio")
+
+    @property
+    def fet_thresholds(self):
+        if self.job_type == "skim_with_gpt":
+            return {
+                "ab": self.job_specific_settings["skim"]["ab_fet_threshold"],
+                "bc": self.job_specific_settings["skim"]["bc_fet_threshold"]
+            }
+        return {
+            "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
+        }
+
+    @property
+    def censor_year(self):
+        return self.job_specific_settings.get("censor_year", 2024)
+
+    def _validate_htcondor_config(self):
+        """Validate required HTCondor settings"""
+        if not self.htcondor_config:
+            self.logger.warning("No HTCondor configuration found in config file")
+            return
+            
+        required_keys = [
+            "collector_host", 
+            "submit_host",
+            "docker_image",
+            "request_gpus",
+            "request_cpus",
+            "request_memory",
+            "request_disk"
+        ]
+        
+        missing = [key for key in required_keys if key not in self.htcondor_config]
+        if missing:
+            raise ValueError(f"Missing required HTCondor config keys: {', '.join(missing)}")
+
+    @property
+    def using_htcondor(self):
+        """Check if HTCondor configuration is present and valid"""
+        return bool(self.htcondor_config) and all([
+            self.collector_host,
+            self.submit_host,
+            self.docker_image
+        ])
+
+    @property
+    def collector_host(self):
+        return self.htcondor_config.get("collector_host")
+
+    @property
+    def submit_host(self):
+        return self.htcondor_config.get("submit_host")
+
+    @property
+    def docker_image(self):
+        return self.htcondor_config.get("docker_image")
+
+    @property
+    def request_gpus(self):
+        return self.htcondor_config.get("request_gpus", "1")
+
+    @property
+    def request_cpus(self):
+        return self.htcondor_config.get("request_cpus", "1")
+
+    @property
+    def request_memory(self):
+        return self.htcondor_config.get("request_memory", "24GB")
+
+    @property
+    def request_disk(self):
+        return self.htcondor_config.get("request_disk", "50GB")
+
+    def create_secrets_file(self):
+        """Create secrets.json from environment variables if missing"""
+        secrets = {
+            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
+            "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
+            "HTCONDOR_TOKEN": os.getenv("HTCONDOR_TOKEN")
+        }
+        
+        missing = [k for k, v in secrets.items() if not v]
+        if missing:
+            raise ValueError(
+                f"Cannot create secrets.json - missing environment variables: {', '.join(missing)}"
+            )
+            
+        with open(self.secrets_path, "w") as f:
+            json.dump(secrets, f, indent=2)
+            
+        os.chmod(self.secrets_path, 0o600)  # Restrict permissions
+        self.logger.info(f"Created secrets file at {self.secrets_path}")
+
+    def load_secrets(self) -> dict:
+        """Load secrets from JSON file"""
+        try:
+            with open(self.secrets_path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            raise RuntimeError(f"Secrets file missing at {self.secrets_path}")
+        except json.JSONDecodeError:
+            raise RuntimeError(f"Invalid JSON format in {self.secrets_path}")
+
+    def validate_secrets(self):
+        """Validate required secrets exist"""
+        required = ["OPENAI_API_KEY", "PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        missing = [key for key in required if not self.secrets.get(key)]
+        if missing:
+            raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")   

@@ -2,30 +2,24 @@ from __future__ import annotations
 import pandas as pd
 import vllm
 import argparse
-from src.utils import Config, RaggedTensor, setup_logger
+from src.utils import Config, RaggedTensor
 from itertools import chain
-from typing import List, Dict, Any
 import time
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
 import socket
 
 
-# Initialize the centralized logger
-logger = setup_logger()
-
 
 def getHypothesis(
-    config, a_term: str = None, b_term: str = None, c_term: str = None
+    config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
-    job_type = config.get("JOB_TYPE", "").lower()
-
-    if job_type == "km_with_gpt":
+    if not config.is_skim_gpt:
         assert a_term and b_term and not c_term
-        hypothesis_template = config.get("KM_hypothesis", "")
+        hypothesis_template = config.km_hypothesis
         return hypothesis_template.format(a_term=a_term, b_term=b_term)
 
-    elif job_type == "skim_with_gpt":
+    elif config.is_skim_gpt:
         assert (
             (a_term and b_term and not c_term)
             or (b_term and c_term and not a_term)
@@ -33,13 +27,13 @@ def getHypothesis(
         )
 
         if a_term and b_term and not c_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("AB")
+            hypothesis_template = config.skim_hypotheses.get("AB")
             return hypothesis_template.format(a_term=a_term, b_term=b_term)
         elif b_term and c_term and not a_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("BC")
+            hypothesis_template = config.skim_hypotheses.get("BC")
             return hypothesis_template.format(b_term=b_term, c_term=c_term)
         elif a_term and c_term and not b_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("rel_AC")
+            hypothesis_template = config.skim_hypotheses.get("rel_AC")
             return hypothesis_template.format(a_term=a_term, c_term=c_term)
 
     return "No valid hypothesis for the provided JOB_TYPE."
@@ -103,6 +97,7 @@ def postProcess(
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
     """Process dataframe with optimizations and filtering."""
+    logger = config.logger
     columns_to_process = [col for col in [
         "ab_pmid_intersection",
         "bc_pmid_intersection",
@@ -133,6 +128,7 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
 
 
 def process_results(out_df: pd.DataFrame, config: Config) -> None:
+    logger = config.logger
     """Process results and write to JSON files."""
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
@@ -160,6 +156,26 @@ def process_results(out_df: pd.DataFrame, config: Config) -> None:
 
 
 def main():
+    # Parse arguments FIRST
+    parser = argparse.ArgumentParser(description="Mistral7B Inference")
+    parser.add_argument(
+        "--km_output",
+        type=str,
+        required=True,
+        help="Tsv file to run relevance filtering on.",
+    )
+    parser.add_argument(
+        "--config", type=str, required=True, help="Config file for kmGPT run."
+    )
+    parser.add_argument(
+        "--secrets", type=str, required=True, help="Secrets file for kmGPT run."
+    )  
+    args = parser.parse_args()
+    
+    # THEN create Config
+    config = Config(args.config)  # Pass config path from arguments
+    logger = config.logger
+    config.load_km_output(args.km_output)   
     start_time = time.time()
     logger.info("Starting relevance analysis...")
     
@@ -172,31 +188,18 @@ def main():
         logger.error(f"Python DNS resolution test: Failed to resolve '{host}'. Error: {e}")
         raise  # Re-raise the exception to stop script execution
 
-    parser = argparse.ArgumentParser(description="Mistral7B Inference")
-    parser.add_argument(
-        "--km_output",
-        type=str,
-        required=True,
-        help="Tsv file to run relevance filtering on.",
-    )
-    parser.add_argument(
-        "--config", type=str, required=True, help="Config file for kmGPT run."
-    )
-    args = parser.parse_args()
-    
-    config = Config(args)
-    logger.info(f"Loaded configuration from {args.config}")
-    
     out_df = config.data.copy(deep=True)
     logger.debug(f"Working with dataframe of shape {out_df.shape}")
 
     # Initialize PubMedFetcher
     pubmed_fetcher = PubMedFetcher(
+        config=config,
         email="jfreeman@morgridge.org",
-        api_key=config.job_config.get("PUBMED_API_KEY", ""),
-        max_retries=config.job_config.get("GLOBAL_SETTINGS", {}).get("MAX_RETRIES", 3),
+        api_key=config.secrets["PUBMED_API_KEY"],
+        max_retries=config.global_settings.get("MAX_RETRIES", 3),
         backoff_factor=0.5
     )
+
     logger.info("Initialized PubMedFetcher")
     
     # Process each row individually
@@ -218,6 +221,7 @@ def main():
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
     ab_hypotheses = RaggedTensor(ab_hypotheses)
+
     all_pmids = ab_pmids.flatten()
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
@@ -294,7 +298,6 @@ def main():
 
     # Final processing and output
     out_df = process_dataframe(out_df, config, pubmed_fetcher)
-    logger.info("Completed dataframe processing")
     output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
     out_df.to_csv(output_file, sep="\t")
     logger.info(f"Saved processed data to {output_file}")
