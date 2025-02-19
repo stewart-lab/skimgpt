@@ -10,12 +10,12 @@ def save_to_tsv(data, filename, output_directory, config: Config):
     full_path = os.path.join(output_directory, filename)
     df = pd.DataFrame(data)
     df.to_csv(full_path, sep="\t", index=False)
-    config.logger.info(f"Data saved to {full_path}")
+    config.logger.debug(f"Data saved to {full_path}")
 
 
 # API Calls
 class APIClient:
-    def __init__(self, username="username", password="password", config=None):
+    def __init__(self, config: Config, username="username", password="password"):
         self.auth = (username, password)
         self.config = config
         self.logger = config.logger

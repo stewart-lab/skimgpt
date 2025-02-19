@@ -121,7 +121,6 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
             out_df[column] = out_df[column].apply(
                 lambda x: pubmed_fetcher.interleave_abstracts(x, config.post_n, config.top_n_articles_most_cited, config.top_n_articles_most_recent)
             )
-    #def interleave_abstracts(self, text: str, n: int = None, top_n_most_cited: int = 0, top_n_most_recent: int = 0) -> str:
 
     out_df = calculate_relevance_ratios(out_df)
     return out_df
@@ -215,7 +214,7 @@ def main():
         ab_pmids.append(pmids)
         
         # Generate hypothesis for this specific pair
-        hypothesis = getHypothesis(config.job_config, a_term=a_term, b_term=b_term)
+        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
         ab_hypotheses.append(hypothesis)
 
     # Convert to RaggedTensor format
@@ -240,14 +239,14 @@ def main():
             # Process BC terms
             bc_pmid_list = eval(row['bc_pmid_intersection'])
             bc_pmids.append(bc_pmid_list)
-            bc_hypothesis = getHypothesis(config.job_config, c_term=c_term, b_term=b_term)
+            bc_hypothesis = getHypothesis(config=config, c_term=c_term, b_term=b_term)
             bc_hypotheses.append(bc_hypothesis)
             
             # Process AC terms if available
             if config.has_ac and 'ac_pmid_intersection' in row:
                 ac_pmid_list = eval(row['ac_pmid_intersection'])
                 ac_pmids.append(ac_pmid_list)
-                ac_hypothesis = getHypothesis(config.job_config, a_term=a_term, c_term=c_term)
+                ac_hypothesis = getHypothesis(config=config, a_term=a_term, c_term=c_term)
                 ac_hypotheses.append(ac_hypothesis)
 
         # Convert to RaggedTensor format and add to all_pmids/hypotheses
@@ -293,7 +292,7 @@ def main():
         )
         if config.has_ac:
             postProcess(
-                config, ac_outputs, ac_abstracts, ac_hypothesis, out_df, "ac", ac_pmids.shape  # Removed the list brackets
+                config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape 
             )
 
     # Final processing and output

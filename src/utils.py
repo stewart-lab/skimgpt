@@ -120,16 +120,15 @@ class Config:
     def __init__(self, config_path: str):
         self.job_config_path = config_path
         
-        # First load config file
         with open(self.job_config_path, "r") as config_file:
             self.job_config = json.load(config_file)
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
         
-        # Initialize logger EARLY
+  
         self.log_level_str = self.global_settings.get("LOG_LEVEL", "INFO").upper()
-        self.logger = self.setup_logger()  # Initialize logger before secrets handling
+        self.logger = self.setup_logger()
 
-        # Now handle secrets
+
         self.secrets_path = os.path.join(os.path.dirname(config_path), "secrets.json")
         if not os.path.exists(self.secrets_path):
             self.create_secrets_file()
@@ -137,7 +136,6 @@ class Config:
         self.secrets = self.load_secrets()
         self.validate_secrets()
 
-        # Rest of initialization...
         self.km_output_dir = None
         self.km_output_base_name = None
         self.filtered_tsv_name = None
@@ -253,7 +251,7 @@ class Config:
         
         return logger
 
-
+    @staticmethod
     def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
         """
         Read the first file path from files.txt and load that TSV into a pandas DataFrame.
@@ -271,24 +269,24 @@ class Config:
                 
                 if len(file_paths) > 1:
                     logging.error(f"Multiple files detected in {files_txt_path}")
-                    return pd.DataFrame()
+                    raise ValueError(f"Multiple files detected in {files_txt_path}")
                 
                 if not file_paths:
                     logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                    return pd.DataFrame()  # Return empty DataFrame if files.txt is empty
+                    raise ValueError(f"{files_txt_path} is empty. Returning empty DataFrame.")
                 
                 first_file_path = file_paths[0] if file_paths else ""
 
         except FileNotFoundError:
             logging.error(f"{files_txt_path} not found.")
-            return pd.DataFrame()  # Return empty DataFrame if files.txt not found
+            raise ValueError(f"{files_txt_path} not found.")
 
         try:
             return pd.read_csv(first_file_path, sep="\t")
         
         except FileNotFoundError:
             logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-            return pd.DataFrame() # Return empty DataFrame if TSV file not found
+            raise ValueError(f"File path '{first_file_path}' from {files_txt_path} not found.")
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
@@ -301,8 +299,8 @@ class Config:
 
     def _load_skim_terms(self):
         job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]
-        self.logger.info(f"Loading skim terms for {self.job_type}")
-        self.logger.info(f"Job settings: {job_settings}")
+        self.logger.debug(f"Loading skim terms for {self.job_type}")
+        self.logger.debug(f"Job settings: {job_settings}")
         
         self.position = job_settings["position"]
         
@@ -342,7 +340,7 @@ class Config:
         try:
             with open(file_path, "r") as f:
                 terms = [line.strip() for line in f if line.strip()]
-                self.logger.info(f"Read {len(terms)} terms from {file_path}")
+                self.logger.debug(f"Read {len(terms)} terms from {file_path}")
                 return terms
         except FileNotFoundError:
             self.logger.error(f"Terms file not found: {file_path}")

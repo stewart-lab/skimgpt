@@ -1,5 +1,3 @@
-# /w5home/jfreeman/kmGPT/src/classifier.py
-import os
 import openai
 import time
 import json
@@ -40,33 +38,17 @@ def calculate_relevance_ratios(out_df):
 
 
 def process_single_row(row, config: Config):
-    job_type = config.job_type
     logger = config.logger
-    if job_type not in [
-        "km_with_gpt",
-        "position_km_with_gpt",
-        "skim_with_gpt",
-    ]:
-        logger.error("Invalid job type (caught in process_single_row)")
-        return None
 
-    # Initialize the result dictionary
     processed_results = {}
 
-    if job_type == "skim_with_gpt":
-        # Ensure all three terms are present
+    if config.is_skim_gpt:
         a_term = row.get("a_term")
         b_term = row.get("b_term")
         c_term = row.get("c_term")
-        if not all([a_term, b_term, c_term]):
-            logger.error(
-                f"Missing one or more terms in row {row.get('id', 'Unknown')}."
-            )
-            return None
 
-        # Process A-B-C relationship
         abc_result, abc_prompt, abc_urls = perform_analysis(
-            job_type=job_type, row=row, config=config, relationship_type="A_B_C"
+            job_type=config.job_type, row=row, config=config, relationship_type="A_B_C"
         )
         if abc_result or abc_prompt:
             processed_results["A_B_C_Relationship"] = {
@@ -76,13 +58,11 @@ def process_single_row(row, config: Config):
                 "URLS": {
                     "AB": abc_urls.get("AB", []),
                     "BC": abc_urls.get("BC", []),
-                    # Exclude AC URLs from ABC section
                 },
             }
 
-        # Process A-C relationship using 'skim_with_gpt_ac' prompt
         ac_result, ac_prompt, ac_urls = perform_analysis(
-            job_type=job_type, row=row, config=config, relationship_type="A_C"
+            job_type=config.job_type, row=row, config=config, relationship_type="A_C"
         )
         if ac_result or ac_prompt:
             processed_results["A_C_Relationship"] = {
@@ -94,7 +74,7 @@ def process_single_row(row, config: Config):
                 },
             }
 
-    elif job_type == "km_with_gpt":
+    elif config.job_type == "km_with_gpt":
         # Handle km_with_gpt job type
         a_term = row.get("a_term")
         b_term = row.get("b_term")
@@ -107,7 +87,7 @@ def process_single_row(row, config: Config):
 
         # Process A-B relationship
         ab_result, ab_prompt, ab_urls = perform_analysis(
-            job_type=job_type, row=row, config=config, relationship_type="A_B"
+            job_type=config.job_type, row=row, config=config, relationship_type="A_B"
         )
         if ab_result or ab_prompt:
             processed_results["A_B_Relationship"] = {
@@ -120,8 +100,7 @@ def process_single_row(row, config: Config):
             }
 
     else:
-        # Existing logic for other job types can be added here
-        logger.warning(f"Job type '{job_type}' is not specifically handled.")
+        logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
 
     return processed_results if any(processed_results.values()) else None
 

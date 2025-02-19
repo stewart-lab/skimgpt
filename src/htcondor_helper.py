@@ -53,11 +53,9 @@ class HTCondorHelper:
             self.logger.error(f"Failed to setup HTCondor connection: {e}")
             raise
 
-    def submit_jobs(self, files_txt_path: str, output_directory: str) -> int:
+    def submit_jobs(self, files_txt_path: str) -> int:
         """Submit jobs to HTCondor using files.txt"""
         try:
-            # Get absolute paths
-            abs_output_dir = os.path.abspath(output_directory)
             abs_files_txt = os.path.abspath(files_txt_path)
             
             # Read the files list

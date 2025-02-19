@@ -1,8 +1,4 @@
 import src.skim_and_km_api as skim
-import copy
-import sys
-import os
-from src.utils import Config
 
 def main_workflow(combination, output_dir, config):
     try:

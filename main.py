@@ -186,8 +186,8 @@ def main():
                     flattened_file_paths.append(os.path.abspath(item))
         
         if not flattened_file_paths:
-            logger.warning("No files to process")
-            return
+            logger.error("No files to process")
+            raise ValueError("No files to process")
 
         # Create files.txt for HTCondor queue
         files_txt_path = os.path.join(output_directory, "files.txt")
@@ -235,7 +235,7 @@ def main():
 
         # Copy necessary files to output directory
         src_dir = os.path.join(os.getcwd(), "src")
-        for file in ["run.sh", "run.sub", "relevance.py"]:
+        for file in ["run.sh", "relevance.py"]:
             src_path = os.path.abspath(os.path.join(src_dir, file))
             dst_path = os.path.join(output_directory, file)
             if os.path.exists(src_path):
@@ -265,7 +265,7 @@ def main():
         original_dir = os.getcwd()
         os.chdir(output_directory)
         try:
-            cluster_id = htcondor_helper.submit_jobs(files_txt_path, output_directory)
+            cluster_id = htcondor_helper.submit_jobs(files_txt_path)
             logger.info(f"Jobs submitted with cluster ID {cluster_id}")
 
             # Monitor jobs
