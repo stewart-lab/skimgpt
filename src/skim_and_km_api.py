@@ -276,10 +276,9 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
 
     # Process the DataFrame
     valid_rows = process_query_results(
-        job_type="km_with_gpt",
+        job_type=config.job_type,
         df=km_df,
         config=config,
-        output_directory=output_directory,
         sort_column_default="ab_sort_ratio",
         intersection_columns=["ab_pmid_intersection"],
         filter_condition=lambda df: df["ab_pmid_intersection"].apply(len) > 0,
@@ -287,7 +286,7 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
 
     # Save filtered results and handle no_results.txt
     filtered_file_path = save_filtered_results(
-        job_type="km_with_gpt",
+        job_type=config.job_type,
         skim_file_path=km_file_path,
         valid_rows=valid_rows,
         skim_df=km_df,
