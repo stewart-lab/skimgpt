@@ -8,20 +8,28 @@ from src import prompt_library as prompts_module
 
 
 
-def write_to_json(data, file_path):
+def write_to_json(data, file_path, config: Config):
+    logger = config.logger
+    # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
+    file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
+    logger.debug(f" IN WRITE TO JSON   File path: {file_path}")
     with open(file_path, "w") as outfile:
         json.dump(data, outfile, indent=4)
 
 
-def calculate_relevance_ratios(out_df):
+def calculate_relevance_ratios(out_df, config: Config):
+    logger = config.logger
+    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Out df: {out_df}")
     mask_columns = ["ab_mask", "bc_mask", "ac_mask"]
-
+    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Mask columns: {mask_columns}")
+    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Out df columns: {out_df.columns}")
     for col in mask_columns:
         if col in out_df.columns:
             prefix = col.split("_")[0]
             ratio_col = f"{prefix}_relevance_ratio"
             fraction_col = f"{prefix}_relevance_fraction"
-
+            logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Ratio col: {ratio_col}")
+            logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Fraction col: {fraction_col}")
             out_df[[ratio_col, fraction_col]] = (
                 out_df[col]
                 .apply(
@@ -42,7 +50,7 @@ def process_single_row(row, config: Config):
 
     processed_results = {}
 
-    if config.is_skim_gpt:
+    if config.is_skim_with_gpt:
         a_term = row.get("a_term")
         b_term = row.get("b_term")
         c_term = row.get("c_term")
@@ -98,10 +106,43 @@ def process_single_row(row, config: Config):
                     "AB": ab_urls.get("AB", []),
                 },
             }
+    elif config.is_km_with_gpt_direct_comp:
+         # Handle km_with_gpt_direct_comp job type
+        logger.debug(f"Processing row: {row}")
+        logger.debug(f"Row type: {type(row)}")
+        logger.debug(f"Row keys: {row.keys()}")
 
+        a_term = row.get("a_term")
+        b_term = row.get("b_term")
+        logger.debug(f" IN PROCESS SINGLE ROW   B term: {b_term}")
+         # Remove brackets and split by comma
+        b_term_str = b_term.strip("[]")  # Remove brackets
+        b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespace
+        # Filter out any empty strings that might result from the split
+        b_term = [item for item in b_term_list if item]
+        assert len(b_term) == 2
+        b_term1 = b_term[0]
+        b_term2 = b_term[1] if len(b_term) > 1 else ""
+        logger.debug(f" IN PROCESS SINGLE ROW   B term1: {b_term1}")
+        logger.debug(f" IN PROCESS SINGLE ROW   B term2: {b_term2}")
+        ab_result, ab_prompt, ab_urls = perform_analysis(
+            job_type=config.job_type, row=row, config=config, relationship_type="A_B1_B2"
+        )
+        logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_Relationship: {ab_result}")
+        # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_Prompt: {ab_prompt}")
+        # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_URLS: {ab_urls}")
+        if ab_result or ab_prompt:
+            processed_results["A_B1_B2_Relationship"] = {
+                "Relationship": f"{a_term} - {b_term1} - {b_term2}",
+                "Result": ab_result,
+                "Prompt": ab_prompt,
+                "URLS": {
+                    "AB1B2": ab_urls.get("AB1B2", []),
+                },
+            }
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
-
+    logger.debug(f"Processed results: {processed_results}")
     return processed_results if any(processed_results.values()) else None
 
 
@@ -149,6 +190,15 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         ab_abstracts = row.get("ab_pmid_intersection", "")
         bc_abstracts = ""  # Not used
         ac_abstracts = ""  # Not used
+    elif relationship_type == "A_B1_B2":
+        a_term = row.get("a_term", "")
+        b_term = row.get("b_term", "")
+        b_term1 = b_term[0]
+        b_term2 = b_term[1]
+        ab_abstracts = row.get("ab_pmid_intersection", "")
+        bc_abstracts = ""  # Not used
+        ac_abstracts = ""  # Not used
+        c_term = ""  # Not used for A-B1-B2 relationship
     else:
         logger.error(f"Unknown relationship type: {relationship_type}")
         return ["Score: N/A"], "", {}
@@ -168,23 +218,27 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         urls = {
             "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
         }
+    elif relationship_type == "A_B1_B2":
+        urls = {
+            "AB1B2": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
+        }
 
     # Conditions for early exit based on abstracts availability
     if relationship_type == "A_B_C":
         if not ab_abstracts or not bc_abstracts:
-            logger.info(
+            logger.error(
                 f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ab_abstracts' or 'bc_abstracts'."
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_C":
         if not ac_abstracts:
-            logger.info(
+            logger.error(
                 f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
             )
             return ["Score: N/A"], "", urls
-    elif relationship_type == "A_B":
+    elif relationship_type == "A_B" or relationship_type == "A_B1_B2":
         if not ab_abstracts:
-            logger.info(
+            logger.error(
                 f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
             )
             return ["Score: N/A"], "", urls
@@ -194,10 +248,19 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         consolidated_abstracts = ab_abstracts + bc_abstracts
     elif relationship_type == "A_C":
         consolidated_abstracts = ac_abstracts
-    elif relationship_type == "A_B":
+    elif relationship_type == "A_B" or relationship_type == "A_B1_B2":
         consolidated_abstracts = ab_abstracts
 
     try:
+        logger.debug(f"Consolidated abstracts: {consolidated_abstracts}")
+        logger.debug(f"Job type: {job_type}")
+        logger.debug(f"Relationship type: {relationship_type}")
+        logger.debug(f"A term: {a_term}")
+        logger.debug(f"B term: {b_term}")
+        if relationship_type == "A_B1_B2":
+            logger.debug(f"B term1: {b_term1}")
+            logger.debug(f"B term2: {b_term2}")
+        logger.debug(f"C term: {c_term}")
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=row.get("b_term", ""),
@@ -207,6 +270,9 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
             config=config,
             relationship_type=relationship_type,
         )
+        logger.debug(f" IN ANALYZE ABSTRACT   Result: {result}")
+        logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
+        logger.debug(f" IN ANALYZE ABSTRACT   URLs: {urls}")
         return result, prompt_text, urls
     except Exception as e:
         logger.error(f"Error during analysis: {e}")
@@ -249,11 +315,11 @@ def analyze_abstract_with_frontier_LLM(
     if not prompt_text:
         logger.error("Failed to generate prompt.")
         return ["Score: N/A"], prompt_text
-
+    logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
     response = call_openai(openai_client, prompt_text, config)
     if response:
         responses.append(response)
-
+    logger.debug(f" IN ANALYZE ABSTRACT   Responses: {responses}")
     return responses, prompt_text
 
 
@@ -268,10 +334,25 @@ def generate_prompt(
 ) -> str:
     logger = config.logger
     job_type_lower = job_type.lower()   
-
+  
+    if job_type == "km_with_gpt_direct_comp":
+        # Remove brackets and split by comma
+        b_term_str = b_term.strip("[]")  # Remove brackets
+        b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespace
+        # Filter out any empty strings that might result from the split
+        b_term = [item for item in b_term_list if item]
+        assert len(b_term) == 2
+        b_term1 = b_term[0]
+        b_term2 = b_term[1]
+        logger.debug(f" IN GENERATE PROMPT   B term: {b_term}")
+        logger.debug(f" IN GENERATE PROMPT B term1: {b_term1}")
+        logger.debug(f" IN GENERATE PROMPT B term2: {b_term2}")
     # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
+    elif job_type == "km_with_gpt_direct_comp":
+        hypothesis_template = config.km_direct_comp_hypothesis.format(b_term1=b_term1, b_term2=b_term2, a_term=a_term)
+        logger.debug(f" IN GENERATE PROMPT   Hypothesis template: {hypothesis_template}")
     elif job_type == "skim_with_gpt":
         if relationship_type == "A_B_C":
             hypothesis_template = config.skim_hypotheses["ABC"].format(
@@ -325,6 +406,14 @@ def generate_prompt(
         return prompt_function(
             a_term=a_term,
             b_term=b_term,
+            hypothesis_template=hypothesis_template,
+            consolidated_abstracts=content,
+        )
+    elif relationship_type == "A_B1_B2":
+        return prompt_function(
+            a_term=a_term,
+            b_term1=b_term1,
+            b_term2=b_term2,
             hypothesis_template=hypothesis_template,
             consolidated_abstracts=content,
         )

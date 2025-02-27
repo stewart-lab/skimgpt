@@ -46,7 +46,7 @@ def organize_output(directory):
     os.makedirs(debug_dir, exist_ok=True)
     
     # Define patterns for result JSON files
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json"]
+    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
     
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -123,7 +123,7 @@ def main():
                     "b_terms": b_terms,  # All B terms
                     "c_term": c
                 })
-    else:
+    elif config.job_type == "km_with_gpt":
         # KM workflow
         if config.position:
             # make sure the terms are the same length
@@ -147,6 +147,15 @@ def main():
                 }
                 for a_term in config.a_terms
             ]
+    elif config.job_type == "km_with_gpt_direct_comp":
+        terms = [
+            {
+                "a_term": a_term,
+                "b_terms": config.b_terms
+            }
+            for a_term in config.a_terms
+        ]
+        logger.debug("TERMS in main:", terms)
 
     # Maintain the parallel execution pattern
     workflow = partial(

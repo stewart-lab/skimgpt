@@ -130,6 +130,18 @@ This configuration file contains various settings for different job types. Below
   - `censor_year`: Year for data censoring or time-slicing (e.g., `2024`).
   - `top_n`: Number of top items to consider after AB linkage (e.g., `300`).
 
+### km_with_gpt_direct_comp
+
+ - `position`: Boolean flag to consider positional data (e.g., `false`).
+ - `A_TERM_LIST`: Boolean to indicate if a list of `A` terms is used (e.g., `false`).
+ - `A_TERMS_FILE`: File path for the `A` terms list (e.g., `"../input_lists/test/km_a.txt"`).
+ - `B_TERMS_FILE`: File path for the `B` terms list (e.g., `"../input_lists/scrapie_b_terms_ProteinvsVI_directlyForNewCode.txt"`).
+ - `SORT_COLUMN`: Column used for sorting A-B relationships (e.g., `"ab_sort_ratio"`).
+ - `NUM_B_TERMS`: Number of `B` terms to consider (e.g., `25`).
+ - `km_with_gpt_direct_comp`:
+ - `ab_fet_threshold`: Fisher Exact Test threshold for A-B relationships (e.g., `1`).
+ - `censor_year`: Year for data censoring or time-slicing (e.g., `1990`).
+         
 This configuration is critical for tailoring the behavior of the system to specific job types and requirements. Ensure all file paths and parameters are correctly set before execution to avoid runtime errors.
 ## Contributions
 Feel free to contribute to this repository by submitting a pull request or opening an issue for suggestions and bugs.

@@ -57,6 +57,18 @@
                 "censor_year": 1980
             }
         },
+        "km_with_gpt_direct_comp": {
+            "position": false,
+            "A_TERM_LIST": false,
+            "A_TERMS_FILE": "./input_lists/test/km_a.txt",
+            "B_TERMS_FILE": "./input_lists/cervicalCancer_b_terms_HPVvsHSV_directlyForNewCode.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "NUM_B_TERMS": 25,
+            "km_with_gpt_direct_comp": {
+                "ab_fet_threshold": 1,
+                "censor_year": 1990
+            }
+        },
         "skim_with_gpt": {
             "position": true,
             "A_TERM_LIST": true,

@@ -8,7 +8,7 @@ def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
 Assessment Task:
 Evaluate the degree of support for the hypothesis, which posits a significant interaction between {a_term} and {b_term}. 
 The texts provided above come from PubMed and each abstract will include only {a_term} and {b_term}. 
-The texts need to be your only source of information for arriving at your classification result. If texts arent available, use what you know about {a_term} and {b_term} to make an educated guess.
+The texts need to be your only source of information for arriving at your classification result. 
 
 Hypothesis:
 {hypothesis_template}
@@ -26,6 +26,30 @@ Score: [Number] - Reasoning: [Reasoning]
 Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}"""
 
+def km_with_gpt_direct_comp(b_term1, b_term2, a_term, hypothesis_template, consolidated_abstracts):
+    return f"""Biomedical Abstracts for Analysis:
+{consolidated_abstracts}
+
+Assessment Task:
+Evaluate the degree of support for Hypothesis 1 compared to Hypothesis 2, which posits a significant interaction between {a_term} and {b_term1} or {b_term2}. 
+The texts provided above come from PubMed and each abstract will include only {a_term} and either {b_term1} or {b_term2}. 
+The texts need to be your only source of information for arriving at your classification result. 
+
+Hypothesis:
+{hypothesis_template}
+
+Instructions:
+1. Review each abstract to understand how {a_term} and {b_term1} or {b_term2} might be interconnected based on the available information.
+2. Analyze the presence and implications of the term pairing ({a_term} + {b_term1} or {b_term2}) in the context of the hypothesis.
+3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+
+Format your response as:
+Score: [Number] - Reasoning: [Reasoning]
+
+Scoring Guidelines:
+{sg.cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2)}"""
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
     return f"""Biomedical Abstracts for Analysis:
