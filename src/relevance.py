@@ -91,7 +91,8 @@ def postProcess(
             out_df[f"{terms}_cot"] = cot.data
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
-    # Simply assign the data without multiplication
+
+    out_df[f"{terms}_mask"] = answer_masks.data
     out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
 
