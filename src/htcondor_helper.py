@@ -113,6 +113,7 @@ class HTCondorHelper:
             with htcondor.SecMan() as sess:
                 sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
                 while True:
+                    self.logger.debug(f"Querying status for cluster {cluster_id}")
                     ads = self.schedd.query(
                         constraint=f"ClusterId == {cluster_id}",
                         projection=["ProcID", "JobStatus"]
@@ -130,8 +131,43 @@ class HTCondorHelper:
                     # Retrieve output files every minute
                     self.logger.info(f"Attempting to retrieve intermediate output files for cluster {cluster_id}")
                     try:
-                        self.schedd.retrieve(f"ClusterId == {cluster_id}")
-                        self.logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
+                        # Add timeout to prevent hanging
+                        retrieve_start = time.time()
+                        self.logger.debug(f"Starting retrieve operation at {retrieve_start}")
+                        
+                        # Set a timeout for the retrieve operation
+                        max_retrieve_time = 60  # 60 seconds timeout
+                        
+                        # Use a separate thread for the retrieve operation
+                        import threading
+                        retrieve_success = [False]
+                        retrieve_error = [None]
+                        
+                        def retrieve_thread():
+                            try:
+                                self.schedd.retrieve(f"ClusterId == {cluster_id}")
+                                retrieve_success[0] = True
+                            except Exception as e:
+                                retrieve_error[0] = e
+                        
+                        thread = threading.Thread(target=retrieve_thread)
+                        thread.daemon = True
+                        thread.start()
+                        
+                        # Wait for the thread with timeout
+                        thread.join(max_retrieve_time)
+                        
+                        if thread.is_alive():
+                            self.logger.warning(f"Retrieve operation timed out after {max_retrieve_time} seconds")
+                            # Continue with monitoring even if retrieve times out
+                        elif retrieve_success[0]:
+                            self.logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
+                        else:
+                            self.logger.warning(f"Failed to retrieve intermediate output files: {retrieve_error[0]}")
+                            
+                        retrieve_end = time.time()
+                        self.logger.debug(f"Retrieve operation took {retrieve_end - retrieve_start:.2f} seconds")
+                        
                     except Exception as retrieve_err:
                         self.logger.warning(f"Warning: Failed to retrieve intermediate output files: {retrieve_err}")
                     
@@ -151,10 +187,11 @@ class HTCondorHelper:
                                          for k, v in status_counts.items())
                     self.logger.info(f"Cluster {cluster_id} status: {status_msg}")
                     
+                    self.logger.debug(f"Sleeping for {check_interval} seconds before next check")
                     time.sleep(check_interval)
 
         except Exception as e:
-            self.logger.error(f"Error monitoring jobs: {e}")
+            self.logger.error(f"Error monitoring jobs: {e}", exc_info=True)
             raise
 
     def retrieve_output(self, cluster_id: int):

@@ -229,7 +229,7 @@ class Config:
             log_file = os.path.join(self.km_output_dir, "workflow.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             ))
             self.logger.addHandler(file_handler)
@@ -244,12 +244,15 @@ class Config:
         if logger.handlers:
             logger.handlers = []
 
+        # Define a more detailed formatter that includes function and file information
+        detailed_formatter = logging.Formatter(
+            '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
         # Console handler only initially
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        ))
+        console_handler.setFormatter(detailed_formatter)
         logger.addHandler(console_handler)
         
         return logger

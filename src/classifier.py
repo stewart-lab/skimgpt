@@ -178,6 +178,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
     elif relationship_type == "A_C":
         a_term = row.get("a_term", "")
         c_term = row.get("c_term", "")
+        b_term = ""  # Initialize b_term for A_C relationship
 
         ab_abstracts = ""  # Not used for A-C relationship
         bc_abstracts = ""  # Not used for A-C relationship
