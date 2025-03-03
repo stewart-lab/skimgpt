@@ -1,6 +1,7 @@
 {
     "JOB_TYPE": "",
     "KM_hypothesis": "",
+    "KM_direct_comp_hypothesis": "",
     "SKIM_hypotheses": {
         "BC": "",
         "AB": "",
@@ -17,6 +18,7 @@
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
         "MODEL": "o1-preview",
+        "REASONING_EFFORT": "medium",
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
         "RATE_LIMIT": 3,

@@ -229,7 +229,7 @@ class Config:
             log_file = os.path.join(self.km_output_dir, "workflow.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             ))
             self.logger.addHandler(file_handler)
@@ -244,12 +244,15 @@ class Config:
         if logger.handlers:
             logger.handlers = []
 
+        # Define a more detailed formatter that includes function and file information
+        detailed_formatter = logging.Formatter(
+            '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
         # Console handler only initially
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        ))
+        console_handler.setFormatter(detailed_formatter)
         logger.addHandler(console_handler)
         
         return logger
@@ -271,25 +274,25 @@ class Config:
                 file_paths = [line.strip() for line in f.readlines() if line.strip()]
                 
                 if len(file_paths) > 1:
-                    logging.error(f"Multiple files detected in {files_txt_path}")
-                    raise ValueError(f"Multiple files detected in {files_txt_path}")
+                    logging.error(f"Multiple files detected in {files_txt_path}: {file_paths}")
+                    return pd.DataFrame()
                 
                 if not file_paths:
                     logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                    raise ValueError(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                    return pd.DataFrame()
                 
                 first_file_path = file_paths[0] if file_paths else ""
 
         except FileNotFoundError:
             logging.error(f"{files_txt_path} not found.")
-            raise ValueError(f"{files_txt_path} not found.")
+            return pd.DataFrame()
 
         try:
             return pd.read_csv(first_file_path, sep="\t")
         
         except FileNotFoundError:
             logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-            raise ValueError(f"File path '{first_file_path}' from {files_txt_path} not found.")
+            return pd.DataFrame()
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""

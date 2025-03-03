@@ -192,8 +192,15 @@ class PubMedFetcher:
                 pmids_logged.append(pmid)
         # If n is specified, limit both lists before interleaving
         if n is not None:
-            original_entries = original_entries[:n//2]
-            year_sorted_entries = year_sorted_entries[:n//2]
+            # Handle odd numbers properly by using integer division and ceiling
+            half_n = n // 2
+            # If n is odd, give the extra item to the original (citation-based) entries
+            if n % 2 != 0:
+                original_entries = original_entries[:half_n + 1]
+                year_sorted_entries = year_sorted_entries[:half_n]
+            else:
+                original_entries = original_entries[:half_n]
+                year_sorted_entries = year_sorted_entries[:half_n]
             self.logger.debug(f"\nLimiting to top {n} entries from each list")
         # Handle special cases
         if top_n_most_cited == 0 and top_n_most_recent > 0:

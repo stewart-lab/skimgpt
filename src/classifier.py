@@ -178,6 +178,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
     elif relationship_type == "A_C":
         a_term = row.get("a_term", "")
         c_term = row.get("c_term", "")
+        b_term = ""  # Initialize b_term for A_C relationship
 
         ab_abstracts = ""  # Not used for A-C relationship
         bc_abstracts = ""  # Not used for A-C relationship
@@ -261,9 +262,10 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
             logger.debug(f"B term1: {b_term1}")
             logger.debug(f"B term2: {b_term2}")
         logger.debug(f"C term: {c_term}")
+        b_term = row.get("b_term", "")
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
-            b_term=row.get("b_term", ""),
+            b_term=b_term,
             c_term=c_term,
             consolidated_abstracts=consolidated_abstracts,
             job_type=job_type,
@@ -272,6 +274,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         )
         logger.debug(f" IN ANALYZE ABSTRACT   Result: {result}")
         logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
+        logger.debug(f" IN ANALYZE ABSTRACT   B term: {b_term}")
         logger.debug(f" IN ANALYZE ABSTRACT   URLs: {urls}")
         return result, prompt_text, urls
     except Exception as e:
@@ -428,13 +431,27 @@ def call_openai(client, prompt, config: Config):
 
     for attempt in range(max_retries):
         try:
-            response = client.chat.completions.create(
-                model=config.model,
-                messages=[
+            # Create parameters dictionary
+            params = {
+                "model": config.model,
+                "messages": [
                     {"role": "user", "content": prompt},
                 ],
-            )
+            }
+            
+            # Add reasoning_effort parameter only for o1 model
+            if config.model == "o1":
+                params["reasoning_effort"] = config.global_settings["REASONING_EFFORT"]
+                
+            # Make the API call with the parameters
+            response = client.chat.completions.create(**params)
+            
             content = response.choices[0].message.content
+            usage = response.usage
+            logger.info(f"prompt_tokens={usage.prompt_tokens}, " +
+                        f"completion_tokens={usage.completion_tokens}, " +
+                        f"total_tokens={usage.total_tokens}")
+
             if content:
                 return content
             else:
@@ -526,7 +543,7 @@ def call_openai(client, prompt, config: Config):
 
         except Exception as e:
             logger.error("An unexpected error occurred.")
-            logger.debug(str(e))
+            logger.info(str(e))
             time.sleep(retry_delay)
 
     return None
