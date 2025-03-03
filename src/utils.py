@@ -271,25 +271,25 @@ class Config:
                 file_paths = [line.strip() for line in f.readlines() if line.strip()]
                 
                 if len(file_paths) > 1:
-                    logging.error(f"Multiple files detected in {files_txt_path}")
-                    raise ValueError(f"Multiple files detected in {files_txt_path}")
+                    logging.error(f"Multiple files detected in {files_txt_path}: {file_paths}")
+                    return pd.DataFrame()
                 
                 if not file_paths:
                     logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                    raise ValueError(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                    return pd.DataFrame()
                 
                 first_file_path = file_paths[0] if file_paths else ""
 
         except FileNotFoundError:
             logging.error(f"{files_txt_path} not found.")
-            raise ValueError(f"{files_txt_path} not found.")
+            return pd.DataFrame()
 
         try:
             return pd.read_csv(first_file_path, sep="\t")
         
         except FileNotFoundError:
             logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-            raise ValueError(f"File path '{first_file_path}' from {files_txt_path} not found.")
+            return pd.DataFrame()
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
