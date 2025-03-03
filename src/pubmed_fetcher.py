@@ -136,6 +136,7 @@ class PubMedFetcher:
             self.logger.error("No abstracts fetched successfully.")
         else:
             self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
+            self.logger.debug(f"Abstract dict: {abstract_dict}")
 
         return abstract_dict
 
@@ -292,7 +293,16 @@ class PubMedFetcher:
             self.logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
             self.logger.debug(f"Final interleaved list contains {len(result)} entries")
             
-        return "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
+        if not result:
+            return ""
+        
+        final_text = "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
+        
+        # Add debug logging to count actual abstracts
+        abstract_count = len(result)
+        self.logger.debug(f"Returning {abstract_count} abstracts from interleave_abstracts")
+        
+        return final_text
 
     def optimize_text_length(self, text: str | list, max_tokens: int = 110000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
         """
@@ -322,19 +332,30 @@ class PubMedFetcher:
         
         entries = text.split("===END OF ABSTRACT===")
         entries = [e.strip() for e in entries if e.strip()]
-        
+        self.logger.debug(f"Entries: {entries}")
         optimized_entries = []
         current_tokens = 0
         
         for entry in entries:
             entry_tokens = len(encoding.encode(entry))
+            self.logger.debug(f"Entry tokens: {entry_tokens}")
+            self.logger.debug(f"Current tokens: {current_tokens}")
+            self.logger.debug(f"entry: {entry}")
             if current_tokens + entry_tokens <= tokens_per_intersection:
                 optimized_entries.append(entry)
                 current_tokens += entry_tokens
+                self.logger.debug(f"adding entry: {entry}")
             else:
+                self.logger.debug(f"breaking at entry: {entry}")
                 break
             
         if not optimized_entries:
             return ""
         
-        return "===END OF ABSTRACT===\n\n".join(optimized_entries) + "===END OF ABSTRACT===\n\n" 
+        final_text = "===END OF ABSTRACT===\n\n".join(optimized_entries) + "===END OF ABSTRACT===\n\n"
+        
+        # Add debug logging
+        abstract_count = len(optimized_entries)
+        self.logger.debug(f"Returning {abstract_count} abstracts from optimize_text_length")
+        
+        return final_text 
