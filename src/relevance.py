@@ -119,7 +119,6 @@ def postProcess(
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
     # Simply assign the data without multiplication
-    logger.debug(f" IN POST PROCESS   terms: {terms}, out_df: {out_df}")
     out_df[f"{terms}_mask"] = answer_masks.data
     out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
@@ -155,7 +154,7 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
-def process_results(out_df: pd.DataFrame, config: Config) -> None:
+def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
     logger = config.logger
     """Process results and write to JSON files."""
     total_rows = len(out_df)
@@ -172,9 +171,10 @@ def process_results(out_df: pd.DataFrame, config: Config) -> None:
                     ratio = row[ratio_col]
                     fraction = row[fraction_col]
                     result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
-            
+
+            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
             logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
-            
+
             if config.is_skim_with_gpt:
                 output_json = f"{row['a_term']}_{row['c_term']}_{row['b_term']}_skim_with_gpt.json"
             elif config.is_km_with_gpt_direct_comp:
@@ -206,6 +206,8 @@ def main():
     # THEN create Config
     config = Config(args.config)  # Pass config path from arguments
     logger = config.logger
+    logger.debug(f"config: {config}")
+    logger.debug(f"args.km_output: {args.km_output}")
     config.load_km_output(args.km_output)   
     start_time = time.time()
     logger.info("Starting relevance analysis...")
@@ -293,11 +295,12 @@ def main():
             ac_hypotheses = RaggedTensor(ac_hypotheses)
             all_pmids += ac_pmids.flatten()
             all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
-    
+
     # Fetch abstracts
     abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
+    num_abstracts_fetched = len(abstract_map)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
-
+    
     # Model setup and inference
     model = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=4000)
     sampling_config = vllm.SamplingParams(
@@ -318,7 +321,7 @@ def main():
     postProcess(
         config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
     )
-    
+
     if config.is_skim_with_gpt:
         postProcess(
             config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
@@ -335,7 +338,7 @@ def main():
     logger.info(f"Saved processed data to {output_file}")
 
     # Process results using the new function
-    process_results(out_df, config)
+    process_results(out_df, config, num_abstracts_fetched)
 
     end_time = time.time()
     elapsed_time = end_time - start_time

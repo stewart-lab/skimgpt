@@ -19,7 +19,7 @@ def write_to_json(data, file_path, config: Config):
 
 def calculate_relevance_ratios(out_df, config: Config):
     logger = config.logger
-    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Out df: {out_df}")
+    logger.debug(f" IN CALCULATE RELEVANCE RATIOS  Complete Out df: {out_df.to_string()}")
     mask_columns = ["ab_mask", "bc_mask", "ac_mask"]
     logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Mask columns: {mask_columns}")
     logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Out df columns: {out_df.columns}")
@@ -440,8 +440,8 @@ def call_openai(client, prompt, config: Config):
             }
             
             # Add reasoning_effort parameter only for o1 model
-            if config.model == "o1":
-                params["reasoning_effort"] = config.global_settings["REASONING_EFFORT"]
+            # if config.model == "o1":
+            #    params["reasoning_effort"] = config.global_settings["REASONING_EFFORT"]
                 
             # Make the API call with the parameters
             response = client.chat.completions.create(**params)
