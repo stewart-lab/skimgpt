@@ -8,6 +8,7 @@ import time
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
 import socket
+import tiktoken
 
 
 
@@ -333,6 +334,35 @@ def main():
 
     # Final processing and output
     out_df = process_dataframe(out_df, config, pubmed_fetcher)
+    
+    # Log token counts for abstracts in each row
+    try:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        
+        logger.info("Token counts for abstracts in each row:")
+        for idx, row in out_df.iterrows():
+            row_token_counts = {}
+            
+            # Check and count tokens for each intersection type
+            for col in ['ab_pmid_intersection', 'bc_pmid_intersection', 'ac_pmid_intersection']:
+                if col in row and isinstance(row[col], str) and row[col]:
+                    token_count = len(encoding.encode(row[col]))
+                    row_token_counts[col] = token_count
+            
+            # Calculate total tokens for this row
+            total_tokens = sum(row_token_counts.values())
+            
+            # Log the token counts
+            term_info = f"Row {idx}: {row.get('a_term', '')} - {row.get('b_term', '')}"
+            if 'c_term' in row:
+                term_info += f" - {row['c_term']}"
+            
+            logger.info(f"{term_info} | Total tokens: {total_tokens} | Details: {row_token_counts}")
+    except ImportError:
+        logger.error("tiktoken not installed. Required for token counting.")
+    except Exception as e:
+        logger.error(f"Error counting tokens: {str(e)}")
+    
     output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
     out_df.to_csv(output_file, sep="\t")
     logger.info(f"Saved processed data to {output_file}")

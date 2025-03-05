@@ -260,44 +260,22 @@ def main():
                 # TODO: use API to dump cost price and completion_tokens
 
                 # Cost estimation
-                # if config.job_type == "km_with_gpt":
-                #     try:
-                #         from src.cost_estimator import estimate_input_costs_km
-                #         estimate_input_costs_km(config, combined_df, output_directory)
+                if config.job_type == "km_with_gpt":
+                    try:
+                        from src.cost_estimator import estimate_input_costs_km
+                        estimate_input_costs_km(config, combined_df, output_directory)
                         
-                #         # # Call dump_output_data to get API usage details
-                #         # try:
-                #         #     from src.cost_estimator import dump_output_data
-                #         #     if dump_output_data(config, combined_df, output_directory):
-                #         #         logger.info("Successfully retrieved API usage details")
-                #         #     else:
-                #         #         logger.error("Failed to retrieve API usage details")
-                #         # except Exception as e:
-                #         #     logger.error(f"Error retrieving API usage details: {str(e)}", exc_info=True)
-                #     except Exception as e:
-                #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                #         sys.exit(1)
-                # elif config.job_type == "skim_with_gpt":
-                #     try:
-                #         from src.cost_estimator import estimate_input_costs_skim
-                #         estimate_input_costs_skim(config, combined_df, output_directory)
+                    except Exception as e:
+                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                        sys.exit(1)
+                elif config.job_type == "skim_with_gpt":
+                    try:
+                        from src.cost_estimator import estimate_input_costs_skim
+                        estimate_input_costs_skim(config, combined_df, output_directory)
                         
-                #         # # Call dump_output_data to get API usage details
-                #         # try:
-                #         #     from src.cost_estimator import dump_output_data
-                #         #     if dump_output_data(config, combined_df, output_directory):
-                #         #         logger.info("Successfully retrieved API usage details")
-                #         #     else:
-                #         #         logger.error("Failed to retrieve API usage details")
-                #         # except Exception as e:
-                #         #     logger.error(f"Error retrieving API usage details: {str(e)}", exc_info=True)
-                #     except Exception as e:
-                #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                #         sys.exit(1)
-
-                # # Exit after cost estimation if requested
-                # logger.info("Cost estimation completed successfully. Exiting as requested.")
-                # sys.exit(0)
+                    except Exception as e:
+                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                        sys.exit(1)
 
             except Exception as e:
                 logger.error(f"Error concatenating TSV files: {str(e)}", exc_info=True)
