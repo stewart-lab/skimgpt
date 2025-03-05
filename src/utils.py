@@ -158,6 +158,8 @@ class Config:
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
         
+        self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
+        self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         # Add API configuration
         self.km_api_url = self.global_settings["API_URL"]
         self.model = self.global_settings["MODEL"]

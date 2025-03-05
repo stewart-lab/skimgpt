@@ -25,7 +25,8 @@
         "DELAY": 10,
         "MAX_RETRIES": 10,
         "RETRY_DELAY": 5,
-        "LOG_LEVEL": "INFO"
+        "LOG_LEVEL": "INFO",
+        "OUTDIR_SUFFIX": ""
     },
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",

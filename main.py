@@ -19,10 +19,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def initialize_workflow():
     global logger
+    # Initialize config once so we can get the outdir_suffix
+    config = Config("config.json")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_output_dir = os.path.abspath("output")
     os.makedirs(base_output_dir, exist_ok=True)
     timestamp_dir_name = f"output_{timestamp}"
+    if config.outdir_suffix != "":
+        timestamp_dir_name = f"{timestamp_dir_name}_{config.outdir_suffix}" 
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
 
@@ -30,7 +34,7 @@ def initialize_workflow():
     config_path = os.path.join(output_directory, "config.json")
     shutil.copy("config.json", config_path)
     
-    # Initialize config first
+    # Initialize config again, with the new output directory
     config = Config(config_path)
     logger = config.logger
 
