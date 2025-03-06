@@ -228,7 +228,7 @@ class Config:
     def add_file_handler(self):
         """Add file handler to logger after output directory is known"""
         if self.km_output_dir:
-            log_file = os.path.join(self.km_output_dir, "workflow.log")
+            log_file = os.path.join(self.km_output_dir, "SKiM-GPT.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
                 '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',

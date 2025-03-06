@@ -4,6 +4,10 @@ import time
 import re
 from typing import List, Dict, Any
 import tiktoken
+import warnings
+
+# Silence the specific Bio.Entrez.Parser warning about DTD files
+warnings.filterwarnings("ignore", message="Failed to save .* at .*")
 
 class PubMedFetcher:
     def __init__(self, config: Config, email: str, api_key: str, max_retries: int = 10, backoff_factor: float = 0.5):

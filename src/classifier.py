@@ -5,13 +5,14 @@ import re
 from typing import Any
 from src.utils import Config
 from src import prompt_library as prompts_module 
+import os
 
 
-
-def write_to_json(data, file_path, config: Config):
+def write_to_json(data, file_path, output_directory, config: Config):
     logger = config.logger
     # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
     file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
+    file_path = os.path.join(output_directory, file_path)
     logger.debug(f" IN WRITE TO JSON   File path: {file_path}")
     with open(file_path, "w") as outfile:
         json.dump(data, outfile, indent=4)

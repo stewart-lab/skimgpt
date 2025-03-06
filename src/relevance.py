@@ -184,7 +184,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
                 output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, config) 
+            write_to_json([result_dict], output_json, "output", config) 
 
 
 def main():

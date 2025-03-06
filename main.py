@@ -36,6 +36,13 @@ def initialize_workflow():
     
     # Initialize config again, with the new output directory
     config = Config(config_path)
+    
+    # Set km_output_dir to enable log file creation
+    config.km_output_dir = output_directory
+    
+    # Call add_file_handler to set up logging to a file in the output directory
+    config.add_file_handler()
+    
     logger = config.logger
 
     logger.info(f"Initializing workflow in {output_directory}")
@@ -92,7 +99,7 @@ def organize_output(directory):
 
 
 def main():
-    start_time = time.time()
+    fastkm_start_time = time.time()
     
     # Initialize workflow and get config
     config, output_directory, logger = initialize_workflow()
@@ -172,9 +179,11 @@ def main():
         generated_file_paths = p.map(workflow, terms)
 
     
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Main workflow completed in {elapsed_time:.2f} seconds.")
+    fastkm_end_time = time.time()
+    elapsed_fastkm_time = fastkm_end_time - fastkm_start_time
+
+    logger.info(f"fastkm results returned in {elapsed_fastkm_time:.2f} seconds.")
+    rel_and_api_start_time = time.time()
     if not config.using_htcondor:
         logger.error("HTCONDOR configuration is required but not found in config file.")
         return
@@ -184,7 +193,9 @@ def main():
     try:
         # Create src directory in output directory
         output_src_dir = os.path.join(output_directory, "src")  
+        output_results_dir = os.path.join(output_directory, "output")
         os.makedirs(output_src_dir, exist_ok=True)
+        os.makedirs(output_results_dir, exist_ok=True)
         
         # Ensure we're working with absolute paths
         output_directory = os.path.abspath(output_directory)
@@ -331,6 +342,11 @@ def main():
             os.chdir(original_dir)
         
         logger.info(f"Analysis complete. Results are in {output_directory}")
+        rel_and_api_end_time = time.time()
+        elapsed_rel_and_api_time = rel_and_api_end_time - rel_and_api_start_time
+        logger.info(f"Relevance and API complete in {elapsed_rel_and_api_time:.2f} seconds.")
+        total_time = time.time() - fastkm_start_time
+        logger.info(f"Total time taken: {total_time:.2f} seconds")
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}", exc_info=True)
 
