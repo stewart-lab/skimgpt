@@ -80,7 +80,7 @@ class HTCondorHelper:
                 "request_memory": self.config.request_memory,
                 "request_disk": self.config.request_disk,
                 "gpus_minimum_memory": "46G",
-                "requirements": "(CUDACapability >= 8.0) && (TARGET.GPUs_GlobalMemoryMb > 45373)",
+                "requirements": "(CUDACapability >= 8.0) && (TARGET.GPUs_GlobalMemoryMb > 45370)",
                 "+WantGPULab": "true",
                 "+GPUJobLength": '"short"',
                 "stream_error": "True",
@@ -218,9 +218,33 @@ class HTCondorHelper:
             raise
 
     def cleanup(self, cluster_id: int):
-        """Clean up after job completion"""
+        """Clean up after job completion by releasing any held jobs and removing all jobs"""
         try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                
+                # Then remove all jobs from the queue
+                self.logger.info(f"Removing all jobs in cluster {cluster_id}")
+                remove_result = self.schedd.act(htcondor.JobAction.Remove, f"ClusterId == {cluster_id}")
+                self.logger.info(f"Remove result: {remove_result}")
+                
             self.logger.info(f"Cleanup completed for cluster {cluster_id}")
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")
-            raise 
+            raise
+
+    def release_held_jobs(self, cluster_id: int):
+        """Release any held jobs in the specified cluster"""
+        try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                
+                # Release any held jobs
+                self.logger.info(f"Releasing any held jobs in cluster {cluster_id}")
+                release_result = self.schedd.act(htcondor.JobAction.Release, f"ClusterId == {cluster_id}")
+                self.logger.info(f"Release result: {release_result}")
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to release held jobs: {e}")
+            return False 

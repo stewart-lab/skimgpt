@@ -326,18 +326,43 @@ def main():
             cluster_id = htcondor_helper.submit_jobs(files_txt_path)
             logger.info(f"Jobs submitted with cluster ID {cluster_id}")
 
-            # Monitor jobs
-            if htcondor_helper.monitor_jobs(cluster_id):
-                logger.info("Jobs completed, retrieving output...")
+            # Monitor jobs with enhanced error handling
+            monitoring_success = False
+            try:
+                monitoring_success = htcondor_helper.monitor_jobs(cluster_id)
+                if monitoring_success:
+                    logger.info("All jobs completed successfully")
+                else:
+                    logger.warning("Job monitoring ended with some jobs potentially incomplete")
+            except Exception as monitor_err:
+                logger.error(f"Error during job monitoring: {str(monitor_err)}")
+                # Try to release any held jobs if monitoring failed
+                try:
+                    htcondor_helper.release_held_jobs(cluster_id)
+                except Exception:
+                    pass
+
+            # Retrieve output regardless of monitoring success
+            try:
+                logger.info("Retrieving output files...")
                 htcondor_helper.retrieve_output(cluster_id)
+                logger.info("Output files retrieved successfully")
+            except Exception as retrieve_err:
+                logger.error(f"Error retrieving output: {str(retrieve_err)}")
 
             # Process results
             logger.info("Processing results...")
             organize_output(output_directory)
             extract_and_write_scores(output_directory)
             
-            # Cleanup
-            htcondor_helper.cleanup(cluster_id)
+            # Proper cleanup with comprehensive error handling
+            try:
+                logger.info(f"Cleaning up cluster {cluster_id}...")
+                htcondor_helper.cleanup(cluster_id)
+                logger.info("Cleanup completed")
+            except Exception as cleanup_err:
+                logger.error(f"Error during cleanup: {str(cleanup_err)}")
+                
         finally:
             os.chdir(original_dir)
         
