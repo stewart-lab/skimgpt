@@ -113,7 +113,16 @@ def estimate_input_costs_skim(config, combined_df, output_directory):
         logger.error(f"Error calculating token estimation: {str(e)}", exc_info=True)
         raise
 
-def get_estimated_output_tokens_skim(post_n):
+def get_estimated_output_tokens_skim(post_n, config):
+    logger = logging.getLogger("SKiM-GPT")
+    
+    # Set cost per million tokens based on model
+    model = config.model
+    if model == "o1":
+        output_cost_per_million = 60.00
+    else:  # o1-mini or default
+        output_cost_per_million = 4.40
+    
     # Define intervals based on the provided data
     intervals = [
         (0, 25, 8500),
@@ -129,16 +138,40 @@ def get_estimated_output_tokens_skim(post_n):
     # Find the appropriate interval
     for start, end, tokens in intervals:
         if start <= post_n <= end:
-            return tokens
+            estimated_tokens = tokens
+            estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+            logger.info(f"=== SKIM Output Token Estimation ===")
+            logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+            logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+            return estimated_tokens
     
     # If POST_N is greater than the highest interval, use the highest value
     if post_n > 200:
-        return 17400
+        estimated_tokens = 17400
+        estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+        logger.info(f"=== SKIM Output Token Estimation ===")
+        logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+        logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        return estimated_tokens
     
     # Default fallback
-    return 8500
+    estimated_tokens = 8500
+    estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+    logger.info(f"=== SKIM Output Token Estimation ===")
+    logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+    logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+    return estimated_tokens
 
-def get_estimated_output_tokens_km(post_n):
+def get_estimated_output_tokens_km(post_n, config):
+    logger = logging.getLogger("SKiM-GPT")
+    
+    # Set cost per million tokens based on model
+    model = config.model
+    if model == "o1":
+        output_cost_per_million = 60.00
+    else:  # o1-mini or default
+        output_cost_per_million = 4.40
+    
     # Define intervals based on the provided data
     intervals = [
         (0, 25, 4400),
@@ -154,14 +187,29 @@ def get_estimated_output_tokens_km(post_n):
     # Find the appropriate interval
     for start, end, tokens in intervals:
         if start <= post_n <= end:
-            return tokens
+            estimated_tokens = tokens
+            estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+            logger.info(f"=== KM Output Token Estimation ===")
+            logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+            logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+            return estimated_tokens
     
     # If POST_N is greater than the highest interval, use the highest value
     if post_n > 200:
-        return 5800
+        estimated_tokens = 5800
+        estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+        logger.info(f"=== KM Output Token Estimation ===")
+        logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+        logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        return estimated_tokens
     
     # Default fallback
-    return 4400
+    estimated_tokens = 4400
+    estimated_cost = (estimated_tokens / 1_000_000) * output_cost_per_million
+    logger.info(f"=== KM Output Token Estimation ===")
+    logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+    logger.info(f"Estimated output cost (${output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+    return estimated_tokens
 
 def calculate_total_cost_and_prompt(config, input_tokens, output_directory):
     logger = logging.getLogger("SKiM-GPT")
@@ -169,9 +217,9 @@ def calculate_total_cost_and_prompt(config, input_tokens, output_directory):
     # Get estimated output tokens based on POST_N and job type
     post_n = config.post_n
     if config.job_type == "skim_with_gpt":
-        estimated_output_tokens = get_estimated_output_tokens_skim(post_n)
+        estimated_output_tokens = get_estimated_output_tokens_skim(post_n, config)
     elif config.job_type == "km_with_gpt":
-        estimated_output_tokens = get_estimated_output_tokens_km(post_n)
+        estimated_output_tokens = get_estimated_output_tokens_km(post_n, config)
     else:
         logger.info(f"Cost calculation not available for {config.job_type} jobs")
         return True
