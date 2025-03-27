@@ -1,17 +1,18 @@
 from datetime import datetime
 from functools import partial
-from src.eval_JSON_results import extract_and_write_scores
-import shutil
-import itertools
-import multiprocessing
-from src.jobs import main_workflow
 from glob import glob
-import sys
-import os
-import time
+from src.eval_JSON_results import extract_and_write_scores
+from src.jobs import main_workflow
 from src.utils import Config
 from src.htcondor_helper import HTCondorHelper
+from src.cost_estimator import calculate_total_cost_and_prompt, KMCostEstimator, SkimCostEstimator
+import itertools
+import multiprocessing
+import os
 import pandas as pd
+import shutil
+import sys
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -257,13 +258,10 @@ def main():
                 # Cost estimation
                 if config.job_type == "km_with_gpt":
                     try:
-                        from src.cost_estimator import estimate_input_costs_km, calculate_total_cost_and_prompt
+                        estimator = KMCostEstimator(config)
+                        input_tokens = estimator.estimate_input_costs(combined_df)
                         
-                        # Get input tokens
-                        input_tokens = estimate_input_costs_km(config, combined_df, output_directory)
-                        
-                        # Calculate total cost and prompt user
-                        if not calculate_total_cost_and_prompt(config, input_tokens, output_directory):
+                        if not calculate_total_cost_and_prompt(config, input_tokens):
                             logger.info("Job aborted by user")
                             sys.exit(0)
                         
@@ -272,13 +270,10 @@ def main():
                         sys.exit(1)
                 elif config.job_type == "skim_with_gpt":
                     try:
-                        from src.cost_estimator import estimate_input_costs_skim, calculate_total_cost_and_prompt
+                        estimator = SkimCostEstimator(config)
+                        input_tokens = estimator.estimate_input_costs(combined_df)
                         
-                        # Get input tokens
-                        input_tokens = estimate_input_costs_skim(config, combined_df, output_directory)
-                        
-                        # Calculate total cost and prompt user
-                        if not calculate_total_cost_and_prompt(config, input_tokens, output_directory):
+                        if not calculate_total_cost_and_prompt(config, input_tokens):
                             logger.info("Job aborted by user")
                             sys.exit(0)
                         
