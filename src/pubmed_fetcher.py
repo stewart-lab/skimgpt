@@ -298,17 +298,8 @@ class PubMedFetcher:
         return final_text
 
     def optimize_text_length(self, text: str | list, max_tokens: int = 110000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
-        """
-        Optimize text length to fit within token limit while preserving complete abstracts.
-        
-        Args:
-            text: Input text containing abstracts (string or list)
-            max_tokens: Maximum total tokens allowed
-            encoding_name: Name of the tokenizer encoding to use
-            num_intersections: Number of intersection sets to distribute tokens across
-        """
 
-        # Handle list input
+      # Handle list input
         if isinstance(text, list):
             text = "\n===END OF ABSTRACT===\n".join(text) if text else ""
         
