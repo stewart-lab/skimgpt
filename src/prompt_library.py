@@ -2,13 +2,23 @@ import src.scoring_guidelines as sg
 
 
 def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
+    # Extract PMID numbers for clarity
+    import re
+    pmid_pattern = r"PMID:\s*(\d+)"
+    pmids = re.findall(pmid_pattern, consolidated_abstracts)
+    pmid_list = ", ".join(pmids) if pmids else "None found"
+
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
+
+Available PMIDs for Citation: {pmid_list}
 
 Assessment Task:
 Evaluate the degree of support for the hypothesis, which posits a significant interaction between {a_term} and {b_term}. 
 The texts provided above come from PubMed and each abstract will include only {a_term} and {b_term}. 
-The texts need to be your only source of information for arriving at your classification result. If texts arent available, use what you know about {a_term} and {b_term} to make an educated guess.
+The texts need to be your only source of information for arriving at your classification result. 
+
+IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
 
 Hypothesis:
 {hypothesis_template}
@@ -18,7 +28,7 @@ Instructions:
 2. Analyze the presence and implications of the term pairing ({a_term} + {b_term}) in the context of the hypothesis.
 3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
 4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
-5. Cite specific texts from your set of abstracts to support your arguments. Clearly reference these citations in your reasoning.
+5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
 
 Format your response as:
 Score: [Number] - Reasoning: [Reasoning]
@@ -26,13 +36,57 @@ Score: [Number] - Reasoning: [Reasoning]
 Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}"""
 
+def km_with_gpt_direct_comp(b_term1, b_term2, a_term, hypothesis_template, consolidated_abstracts):
+    # Extract PMID numbers for clarity
+    import re
+    pmid_pattern = r"PMID:\s*(\d+)"
+    pmids = re.findall(pmid_pattern, consolidated_abstracts)
+    pmid_list = ", ".join(pmids) if pmids else "None found"
 
-def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
 
+Available PMIDs for Citation: {pmid_list}
+
+Assessment Task:
+Evaluate the degree of support for Hypothesis 1 compared to Hypothesis 2, which posits a significant interaction between {a_term} and {b_term1} or {b_term2}. 
+The texts provided above come from PubMed and each abstract will include only {a_term} and either {b_term1} or {b_term2}. 
+The texts need to be your only source of information for arriving at your classification result. 
+
+IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
+
+Hypothesis:
+{hypothesis_template}
+
+Instructions:
+1. Review each abstract to understand how {a_term} and {b_term1} or {b_term2} might be interconnected based on the available information.
+2. Analyze the presence and implications of the term pairing ({a_term} + {b_term1} or {b_term2}) in the context of the hypothesis.
+3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
+4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
+
+Format your response as:
+Score: [Number] - Reasoning: [Reasoning]
+
+Scoring Guidelines:
+{sg.cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2)}"""
+
+def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
+    # Extract PMID numbers for clarity
+    import re
+    pmid_pattern = r"PMID:\s*(\d+)"
+    pmids = re.findall(pmid_pattern, consolidated_abstracts)
+    pmid_list = ", ".join(pmids) if pmids else "None found"
+
+    return f"""Biomedical Abstracts for Analysis:
+{consolidated_abstracts}
+
+Available PMIDs for Citation: {pmid_list}
+
 Assessment Task:
 Evaluate the degree of support for the hypothesis: {hypothesis_template}, which posits an interaction between {a_term} and {c_term}. Use only the provided abstracts from PubMed that mention {a_term} and {c_term} to inform your analysis.
+
+IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
 
 Your evaluation should:
 
@@ -42,6 +96,7 @@ Your evaluation should:
 • Be vigilant for any evidence that contradicts or challenges the hypothesis, explicitly addressing any contradictions in your reasoning.
 • Avoid inferring effects not supported by the texts, ensuring that all conclusions are grounded in the provided information.
 • Ensure that your scoring reflects an unbiased assessment based solely on the provided evidence, considering logical inferences from evidence.
+• When citing evidence, use the PMID format (e.g., "PMID: 12345678") and only cite PMIDs from the list above.
 
 **Examples:**
 
@@ -140,11 +195,21 @@ Score: \[Number\] Point(s) - Reasoning: \[Reasoning\]
 
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
+    # Extract PMID numbers for clarity
+    import re
+    pmid_pattern = r"PMID:\s*(\d+)"
+    pmids = re.findall(pmid_pattern, consolidated_abstracts)
+    pmid_list = ", ".join(pmids) if pmids else "None found"
+
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
 
+Available PMIDs for Citation: {pmid_list}
+
 Assessment Task:
 Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} through their own interactions with {b_term}. Use only the provided abstracts from PubMed, each containing only two of the three terms at a time ({a_term} + {b_term}, or {b_term} + {c_term}), to inform your analysis.
+
+IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
 
 Your evaluation should:
 
@@ -163,6 +228,8 @@ Your evaluation should:
 - **Avoid inferring effects not supported by the texts**, ensuring that all conclusions are grounded in the provided information.
 
 - **Ensure that your scoring reflects an unbiased assessment based solely on the provided evidence**, considering logical inferences from indirect evidence.
+
+- **When citing evidence, use the PMID format (e.g., "PMID: 12345678") and only cite PMIDs from the list above.**
 
 **Examples:**
 
@@ -417,7 +484,7 @@ def alzheimer_gene_prompt_1(b_term, a_term, consolidated_abstracts):
         f"   - 5-7 Points: Moderate Validity\n"
         f"   - 8-10 Points: High Validity\n"
         f"Example Justification:\n"
-        f"   'Score: 8 - Classification: High Validity. The abstracts consistently show a significant difference in protein levels of gene {b_term} in Alzheimer’s patients. While some abstracts offer stronger evidence than others, the hypothesis is well-supported overall, reinforced by analytical extrapolation.'\n"
+        f"   'Score: 8 - Classification: High Validity. The abstracts consistently show a significant difference in protein levels of gene {b_term} in Alzheimer's patients. While some abstracts offer stronger evidence than others, the hypothesis is well-supported overall, reinforced by analytical extrapolation.'\n"
         f"The biomedical abstracts follow:\n{consolidated_abstracts}"
     )
 

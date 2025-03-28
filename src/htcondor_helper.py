@@ -72,19 +72,20 @@ class HTCondorHelper:
                 "should_transfer_files": "YES",
                 "when_to_transfer_output": "ON_EXIT",
                 "transfer_input_files": ".",
-                "output": "run_$(Cluster)_$(Process).out",
-                "error": "run_$(Cluster)_$(Process).err",
+                "output": "output/std_out.out",
+                "error": "output/std_err.err",
                 "log": "run_$(Cluster).log",
                 "request_gpus": self.config.request_gpus,
                 "request_cpus": self.config.request_cpus,
                 "request_memory": self.config.request_memory,
                 "request_disk": self.config.request_disk,
-                "requirements": "(CUDACapability >= 8.0)",
+                "gpus_minimum_memory": "46G",
+                "requirements": "(CUDACapability >= 8.0) && (TARGET.GPUs_GlobalMemoryMb > 45370)",
                 "+WantGPULab": "true",
                 "+GPUJobLength": '"short"',
-                "stream_error": "true",
-                "stream_output": "true",
-                "transfer_output_files": ".",
+                "stream_error": "True",
+                "stream_output": "True",
+                "transfer_output_files": "output",
                 "environment": f"KM_OUTPUT_FILE=$(item_filename)",
                 "+item_filename": "$(Item)",
             })
@@ -110,9 +111,11 @@ class HTCondorHelper:
     def monitor_jobs(self, cluster_id: int, check_interval: int = 30) -> bool:
         """Monitor job progress"""
         try:
-            with htcondor.SecMan() as sess:
-                sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
-                while True:
+            while True:
+                # Create a new security session for each query
+                with htcondor.SecMan() as sess:
+                    sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                    self.logger.debug(f"Querying status for cluster {cluster_id}")
                     ads = self.schedd.query(
                         constraint=f"ClusterId == {cluster_id}",
                         projection=["ProcID", "JobStatus"]
@@ -126,14 +129,6 @@ class HTCondorHelper:
                     if all(ad.get("JobStatus") == 4 for ad in ads):
                         self.logger.info(f"All jobs in cluster {cluster_id} completed successfully")
                         return True
-                    
-                    # Retrieve output files every minute
-                    self.logger.info(f"Attempting to retrieve intermediate output files for cluster {cluster_id}")
-                    try:
-                        self.schedd.retrieve(f"ClusterId == {cluster_id}")
-                        self.logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
-                    except Exception as retrieve_err:
-                        self.logger.warning(f"Warning: Failed to retrieve intermediate output files: {retrieve_err}")
                     
                     # Log status counts
                     status_counts = {}
@@ -150,11 +145,65 @@ class HTCondorHelper:
                     status_msg = ", ".join(f"{status_desc.get(k, f'Unknown({k})')}: {v}" 
                                          for k, v in status_counts.items())
                     self.logger.info(f"Cluster {cluster_id} status: {status_msg}")
+                
+                # Retrieve output files every minute - in a separate security session
+                self.logger.info(f"Attempting to retrieve intermediate output files for cluster {cluster_id}")
+                try:
+                    # Add timeout to prevent hanging
+                    retrieve_start = time.time()
+                    self.logger.debug(f"Starting retrieve operation at {retrieve_start}")
                     
-                    time.sleep(check_interval)
+                    # Set a timeout for the retrieve operation
+                    max_retrieve_time = 60  # 60 seconds timeout
+                    
+                    # Use a separate thread for the retrieve operation
+                    import threading
+                    retrieve_success = [False]
+                    retrieve_error = [None]
+                    
+                    def retrieve_thread():
+                        try:
+                            # Create a new security session specifically for retrieve
+                            with htcondor.SecMan() as retrieve_sess:
+                                retrieve_sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                                # Create a new schedd connection for retrieve
+                                schedd_ad = self.collector.query(
+                                    htcondor.AdTypes.Schedd,
+                                    constraint=f"Name=?={htcondor.classad.quote(self.config.submit_host)}",
+                                    projection=["Name", "MyAddress"]
+                                )[0]
+                                retrieve_schedd = htcondor.Schedd(schedd_ad)
+                                retrieve_schedd.retrieve(f"ClusterId == {cluster_id}")
+                            retrieve_success[0] = True
+                        except Exception as e:
+                            retrieve_error[0] = e
+                    
+                    thread = threading.Thread(target=retrieve_thread)
+                    thread.daemon = True
+                    thread.start()
+                    
+                    # Wait for the thread with timeout
+                    thread.join(max_retrieve_time)
+                    
+                    if thread.is_alive():
+                        self.logger.warning(f"Retrieve operation timed out after {max_retrieve_time} seconds")
+                        # Continue with monitoring even if retrieve times out
+                    elif retrieve_success[0]:
+                        self.logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
+                    else:
+                        self.logger.warning(f"Failed to retrieve intermediate output files: {retrieve_error[0]}")
+                        
+                    retrieve_end = time.time()
+                    self.logger.debug(f"Retrieve operation took {retrieve_end - retrieve_start:.2f} seconds")
+                    
+                except Exception as retrieve_err:
+                    self.logger.warning(f"Warning: Failed to retrieve intermediate output files: {retrieve_err}")
+                
+                self.logger.debug(f"Sleeping for {check_interval} seconds before next check")
+                time.sleep(check_interval)
 
         except Exception as e:
-            self.logger.error(f"Error monitoring jobs: {e}")
+            self.logger.error(f"Error monitoring jobs: {e}", exc_info=True)
             raise
 
     def retrieve_output(self, cluster_id: int):
@@ -169,9 +218,33 @@ class HTCondorHelper:
             raise
 
     def cleanup(self, cluster_id: int):
-        """Clean up after job completion"""
+        """Clean up after job completion by releasing any held jobs and removing all jobs"""
         try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                
+                # Then remove all jobs from the queue
+                self.logger.info(f"Removing all jobs in cluster {cluster_id}")
+                remove_result = self.schedd.act(htcondor.JobAction.Remove, f"ClusterId == {cluster_id}")
+                self.logger.info(f"Remove result: {remove_result}")
+                
             self.logger.info(f"Cleanup completed for cluster {cluster_id}")
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")
-            raise 
+            raise
+
+    def release_held_jobs(self, cluster_id: int):
+        """Release any held jobs in the specified cluster"""
+        try:
+            with htcondor.SecMan() as sess:
+                sess.setToken(htcondor.Token(self.config.secrets["HTCONDOR_TOKEN"]))
+                
+                # Release any held jobs
+                self.logger.info(f"Releasing any held jobs in cluster {cluster_id}")
+                release_result = self.schedd.act(htcondor.JobAction.Release, f"ClusterId == {cluster_id}")
+                self.logger.info(f"Release result: {release_result}")
+                
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to release held jobs: {e}")
+            return False 

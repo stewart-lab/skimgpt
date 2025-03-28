@@ -143,18 +143,23 @@ class Config:
 
         # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
+        self.km_direct_comp_hypothesis = self.job_config["KM_direct_comp_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["abstract_filter"]
         self.debug = self.filter_config["DEBUG"]
         self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.test_leakage_type = self.filter_config["TEST_LEAKAGE_TYPE"]
-        self.is_skim_gpt = self.job_type == "skim_with_gpt"
+        self.is_km_with_gpt = self.job_type == "km_with_gpt"
+        self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
+        self.is_km_with_gpt_direct_comp = self.job_type == "km_with_gpt_direct_comp"
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
         
+        self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
+        self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         # Add API configuration
         self.km_api_url = self.global_settings["API_URL"]
         self.model = self.global_settings["MODEL"]
@@ -206,7 +211,7 @@ class Config:
         )
 
         print(f"Job type detected. Running {self.job_type}.")
-        if self.is_skim_gpt:
+        if self.is_skim_with_gpt:
             assert (
                 "c_term" in self.data.columns
             ), "Input TSV must have c_term if running skim_with_gpt"
@@ -223,10 +228,10 @@ class Config:
     def add_file_handler(self):
         """Add file handler to logger after output directory is known"""
         if self.km_output_dir:
-            log_file = os.path.join(self.km_output_dir, "workflow.log")
+            log_file = os.path.join(self.km_output_dir, "SKiM-GPT.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
+                '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             ))
             self.logger.addHandler(file_handler)
@@ -241,12 +246,15 @@ class Config:
         if logger.handlers:
             logger.handlers = []
 
+        # Define a more detailed formatter that includes function and file information
+        detailed_formatter = logging.Formatter(
+            '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
         # Console handler only initially
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - SKiM-GPT - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        ))
+        console_handler.setFormatter(detailed_formatter)
         logger.addHandler(console_handler)
         
         return logger
@@ -268,31 +276,33 @@ class Config:
                 file_paths = [line.strip() for line in f.readlines() if line.strip()]
                 
                 if len(file_paths) > 1:
-                    logging.error(f"Multiple files detected in {files_txt_path}")
-                    raise ValueError(f"Multiple files detected in {files_txt_path}")
+                    logging.error(f"Multiple files detected in {files_txt_path}: {file_paths}")
+                    return pd.DataFrame()
                 
                 if not file_paths:
                     logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                    raise ValueError(f"{files_txt_path} is empty. Returning empty DataFrame.")
+                    return pd.DataFrame()
                 
                 first_file_path = file_paths[0] if file_paths else ""
 
         except FileNotFoundError:
             logging.error(f"{files_txt_path} not found.")
-            raise ValueError(f"{files_txt_path} not found.")
+            return pd.DataFrame()
 
         try:
             return pd.read_csv(first_file_path, sep="\t")
         
         except FileNotFoundError:
             logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-            raise ValueError(f"File path '{first_file_path}' from {files_txt_path} not found.")
+            return pd.DataFrame()
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
-        if self.is_skim_gpt:
+        if self.is_skim_with_gpt:
             self._load_skim_terms()
-        elif not self.is_skim_gpt:
+        elif self.is_km_with_gpt_direct_comp:
+            self._load_km_direct_comp_terms()
+        elif not self.is_skim_with_gpt and not self.is_km_with_gpt_direct_comp:
             self._load_km_terms()
         else:
             raise ValueError(f"Unknown job type: {self.job_type}")
@@ -335,11 +345,45 @@ class Config:
         b_terms_file = job_settings["B_TERMS_FILE"]
         self.b_terms = self._read_terms_from_file(b_terms_file)
 
+    def _load_km_direct_comp_terms(self):
+        """Load terms for km_with_gpt_direct_comp job type"""
+        job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt_direct_comp"]
+        self.position = job_settings["position"]
+        
+        # Load A terms
+        if job_settings.get("A_TERM_LIST", False):
+            a_terms_file = job_settings["A_TERMS_FILE"]
+            self.a_terms = self._read_terms_from_file(a_terms_file)
+        else:
+            self.a_terms = [self.global_settings["A_TERM"]]
+
+        # Load B terms for KM direct comp workflow
+        b_terms_file = job_settings["B_TERMS_FILE"]
+        self.b_terms = self._read_terms_from_file_for_km_direct_comp(b_terms_file)
+
     def _read_terms_from_file(self, file_path: str) -> list:
         """Read terms from a text file (one term per line)"""
         try:
             with open(file_path, "r") as f:
                 terms = [line.strip() for line in f if line.strip()]
+                self.logger.debug(f"Read {len(terms)} terms from {file_path}")
+                return terms
+        except FileNotFoundError:
+            self.logger.error(f"Terms file not found: {file_path}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Error reading terms file {file_path}: {str(e)}")
+            raise
+         
+    def _read_terms_from_file_for_km_direct_comp(self, file_path: str) -> list:
+        """Read terms from a text file (only one line allowed.)"""
+        try:
+            with open(file_path, "r") as f:
+                line = f.readline().strip()
+                if not line:
+                    self.logger.error(f"Empty file: {file_path}")
+                    raise ValueError(f"Empty file: {file_path}")
+                terms = [line]
                 self.logger.debug(f"Read {len(terms)} terms from {file_path}")
                 return terms
         except FileNotFoundError:
@@ -364,9 +408,14 @@ class Config:
                 "ab": self.job_specific_settings["skim"]["ab_fet_threshold"],
                 "bc": self.job_specific_settings["skim"]["bc_fet_threshold"]
             }
-        return {
-            "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
-        }
+        elif self.is_km_with_gpt_direct_comp:
+            return {
+                "ab": self.job_specific_settings["km_with_gpt_direct_comp"]["ab_fet_threshold"]
+            }
+        else:
+            return {
+                "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
+            }
 
     @property
     def censor_year(self):

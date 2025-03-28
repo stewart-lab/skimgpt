@@ -96,7 +96,7 @@ def run_and_save_query(
 
     result_df = pd.DataFrame(result)
 
-    if config.is_skim_gpt:
+    if config.is_skim_with_gpt:
         file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
     else:
         file_name = job_config["a_terms"][0]
@@ -106,13 +106,29 @@ def run_and_save_query(
     return file_path
 
 
-def filter_term_columns(df):
-    for column in ["a_term", "b_term", "c_term"]:
-        if column in df.columns:
-            # Use .loc to explicitly set the values
-            df.loc[:, column] = df[column].apply(
-                lambda x: x.split("|")[0] if "|" in str(x) else x
-            )
+def filter_term_columns(df, config: Config):
+    logger = config.logger
+    if config.is_km_with_gpt_direct_comp:
+        for column in ["a_term", "b_term"]:
+            if column == 'a_term':
+                # Use .loc to explicitly set the values
+                df.loc[:, column] = df[column].apply(
+                    lambda x: x.split("|")[0] if "|" in str(x) else x
+                )
+            elif column == 'b_term':
+                # keeping only first 2 b terms for km_with_gpt_direct_comp, return a list of 2 terms
+                logger.debug(f"filter_term_columns: df[column] = {df[column]}")               
+                df.loc[:, column] = df[column].apply(
+                    lambda x: (x.split("|")[0:2]) if "|" in str(x) else [x, ""]
+                )
+                logger.debug(f"filter_term_columns AFTER: df[column] = {df[column]}")
+    else:
+        for column in ["a_term", "b_term", "c_term"]:
+            if column in df.columns:
+                # Use .loc to explicitly set the values
+                df.loc[:, column] = df[column].apply(
+                    lambda x: x.split("|")[0] if "|" in str(x) else x
+                )
     return df
 
 
@@ -134,16 +150,16 @@ def configure_job(config: Config, job_type, a_term, c_terms, b_terms=None):
     if not job_specific_settings:
         raise ValueError(f"Missing JOB_SPECIFIC_SETTINGS for {job_type} in config")
 
-    if config.is_skim_gpt:
+    if config.is_skim_with_gpt:
         return {
             **common_settings,
             **job_specific_settings,
             "b_terms": b_terms,
             "c_terms": c_terms,
         }
-    elif not config.is_skim_gpt:
+    elif not config.is_skim_with_gpt:
         return {**common_settings, **job_specific_settings, "b_terms": b_terms}
-    else:
+    else:  # right now, this else cannot get reached!
         raise ValueError(f"Invalid job type: {job_type}")
 
 
@@ -186,8 +202,8 @@ def process_query_results(
     valid_rows = df_sorted[filter_mask]
 
     # Apply additional term column filtering
-    valid_rows = filter_term_columns(valid_rows)
-
+    valid_rows = filter_term_columns(valid_rows, config)
+    
     return valid_rows
 
 
@@ -217,7 +233,7 @@ def save_filtered_results(
         # Extract relevant columns based on job type
         columns_to_extract = (
             ["a_term", "b_term", "c_term"]
-            if config.is_skim_gpt
+            if config.is_skim_with_gpt
             else ["a_term", "b_term"]
         )
         no_results_df = removed_rows[columns_to_extract]
@@ -236,17 +252,23 @@ def save_filtered_results(
 
     return filtered_file_path
 
+def km_with_gpt_direct_comp_workflow(term: dict, config: Config, output_directory: str):
+    config.logger.debug(f"km_with_gpt_direct_comp_workflow: term = {term}, type(term['b_terms']) = {type(term['b_terms'])}")
+    filtered_file_path = km_with_gpt_workflow(term, config, output_directory)
+    return filtered_file_path
 
 def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     """Process one A term with ALL B terms in a single API call"""
+    logger = config.logger
     a_term = term["a_term"]
     b_terms = term["b_terms"]  # Full list of B terms
+    logger.debug(f"km_with_gpt_workflow: term = {term}, type(b_terms) = {type(b_terms)}, b_terms = {b_terms}")
     
     # Add suffix if configured
     if config.global_settings.get("A_TERM_SUFFIX"):
         a_term += config.global_settings["A_TERM_SUFFIX"]
 
-    config.logger.info(f"Processing A term: {a_term} with {len(b_terms)} B terms")
+    logger.info(f"Processing A term: {a_term} with {len(b_terms)} B terms")
     
     # Single API call with all B terms
     km_file_path = run_and_save_query(
@@ -260,13 +282,13 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
 
     # Add null check before path manipulation
     if km_file_path is None:
-        config.logger.error("KM query failed to generate valid file path")
+        logger.error("KM query failed to generate valid file path")
         return None
 
     full_km_file_path = os.path.join(output_directory, km_file_path)
 
     if not os.path.exists(full_km_file_path) or os.path.getsize(full_km_file_path) <= 1:
-        config.logger.warning(
+        logger.warning(
             "KM results are empty. Returning None to indicate no KM results."
         )
         return None
@@ -305,6 +327,7 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
 
 
 def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
+    logger = config.logger
     """Process Skim combination with proper B terms handling"""
     a_term = term["a_term"]
     c_term = term["c_term"]
@@ -314,7 +337,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     if config.global_settings.get("A_TERM_SUFFIX"):
         a_term += config.global_settings["A_TERM_SUFFIX"]
 
-    config.logger.info(f"Processing Skim combination: {a_term} with {len(b_terms)} B terms and {c_term}")
+    logger.info(f"Processing Skim combination: {a_term} with {len(b_terms)} B terms and {c_term}")
 
     # Single API call with all relevant B terms
     skim_file_path = run_and_save_query(
@@ -332,7 +355,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
         not os.path.exists(full_skim_file_path)
         or os.path.getsize(full_skim_file_path) <= 1
     ):
-        config.logger.warning(
+        logger.warning(
             "SKIM results are empty. Returning None to indicate no SKIM results."
         )
         return None
@@ -365,7 +388,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
 
     # Check if there are valid results to return
     if valid_rows.empty:
-        config.logger.warning(
+        logger.warning(
             "No SKIM results after filtering. Returning None to indicate no SKIM results."
         )
         return None

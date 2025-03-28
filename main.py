@@ -1,17 +1,18 @@
 from datetime import datetime
 from functools import partial
-from src.eval_JSON_results import extract_and_write_scores
-import shutil
-import itertools
-import multiprocessing
-from src.jobs import main_workflow
 from glob import glob
-import sys
-import os
-import time
+from src.eval_JSON_results import extract_and_write_scores
+from src.jobs import main_workflow
 from src.utils import Config
 from src.htcondor_helper import HTCondorHelper
+from src.cost_estimator import calculate_total_cost_and_prompt, KMCostEstimator, SkimCostEstimator
+import itertools
+import multiprocessing
+import os
 import pandas as pd
+import shutil
+import sys
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -19,10 +20,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def initialize_workflow():
     global logger
+    # Initialize config once so we can get the outdir_suffix
+    config = Config("config.json")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_output_dir = os.path.abspath("output")
     os.makedirs(base_output_dir, exist_ok=True)
     timestamp_dir_name = f"output_{timestamp}"
+    if config.outdir_suffix != "":
+        timestamp_dir_name = f"{timestamp_dir_name}_{config.outdir_suffix}" 
     output_directory = os.path.join(base_output_dir, timestamp_dir_name)
     os.makedirs(output_directory, exist_ok=True)
 
@@ -30,8 +35,15 @@ def initialize_workflow():
     config_path = os.path.join(output_directory, "config.json")
     shutil.copy("config.json", config_path)
     
-    # Initialize config first
+    # Initialize config again, with the new output directory
     config = Config(config_path)
+    
+    # Set km_output_dir to enable log file creation
+    config.km_output_dir = output_directory
+    
+    # Call add_file_handler to set up logging to a file in the output directory
+    config.add_file_handler()
+    
     logger = config.logger
 
     logger.info(f"Initializing workflow in {output_directory}")
@@ -46,7 +58,7 @@ def organize_output(directory):
     os.makedirs(debug_dir, exist_ok=True)
     
     # Define patterns for result JSON files
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json"]
+    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
     
     for root, dirs, files in os.walk(directory):
         for file in files:
@@ -88,7 +100,7 @@ def organize_output(directory):
 
 
 def main():
-    start_time = time.time()
+    fastkm_start_time = time.time()
     
     # Initialize workflow and get config
     config, output_directory, logger = initialize_workflow()
@@ -123,7 +135,7 @@ def main():
                     "b_terms": b_terms,  # All B terms
                     "c_term": c
                 })
-    else:
+    elif config.job_type == "km_with_gpt":
         # KM workflow
         if config.position:
             # make sure the terms are the same length
@@ -147,6 +159,15 @@ def main():
                 }
                 for a_term in config.a_terms
             ]
+    elif config.job_type == "km_with_gpt_direct_comp":
+        terms = [
+            {
+                "a_term": a_term,
+                "b_terms": config.b_terms
+            }
+            for a_term in config.a_terms
+        ]
+        logger.debug("TERMS in main:", terms)
 
     # Maintain the parallel execution pattern
     workflow = partial(
@@ -159,9 +180,11 @@ def main():
         generated_file_paths = p.map(workflow, terms)
 
     
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Main workflow completed in {elapsed_time:.2f} seconds.")
+    fastkm_end_time = time.time()
+    elapsed_fastkm_time = fastkm_end_time - fastkm_start_time
+
+    logger.info(f"fastkm results returned in {elapsed_fastkm_time:.2f} seconds.")
+    rel_and_api_start_time = time.time()
     if not config.using_htcondor:
         logger.error("HTCONDOR configuration is required but not found in config file.")
         return
@@ -171,7 +194,9 @@ def main():
     try:
         # Create src directory in output directory
         output_src_dir = os.path.join(output_directory, "src")  
+        output_results_dir = os.path.join(output_directory, "output")
         os.makedirs(output_src_dir, exist_ok=True)
+        os.makedirs(output_results_dir, exist_ok=True)
         
         # Ensure we're working with absolute paths
         output_directory = os.path.abspath(output_directory)
@@ -230,6 +255,32 @@ def main():
                 with open(files_txt_path, "w") as f:
                     f.write(combined_filename + "\n")
 
+                # Cost estimation
+                if config.job_type == "km_with_gpt":
+                    try:
+                        estimator = KMCostEstimator(config)
+                        input_tokens = estimator.estimate_input_costs(combined_df)
+                        
+                        if not calculate_total_cost_and_prompt(config, input_tokens):
+                            logger.info("Job aborted by user")
+                            sys.exit(0)
+                        
+                    except Exception as e:
+                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                        sys.exit(1)
+                elif config.job_type == "skim_with_gpt":
+                    try:
+                        estimator = SkimCostEstimator(config)
+                        input_tokens = estimator.estimate_input_costs(combined_df)
+                        
+                        if not calculate_total_cost_and_prompt(config, input_tokens):
+                            logger.info("Job aborted by user")
+                            sys.exit(0)
+                        
+                    except Exception as e:
+                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                        sys.exit(1)
+
             except Exception as e:
                 logger.error(f"Error concatenating TSV files: {str(e)}", exc_info=True)
 
@@ -268,22 +319,52 @@ def main():
             cluster_id = htcondor_helper.submit_jobs(files_txt_path)
             logger.info(f"Jobs submitted with cluster ID {cluster_id}")
 
-            # Monitor jobs
-            if htcondor_helper.monitor_jobs(cluster_id):
-                logger.info("Jobs completed, retrieving output...")
+            # Monitor jobs with enhanced error handling
+            monitoring_success = False
+            try:
+                monitoring_success = htcondor_helper.monitor_jobs(cluster_id)
+                if monitoring_success:
+                    logger.info("All jobs completed successfully")
+                else:
+                    logger.warning("Job monitoring ended with some jobs potentially incomplete")
+            except Exception as monitor_err:
+                logger.error(f"Error during job monitoring: {str(monitor_err)}")
+                # Try to release any held jobs if monitoring failed
+                try:
+                    htcondor_helper.release_held_jobs(cluster_id)
+                except Exception:
+                    pass
+
+            # Retrieve output regardless of monitoring success
+            try:
+                logger.info("Retrieving output files...")
                 htcondor_helper.retrieve_output(cluster_id)
+                logger.info("Output files retrieved successfully")
+            except Exception as retrieve_err:
+                logger.error(f"Error retrieving output: {str(retrieve_err)}")
 
             # Process results
             logger.info("Processing results...")
             organize_output(output_directory)
             extract_and_write_scores(output_directory)
             
-            # Cleanup
-            htcondor_helper.cleanup(cluster_id)
+            # Proper cleanup with comprehensive error handling
+            try:
+                logger.info(f"Cleaning up cluster {cluster_id}...")
+                htcondor_helper.cleanup(cluster_id)
+                logger.info("Cleanup completed")
+            except Exception as cleanup_err:
+                logger.error(f"Error during cleanup: {str(cleanup_err)}")
+                
         finally:
             os.chdir(original_dir)
         
         logger.info(f"Analysis complete. Results are in {output_directory}")
+        rel_and_api_end_time = time.time()
+        elapsed_rel_and_api_time = rel_and_api_end_time - rel_and_api_start_time
+        logger.info(f"Relevance and API complete in {elapsed_rel_and_api_time:.2f} seconds.")
+        total_time = time.time() - fastkm_start_time
+        logger.info(f"Total time taken: {total_time:.2f} seconds")
     except Exception as e:
         logger.error(f"An error occurred: {str(e)}", exc_info=True)
 

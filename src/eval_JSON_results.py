@@ -9,7 +9,7 @@ import sys
 def extract_and_write_scores(directory):
     results = []
     # Define the outer keys to look for
-    outer_keys = ["A_B_C_Relationship", "A_C_Relationship", "A_B_Relationship"]
+    outer_keys = ["A_B_C_Relationship", "A_C_Relationship", "A_B_Relationship", "A_B1_B2_Relationship"]
 
     # Walk through all files in the directory
     for root, dirs, files in os.walk(directory):
@@ -38,7 +38,7 @@ def extract_and_write_scores(directory):
                                 for detail in score_details:
                                     # Updated regex to capture numbers and 'N/A'
                                     match = re.search(
-                                        r"\**Score:\**\s*\**([-+]?\d+|N/A)\**",
+                                        r"\**Score\**:\**\s*\**([-+]?\d+|N/A)\**",
                                         detail,
                                         re.IGNORECASE,
                                     )

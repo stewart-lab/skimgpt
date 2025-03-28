@@ -4,6 +4,10 @@ import time
 import re
 from typing import List, Dict, Any
 import tiktoken
+import warnings
+
+# Silence the specific Bio.Entrez.Parser warning about DTD files
+warnings.filterwarnings("ignore", message="Failed to save .* at .*")
 
 class PubMedFetcher:
     def __init__(self, config: Config, email: str, api_key: str, max_retries: int = 10, backoff_factor: float = 0.5):
@@ -95,7 +99,7 @@ class PubMedFetcher:
                         article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
                     )
                     
-                    if len(abstract_text.split()) >= 50:
+                    if len(abstract_text.split()) >= self.config.min_word_count:
                         returned_pmids.append(pmid)
                         self.pmid_years[pmid] = int(pub_year)  # Store year in instance
                         content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
@@ -136,6 +140,7 @@ class PubMedFetcher:
             self.logger.error("No abstracts fetched successfully.")
         else:
             self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
+            self.logger.debug(f"Abstract dict: {abstract_dict}")
 
         return abstract_dict
 
@@ -189,114 +194,112 @@ class PubMedFetcher:
                 if pmid not in pmids_logged:
                     self.logger.debug(f"PMID: {pmid}, Year: {year}")
                 pmids_logged.append(pmid)
-        # If n is specified, limit both lists before interleaving
-        if n is not None:
-            original_entries = original_entries[:n//2]
-            year_sorted_entries = year_sorted_entries[:n//2]
-            self.logger.debug(f"\nLimiting to top {n} entries from each list")
-        # Handle special cases
-        if top_n_most_cited == 0 and top_n_most_recent > 0:
-            # Only return most recent
-            result = year_sorted_entries
-            self.logger.debug(f"Returning only {n} most recent entries")
-        
-        elif top_n_most_recent == 0 and top_n_most_cited > 0:
-            # Only return most cited
-            result = original_entries
-            self.logger.debug(f"Returning only {n} most cited entries")
-        
-        else:
-            # Calculate interleaving ratio
-            ratio = top_n_most_cited / top_n_most_recent if top_n_most_recent > 0 else float('inf')
-            self.logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
 
-            # Interleave based on ratio
-            result = []
-            cited_idx = recent_idx = 0
-            used_pmids = set()  # Track which PMIDs we've already added
-            
-            def get_pmid(entry):
-                """Helper function to extract PMID from an entry"""
-                pmid_match = re.search(r"PMID: (\d+)", entry)
-                return pmid_match.group(1) if pmid_match else None
-            
-            def add_entry(entry):
-                """Helper function to add entry if not already present"""
-                pmid = get_pmid(entry)
-                if pmid and pmid not in used_pmids:
-                    result.append(entry)
-                    used_pmids.add(pmid)
-                    return True
+        # Calculate interleaving ratio
+        ratio = top_n_most_cited / top_n_most_recent if top_n_most_recent > 0 else float(top_n_most_cited)
+        self.logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
+
+        # Interleave based on ratio
+        result = []
+        cited_idx = recent_idx = 0
+        used_pmids = set()  # Track which PMIDs we've already added
+        
+        def get_pmid(entry):
+            """Helper function to extract PMID from an entry"""
+            pmid_match = re.search(r"PMID: (\d+)", entry)
+            return pmid_match.group(1) if pmid_match else None
+        
+        def add_entry(entry):
+            """Helper function to add entry if not already present"""
+            # Check if we've reached the limit before adding
+            if n is not None and len(result) >= n:
                 return False
-        
-            while cited_idx < len(original_entries) or recent_idx < len(year_sorted_entries):
-                made_progress = False
-                
-                # Handle ratio > 1 (more cited than recent)
-                if ratio > 1 and cited_idx < len(original_entries):
-                    expected_cited = round(recent_idx * ratio)
-                    # Add enough to catch up to the expected count
-                    while cited_idx < min(expected_cited, len(original_entries)):
-                        if add_entry(original_entries[cited_idx]):
-                            made_progress = True
-                        cited_idx += 1
-                    # Add one recent entry after the batch of cited entries
-                    if recent_idx < len(year_sorted_entries):
-                        if add_entry(year_sorted_entries[recent_idx]):
-                            made_progress = True
-                        recent_idx += 1
-                    # If we can't add a recent entry but still have cited entries, add one more cited
-                    elif cited_idx < len(original_entries):
-                        if add_entry(original_entries[cited_idx]):
-                            made_progress = True
-                        cited_idx += 1
-                
-                # Handle ratio < 1 (more recent than cited)
-                elif ratio < 1 and recent_idx < len(year_sorted_entries):
-                    expected_recent = round(cited_idx / ratio)
-                    while recent_idx < min(expected_recent, len(year_sorted_entries)):
-                        if add_entry(year_sorted_entries[recent_idx]):
-                            made_progress = True
-                        recent_idx += 1
-                    # Add one cited entry after the batch of recent entries
-                    if cited_idx < len(original_entries):
-                        if add_entry(original_entries[cited_idx]):
-                            made_progress = True
-                        cited_idx += 1
-                    # If we can't add a cited entry but still have recent entries, add one more recent
-                    elif recent_idx < len(year_sorted_entries):
-                        if add_entry(year_sorted_entries[recent_idx]):
-                            made_progress = True
-                        recent_idx += 1
+            
+            pmid = get_pmid(entry)
+            if pmid and pmid not in used_pmids:
+                result.append(entry)
+                used_pmids.add(pmid)
+                return True
+            return False
 
-                # Handle ratio == 1 (equal numbers of cited and recent)
-                elif ratio == 1:
-                    if cited_idx < len(original_entries):
-                        if add_entry(original_entries[cited_idx]):
-                            made_progress = True
-                        cited_idx += 1
-                    if recent_idx < len(year_sorted_entries):
-                        if add_entry(year_sorted_entries[recent_idx]):
-                            made_progress = True
-                        recent_idx += 1
+        while (cited_idx < len(original_entries) or recent_idx < len(year_sorted_entries)) and (n is None or len(result) < n):
+            made_progress = False
+            
+            # Handle ratio > 1 (more cited than recent)
+            if ratio > 1 and cited_idx < len(original_entries):
+                expected_cited = round(recent_idx * ratio)
+                # Add enough to catch up to the expected count
+                while cited_idx < min(expected_cited, len(original_entries)):
+                    if add_entry(original_entries[cited_idx]):
+                        made_progress = True
+                    cited_idx += 1
+                # Add one recent entry after the batch of cited entries
+                if recent_idx < len(year_sorted_entries):
+                    if add_entry(year_sorted_entries[recent_idx]):
+                        made_progress = True
+                    recent_idx += 1
+                # If we can't add a recent entry but still have cited entries, add one more cited
+                elif cited_idx < len(original_entries):
+                    if add_entry(original_entries[cited_idx]):
+                        made_progress = True
+                    cited_idx += 1
+            
+            # Handle ratio < 1 (more recent than cited)
+            elif ratio < 1 and recent_idx < len(year_sorted_entries):
+                expected_recent = round(cited_idx / ratio) if ratio > 0 else len(year_sorted_entries) # or maybe inf
+                while recent_idx < min(expected_recent, len(year_sorted_entries)):
+                    if add_entry(year_sorted_entries[recent_idx]):
+                        made_progress = True
+                    recent_idx += 1
+                # Add one cited entry after the batch of recent entries
+                if cited_idx < len(original_entries):
+                    if add_entry(original_entries[cited_idx]):
+                        made_progress = True
+                    cited_idx += 1
+                # If we can't add a cited entry but still have recent entries, add one more recent
+                elif recent_idx < len(year_sorted_entries):
+                    if add_entry(year_sorted_entries[recent_idx]):
+                        made_progress = True
+                    recent_idx += 1
 
-                # If we didn't make any progress in this iteration, break to avoid infinite loop
-                if not made_progress:
-                    break
+            # Handle ratio == 1 (equal numbers of cited and recent)
+            elif ratio == 1:
+                if cited_idx < len(original_entries):
+                    if add_entry(original_entries[cited_idx]):
+                        made_progress = True
+                    cited_idx += 1
+                if recent_idx < len(year_sorted_entries):
+                    if add_entry(year_sorted_entries[recent_idx]):
+                        made_progress = True
+                    recent_idx += 1
 
-                # Break if we've processed all entries from both lists
-                if cited_idx >= len(original_entries) and recent_idx >= len(year_sorted_entries):
-                    break
+            # If we didn't make any progress in this iteration, break to avoid infinite loop
+            if not made_progress:
+                break
 
+            # Break if we've processed all entries from both lists
+            if cited_idx >= len(original_entries) and recent_idx >= len(year_sorted_entries):
+                break
+            self.logger.debug(f"cited_idx: {cited_idx}, recent_idx: {recent_idx}, n: {n}")
+            
             self.logger.debug(f"Cited entries used: {cited_idx}, Recent entries used: {recent_idx}")
             self.logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
             self.logger.debug(f"Final interleaved list contains {len(result)} entries")
             
-        return "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
+        if not result:
+            return ""
+        
+        final_text = "===END OF ABSTRACT===\n\n".join(result) + "===END OF ABSTRACT===\n\n"
+        
+        # Add debug logging to count actual abstracts
+        abstract_count = len(result)
+        self.logger.debug(f"Returning {abstract_count} abstracts from interleave_abstracts")
+        
+        return final_text
 
     def optimize_text_length(self, text: str | list, max_tokens: int = 110000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
 
-        # Handle list input
+      # Handle list input
         if isinstance(text, list):
             text = "\n===END OF ABSTRACT===\n".join(text) if text else ""
         
@@ -314,19 +317,30 @@ class PubMedFetcher:
         
         entries = text.split("===END OF ABSTRACT===")
         entries = [e.strip() for e in entries if e.strip()]
-        
+        self.logger.debug(f"Entries: {entries}")
         optimized_entries = []
         current_tokens = 0
         
         for entry in entries:
             entry_tokens = len(encoding.encode(entry))
+            self.logger.debug(f"Entry tokens: {entry_tokens}")
+            self.logger.debug(f"Current tokens: {current_tokens}")
+            self.logger.debug(f"entry: {entry}")
             if current_tokens + entry_tokens <= tokens_per_intersection:
                 optimized_entries.append(entry)
                 current_tokens += entry_tokens
+                self.logger.debug(f"adding entry: {entry}")
             else:
+                self.logger.debug(f"breaking at entry: {entry}")
                 break
             
         if not optimized_entries:
             return ""
         
-        return "===END OF ABSTRACT===\n\n".join(optimized_entries) + "===END OF ABSTRACT===\n\n" 
+        final_text = "===END OF ABSTRACT===\n\n".join(optimized_entries) + "===END OF ABSTRACT===\n\n"
+        
+        # Add debug logging
+        abstract_count = len(optimized_entries)
+        self.logger.debug(f"Returning {abstract_count} abstracts from optimize_text_length")
+        
+        return final_text 
