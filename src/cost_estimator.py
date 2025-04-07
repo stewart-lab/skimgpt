@@ -15,7 +15,13 @@ class CostEstimator:
         if self.model == "o1":
             self.input_cost_per_million = 15.00
             self.output_cost_per_million = 60.00
-        else:  # o1-mini or default
+        elif self.model == "o1-mini":
+            self.input_cost_per_million = 1.10
+            self.output_cost_per_million = 4.40
+        elif self.model == "r1":
+            self.input_cost_per_million = 0.55
+            self.output_cost_per_million = 2.19
+        else:  # default to o1-mini pricing
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40
     
@@ -50,6 +56,12 @@ class KMCostEstimator(CostEstimator):
         (150, 175, 5600), (175, 200, 5800)
     ]
     
+    DEEPSEEK_KM_INTERVALS = [
+        (0, 25, 780), (25, 50, 850), (50, 75, 920),
+        (75, 100, 990), (100, 125, 1060), (125, 150, 1130),
+        (150, 175, 1200), (175, 200, 1270)
+    ]
+    
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
         """Calculate input token costs for KM jobs."""
         total_tokens = 0
@@ -82,13 +94,23 @@ class KMCostEstimator(CostEstimator):
     
     def get_output_tokens(self) -> int:
         """Get estimated output tokens for KM jobs."""
-        return self._get_output_tokens(self.KM_INTERVALS, "KM")
+        # Use appropriate intervals based on model
+        if self.model == "r1":
+            return self._get_output_tokens(self.DEEPSEEK_KM_INTERVALS, "KM")
+        else:
+            return self._get_output_tokens(self.KM_INTERVALS, "KM")
 
 class SkimCostEstimator(CostEstimator):
     SKIM_INTERVALS = [
         (0, 25, 8500), (25, 50, 9800), (50, 75, 11000),
         (75, 100, 12300), (100, 125, 13600), (125, 150, 14800),
         (150, 175, 16000), (175, 200, 17400)
+    ]
+    
+    DEEPSEEK_SKIM_INTERVALS = [
+        (0, 25, 2690), (25, 50, 5710), (50, 75, 8730),
+        (75, 100, 11750), (100, 125, 14770), (125, 150, 17790),
+        (150, 175, 20810), (175, 200, 23830)
     ]
     
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
@@ -131,7 +153,11 @@ class SkimCostEstimator(CostEstimator):
     
     def get_output_tokens(self) -> int:
         """Get estimated output tokens for SKIM jobs."""
-        return self._get_output_tokens(self.SKIM_INTERVALS, "SKIM")
+        # Use appropriate intervals based on model
+        if self.model == "r1":
+            return self._get_output_tokens(self.DEEPSEEK_SKIM_INTERVALS, "SKIM")
+        else:
+            return self._get_output_tokens(self.SKIM_INTERVALS, "SKIM")
 
 def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     """Calculate total cost and prompt user for confirmation."""
