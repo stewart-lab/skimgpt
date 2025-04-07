@@ -297,11 +297,17 @@ def analyze_abstract_with_frontier_LLM(
         logger.error("A term is empty.")
         return [], ""
 
-    api_key = config.secrets["OPENAI_API_KEY"]
-    if not api_key:
-        raise ValueError("OpenAI API key is not set.")
-
-    openai_client = openai.OpenAI(api_key=api_key)
+    # Initialize client based on model type
+    if config.model == "r1":
+        api_key = config.secrets["DEEPSEEK_API_KEY"]
+        if not api_key:
+            raise ValueError("Deepseek API key is not set.")
+        client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+    else:
+        api_key = config.secrets["OPENAI_API_KEY"]
+        if not api_key:
+            raise ValueError("OpenAI API key is not set.")
+        client = openai.OpenAI(api_key=api_key)
 
     responses = []
     prompt_text = ""
@@ -320,7 +326,7 @@ def analyze_abstract_with_frontier_LLM(
         logger.error("Failed to generate prompt.")
         return ["Score: N/A"], prompt_text
     logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
-    response = call_openai(openai_client, prompt_text, config)
+    response = call_openai(client, prompt_text, config)
     if response:
         responses.append(response)
     logger.debug(f" IN ANALYZE ABSTRACT   Responses: {responses}")
@@ -430,7 +436,7 @@ def call_openai(client, prompt, config: Config):
     retry_delay = config.global_settings["RETRY_DELAY"]
     max_retries = config.global_settings["MAX_RETRIES"]
 
-    for attempt in range(max_retries):
+    for _ in range(max_retries):
         try:
             # Create parameters dictionary
             params = {
@@ -440,24 +446,21 @@ def call_openai(client, prompt, config: Config):
                 ],
             }
             
-            # Add reasoning_effort parameter only for o1 model
-            # if config.model == "o1":
-            #    params["reasoning_effort"] = config.global_settings["REASONING_EFFORT"]
-                
             # Make the API call with the parameters
             response = client.chat.completions.create(**params)
-            
+
             content = response.choices[0].message.content
             usage = response.usage
-            logger.info(f"prompt_tokens={usage.prompt_tokens}, " +
-                        f"completion_tokens={usage.completion_tokens}, " +
-                        f"total_tokens={usage.total_tokens}")
+            logger.info(
+                f"prompt_tokens={usage.prompt_tokens}, "
+                f"completion_tokens={usage.completion_tokens}, "
+                f"total_tokens={usage.total_tokens}"
+            )
 
             if content:
                 return content
-            else:
-                logger.warning("Empty response received from OpenAI API.")
-                time.sleep(retry_delay)
+            logger.warning("Empty response received from OpenAI API.")
+            time.sleep(retry_delay)
 
         # Specific Exceptions First
         except openai.AuthenticationError as e:
@@ -470,11 +473,19 @@ def call_openai(client, prompt, config: Config):
             break  # Authentication issues won't resolve with retries
 
         except openai.BadRequestError as e:
-            logger.error(
-                "BadRequestError: Your request was malformed or missing some required parameters.\n"
-                "Solution: Check the error message for specifics, ensure all required parameters "
-                "are provided, and verify the format and size of your request data."
-            )
+            # This handles both OpenAI and Deepseek 400 errors
+            if config.model == "r1":
+                logger.error(
+                    "BadRequestError: Invalid request body format.\n"
+                    "Solution: Please modify your request body according to the DeepSeek API format. "
+                    "Check the error message for specific details."
+                )
+            else:
+                logger.error(
+                    "BadRequestError: Your request was malformed or missing some required parameters.\n"
+                    "Solution: Check the error message for specifics, ensure all required parameters "
+                    "are provided, and verify the format and size of your request data."
+                )
             logger.debug(str(e))
             break  # Bad requests won't resolve with retries
 
@@ -494,6 +505,7 @@ def call_openai(client, prompt, config: Config):
             logger.debug(str(e))
             break  # Not found errors won't resolve with retries
 
+        # Catch conflict before generic APIError
         except openai.ConflictError as e:
             logger.error(
                 "ConflictError: The resource was updated by another request.\n"
@@ -503,16 +515,31 @@ def call_openai(client, prompt, config: Config):
             logger.debug(str(e))
             time.sleep(retry_delay)
 
+        # The following must also come before openai.APIError or they'll remain unreachable
         except openai.UnprocessableEntityError as e:
-            logger.error(
-                "UnprocessableEntityError: Unable to process the request despite the format being correct.\n"
-                "Solution: Please try the request again."
-            )
+            # This handles both OpenAI and Deepseek 422 errors
+            if config.model == "r1":
+                logger.error(
+                    "UnprocessableEntityError: Your request contains invalid parameters.\n"
+                    "Solution: Please modify your request parameters according to the DeepSeek API format."
+                )
+            else:
+                logger.error(
+                    "UnprocessableEntityError: Unable to process the request despite the format being correct.\n"
+                    "Solution: Please try the request again."
+                )
             logger.debug(str(e))
             time.sleep(retry_delay)
 
         except openai.RateLimitError as e:
-            logger.warning("A 429 status code was received; we should back off a bit.")
+            # This handles both OpenAI and Deepseek 429 errors
+            if config.model == "r1":
+                logger.warning(
+                    "Rate Limit Reached: You are sending requests too quickly.\n"
+                    "Solution: Please pace your requests reasonably. Consider switching to alternative providers temporarily."
+                )
+            else:
+                logger.warning("A 429 status code was received; we should back off a bit.")
             logger.debug(str(e))
             time.sleep(retry_delay)
 
@@ -533,14 +560,39 @@ def call_openai(client, prompt, config: Config):
             time.sleep(retry_delay)
 
         except openai.APIStatusError as e:
-            # General APIStatusError should come after specific APIStatusError subclasses
-            logger.error(
-                f"APIStatusError: Another non-200-range status code was received.\n"
-                f"Status Code: {e.status_code}\n"
-                f"Response: {e.response}\n"
-                f"Cause: {e.__cause__}"
-            )
+            # Handle both OpenAI and Deepseek general status errors
+            if config.model == "r1" and e.status_code == 500:
+                logger.error(
+                    "Server Error: The DeepSeek server encountered an issue.\n"
+                    "Solution: Please retry your request after a brief wait and contact support if the issue persists."
+                )
+            else:
+                logger.error(
+                    f"APIStatusError: Another non-200-range status code was received.\n"
+                    f"Status Code: {e.status_code}\n"
+                    f"Response: {e.response}\n"
+                    f"Cause: {e.__cause__}"
+                )
             time.sleep(retry_delay)
+
+        # Finally, catch other API errors not covered by the above
+        except openai.APIError as e:
+            if config.model == "r1":
+                status_code = getattr(e, 'status_code', None)
+                if status_code == 402:
+                    logger.error(
+                        "Insufficient Balance: You have run out of balance.\n"
+                        "Solution: Please check your account's balance and add funds if necessary."
+                    )
+                    break  # Balance issues won't resolve with retries
+                elif status_code == 503:
+                    logger.error(
+                        "Server Overloaded: The server is experiencing high traffic.\n"
+                        "Solution: Please retry your request after a brief wait."
+                    )
+                    time.sleep(retry_delay)
+                    continue  # Continue to next retry attempt
+            raise  # Re-raise so it's handled by outer layers if needed
 
         except Exception as e:
             logger.error("An unexpected error occurred.")

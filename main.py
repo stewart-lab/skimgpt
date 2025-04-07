@@ -351,56 +351,62 @@ def main():
         with open(files_txt_path, "r") as f:
             tsv_files = [os.path.join(output_directory, line.strip()) for line in f if line.strip()]
 
-        if len(tsv_files) > 1:
-            logger.info(f"Concatenating {len(tsv_files)} TSV files")
-
-            try: 
-                first_filename = os.path.basename(tsv_files[0])
-                job_prefix = first_filename.split("_")[0]
-
+        # Read TSV files regardless of count
+        try:
+            first_filename = os.path.basename(tsv_files[0])
+            job_prefix = first_filename.split("_")[0]
+            
+            if len(tsv_files) > 1:
+                logger.info(f"Concatenating {len(tsv_files)} TSV files")
                 combined_filename = f"{job_prefix}_combined_output_filtered.tsv"
                 combined_tsv_path = os.path.join(output_directory, combined_filename)
-
+                
                 # Read and concatenate TSV files
                 dataframes = [pd.read_csv(tsv, sep="\t") for tsv in tsv_files]
                 combined_df = pd.concat(dataframes, ignore_index=True)
+            else:
+                logger.info("Single TSV file found, no concatenation needed")
+                combined_tsv_path = tsv_files[0]
+                combined_df = pd.read_csv(combined_tsv_path, sep="\t")
 
-                # Write the combined TSV file
-                combined_df.to_csv(combined_tsv_path, sep="\t", index=False)
-                logger.info(f"Concatenated TSV file saved at {combined_tsv_path}")
+            # Update files.txt to contain only the combined/single file
+            with open(files_txt_path, "w") as f:
+                f.write(os.path.basename(combined_tsv_path) + "\n")
 
-                # Update files.txt to contain only the new combined file
-                with open(files_txt_path, "w") as f:
-                    f.write(combined_filename + "\n")
+            # Cost estimation - moved outside the len(tsv_files) > 1 condition
+            logger.info(f"Current job type: {config.job_type}")
+            logger.info("Attempting cost estimation...")
 
-                # Cost estimation
-                if config.job_type == "km_with_gpt":
-                    try:
-                        estimator = KMCostEstimator(config)
-                        input_tokens = estimator.estimate_input_costs(combined_df)
-                        
-                        if not calculate_total_cost_and_prompt(config, input_tokens):
-                            logger.info("Job aborted by user")
-                            sys.exit(0)
-                        
-                    except Exception as e:
-                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                        sys.exit(1)
-                elif config.job_type == "skim_with_gpt":
-                    try:
-                        estimator = SkimCostEstimator(config)
-                        input_tokens = estimator.estimate_input_costs(combined_df)
-                        
-                        if not calculate_total_cost_and_prompt(config, input_tokens):
-                            logger.info("Job aborted by user")
-                            sys.exit(0)
-                        
-                    except Exception as e:
-                        logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                        sys.exit(1)
+            if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
+                try:
+                    logger.info("\nIN KMCOSTESTIMATOR\n") 
+                    estimator = KMCostEstimator(config)
+                    input_tokens = estimator.estimate_input_costs(combined_df)
+                    
+                    if not calculate_total_cost_and_prompt(config, input_tokens):
+                        logger.info("Job aborted by user")
+                        sys.exit(0)
+                    
+                except Exception as e:
+                    logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                    sys.exit(1)
+            elif config.job_type == "skim_with_gpt":
+                try:
+                    estimator = SkimCostEstimator(config)
+                    input_tokens = estimator.estimate_input_costs(combined_df)
+                    
+                    if not calculate_total_cost_and_prompt(config, input_tokens):
+                        logger.info("Job aborted by user")
+                        sys.exit(0)
+                    
+                except Exception as e:
+                    logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+                    sys.exit(1)
+            else:
+                logger.info(f"Skipping KM cost estimation for job type: {config.job_type}")
 
-            except Exception as e:
-                logger.error(f"Error concatenating TSV files: {str(e)}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
 
         # Copy necessary files to output directory
         src_dir = os.path.join(os.getcwd(), "src")

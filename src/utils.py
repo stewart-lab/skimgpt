@@ -124,10 +124,15 @@ class Config:
             self.job_config = json.load(config_file)
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
         
-  
+        # Add API configuration first
+        self.model = self.global_settings["MODEL"]
+        self.rate_limit = self.global_settings["RATE_LIMIT"]
+        self.delay = self.global_settings["DELAY"]
+        self.max_retries = self.global_settings["MAX_RETRIES"]
+        self.retry_delay = self.global_settings["RETRY_DELAY"]
+        
         self.log_level_str = self.global_settings.get("LOG_LEVEL", "INFO").upper()
         self.logger = self.setup_logger()
-
 
         self.secrets_path = os.path.join(os.path.dirname(config_path), "secrets.json")
         if not os.path.exists(self.secrets_path):
@@ -135,12 +140,12 @@ class Config:
             
         self.secrets = self.load_secrets()
         self.validate_secrets()
-
+        
         self.km_output_dir = None
         self.km_output_base_name = None
         self.filtered_tsv_name = None
         self.debug_tsv_name = None
-
+        
         # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
         self.km_direct_comp_hypothesis = self.job_config["KM_direct_comp_hypothesis"]
@@ -483,18 +488,26 @@ class Config:
         secrets = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
-            "HTCONDOR_TOKEN": os.getenv("HTCONDOR_TOKEN")
+            "HTCONDOR_TOKEN": os.getenv("HTCONDOR_TOKEN"),
+            "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
         }
         
-        missing = [k for k, v in secrets.items() if not v]
+        # Only check for required keys based on model
+        required_keys = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        if self.model == "r1":
+            required_keys.append("DEEPSEEK_API_KEY")
+        else:
+            required_keys.append("OPENAI_API_KEY")
+        
+        missing = [k for k in required_keys if not secrets.get(k)]
         if missing:
             raise ValueError(
                 f"Cannot create secrets.json - missing environment variables: {', '.join(missing)}"
             )
-            
+        
         with open(self.secrets_path, "w") as f:
             json.dump(secrets, f, indent=2)
-            
+        
         os.chmod(self.secrets_path, 0o600)  # Restrict permissions
         self.logger.info(f"Created secrets file at {self.secrets_path}")
 
@@ -510,7 +523,14 @@ class Config:
 
     def validate_secrets(self):
         """Validate required secrets exist"""
-        required = ["OPENAI_API_KEY", "PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        required = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        
+        # Add API key requirement based on model
+        if self.model == "r1":
+            required.append("DEEPSEEK_API_KEY")
+        else:
+            required.append("OPENAI_API_KEY")
+        
         missing = [key for key in required if not self.secrets.get(key)]
         if missing:
-            raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")   
+            raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")
