@@ -377,7 +377,6 @@ def main():
 
             if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
                 try:
-                    logger.info("\nIN KMCOSTESTIMATOR\n") 
                     estimator = KMCostEstimator(config)
                     input_tokens = estimator.estimate_input_costs(combined_df)
                     
