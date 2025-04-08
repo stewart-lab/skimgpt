@@ -347,11 +347,9 @@ def main():
         if not os.path.exists(files_txt_path):
             raise FileNotFoundError(f"Failed to create {files_txt_path}")
         
-        # TODO: CONCAT .tsvs
         with open(files_txt_path, "r") as f:
             tsv_files = [os.path.join(output_directory, line.strip()) for line in f if line.strip()]
 
-        # Read TSV files regardless of count
         try:
             first_filename = os.path.basename(tsv_files[0])
             job_prefix = first_filename.split("_")[0]

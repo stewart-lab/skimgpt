@@ -440,11 +440,17 @@ def call_openai(client, prompt, config: Config):
         try:
             # Create parameters dictionary
             params = {
-                "model": config.model,
                 "messages": [
-                    {"role": "user", "content": prompt},
-                ],
+                    {"role": "user", "content": prompt}
+                ]
             }
+            
+            # Set the correct model name based on config.model
+            if config.model == "r1":
+                # Use the proper DeepSeek model name instead of "r1"
+                params["model"] = "deepseek-reasoner"
+            else:
+                params["model"] = config.model
             
             # Make the API call with the parameters
             response = client.chat.completions.create(**params)

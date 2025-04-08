@@ -1,7 +1,7 @@
 import logging
 from typing import List, Tuple
 import pandas as pd
-from src.prompt_library import km_with_gpt, skim_with_gpt, skim_with_gpt_ac
+from src.prompt_library import km_with_gpt, skim_with_gpt, skim_with_gpt_ac, km_with_gpt_direct_comp
 from src.utils import Config
 
 class CostEstimator:
@@ -72,18 +72,32 @@ class KMCostEstimator(CostEstimator):
         for idx, row in combined_df.iterrows():
             abstract_tokens = min(row['ab_count'], self.post_n) * 300
             
-            hypothesis_template = self.config.km_hypothesis.format(
-                a_term=row['a_term'], 
-                b_term=row['b_term']
-            )
+            # Get b_terms - either from array for direct_comp or single term for regular km
+            if self.config.job_type == "km_with_gpt_direct_comp":
+                # Split b_term string into array and take first two terms
+                hypothesis_template = self.config.km_direct_comp_hypothesis.format(
+                    a_term=row['a_term'],
+                    b_term1=row['b_term'][0], 
+                    b_term2=row['b_term'][1]  
+                )
+                # Use the correct prompt function for direct comparison
+                prompt_text = km_with_gpt_direct_comp(row['b_term'][0], row['b_term'][1], row['a_term'], hypothesis_template, "")
+            else:
+                hypothesis_template = self.config.km_hypothesis.format(
+                    a_term=row['a_term'], 
+                    b_term=row['b_term']
+                )
+                prompt_text = km_with_gpt(row['b_term'], row['a_term'], hypothesis_template, "")
             
-            prompt_text = km_with_gpt(row['b_term'], row['a_term'], hypothesis_template, "")
             prompt_tokens = int(len(prompt_text.replace("{consolidated_abstracts}", "").split()) * 4/3)
             
             row_total_tokens = abstract_tokens + prompt_tokens
             total_tokens += row_total_tokens
             
-            self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
+            if self.config.job_type == "km_with_gpt_direct_comp":
+                self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term'][0]}/{row['b_term'][1]}): Total input tokens: {row_total_tokens:,}")
+            else:
+                self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
         
         estimated_cost = self._calculate_cost(total_tokens)
         self.logger.info("=== Overall Summary ===")
@@ -161,9 +175,9 @@ class SkimCostEstimator(CostEstimator):
 
 def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     """Calculate total cost and prompt user for confirmation."""
-    estimator = KMCostEstimator(config) if config.job_type == "km_with_gpt" else SkimCostEstimator(config)
+    estimator = KMCostEstimator(config) if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"] else SkimCostEstimator(config)
     
-    if config.job_type not in ["km_with_gpt", "skim_with_gpt"]:
+    if config.job_type not in ["km_with_gpt", "skim_with_gpt", "km_with_gpt_direct_comp"]:
         estimator.logger.info(f"Cost calculation not available for {config.job_type} jobs")
         return True
     
