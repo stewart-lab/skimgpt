@@ -362,6 +362,11 @@ def main():
                 # Read and concatenate TSV files
                 dataframes = [pd.read_csv(tsv, sep="\t") for tsv in tsv_files]
                 combined_df = pd.concat(dataframes, ignore_index=True)
+
+                # Write the combined TSV file
+                combined_df.to_csv(combined_tsv_path, sep="\t", index=False)
+                logger.info(f"Concatenated TSV file saved at {combined_tsv_path}")
+
             else:
                 logger.info("Single TSV file found, no concatenation needed")
                 combined_tsv_path = tsv_files[0]
@@ -375,6 +380,8 @@ def main():
             logger.info(f"Current job type: {config.job_type}")
             logger.info("Attempting cost estimation...")
 
+
+            # Commented out cost estimation
             if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
                 try:
                     estimator = KMCostEstimator(config)
@@ -401,6 +408,7 @@ def main():
                     sys.exit(1)
             else:
                 logger.info(f"Skipping KM cost estimation for job type: {config.job_type}")
+
 
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
