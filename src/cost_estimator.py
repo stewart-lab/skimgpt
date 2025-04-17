@@ -184,7 +184,21 @@ def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     estimated_output_tokens = estimator.get_output_tokens()
     estimated_input_cost = estimator._calculate_cost(input_tokens)
     estimated_output_cost = estimator._calculate_cost(estimated_output_tokens, is_input=False)
-    total_cost = estimated_input_cost + estimated_output_cost
+    
+    # Calculate cost per iteration
+    cost_per_iteration = estimated_input_cost + estimated_output_cost
+    
+    # Determine number of iterations
+    num_iterations = 1
+    if config.iterations:
+        if isinstance(config.iterations, int) and config.iterations > 0:
+            num_iterations = config.iterations
+        elif isinstance(config.iterations, bool) and config.iterations:
+            # If iterations is set to True but no number specified
+            estimator.logger.warning("iterations is set to True but no number specified, assuming 1 iteration for cost")
+    
+    # Calculate total cost across all iterations
+    total_cost = cost_per_iteration * num_iterations
     
     print("\n" + "="*50)
     print(f"COST ESTIMATION FOR {config.job_type.upper()} WITH {config.model.upper()}")
@@ -194,8 +208,16 @@ def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     print(f"Estimated input cost:    ${estimated_input_cost:.2f}")
     print(f"Estimated output tokens: {estimated_output_tokens:,}")
     print(f"Estimated output cost:   ${estimated_output_cost:.2f}")
-    print("-"*50)
-    print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f}")
+    print(f"Cost per iteration:      ${cost_per_iteration:.2f}")
+    
+    if num_iterations > 1:
+        print(f"Number of iterations:    {num_iterations}")
+        print("-"*50)
+        print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f} ({num_iterations} iterations)")
+    else:
+        print("-"*50)
+        print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f}")
+    
     print("="*50)
     
     while True:

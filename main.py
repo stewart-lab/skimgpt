@@ -58,10 +58,57 @@ def organize_output(directory):
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(debug_dir, exist_ok=True)
     
+    # Track directories we've already processed to avoid duplicates
+    processed_dirs = set()
+    
+    # ------------------------------------------------------------------
+    # First, preserve any iteration subdirectories (e.g. iteration_1, iteration_2…)
+    # ------------------------------------------------------------------
+    # Look for iteration directories both at the top level and within output/
+    for root, dirs, _ in os.walk(directory):
+        for dir_name in dirs:
+            if dir_name.startswith("iteration_"):
+                src_path = os.path.join(root, dir_name)
+                # Skip if we've already processed this directory
+                if src_path in processed_dirs:
+                    continue
+                
+                processed_dirs.add(src_path)
+                logger.info(f"Found iteration directory: {src_path}")
+                
+                # Create the target path in results/
+                dest_path = os.path.join(results_dir, dir_name)
+                
+                if os.path.exists(dest_path):
+                    # If destination exists, move content file by file
+                    logger.info(f"Destination {dest_path} exists, merging content")
+                    for src_root, _, files_dir in os.walk(src_path):
+                        rel_root = os.path.relpath(src_root, src_path)
+                        target_root = os.path.join(dest_path, rel_root)
+                        os.makedirs(target_root, exist_ok=True)
+                        for f in files_dir:
+                            src_file = os.path.join(src_root, f)
+                            dst_file = os.path.join(target_root, f)
+                            logger.debug(f"Moving {src_file} to {dst_file}")
+                            shutil.move(src_file, dst_file)
+                    # After moving files, remove the source directory
+                    shutil.rmtree(src_path, ignore_errors=True)
+                else:
+                    # If destination doesn't exist, move the whole directory
+                    logger.info(f"Moving iteration directory {src_path} to {dest_path}")
+                    shutil.move(src_path, dest_path)
+    
     # Define patterns for result JSON files
     result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
     
+    # Walk the remaining directory tree, skipping the results/debug dirs we
+    # just created (and possibly filled) to avoid re‑processing their
+    # contents.
     for root, dirs, files in os.walk(directory):
+        # Skip traversal into results or debug to avoid duplicate moves
+        if os.path.abspath(root).startswith(os.path.abspath(results_dir)) or os.path.abspath(root).startswith(os.path.abspath(debug_dir)):
+            continue
+        
         for file in files:
             try:
                 file_path = os.path.join(root, file)
@@ -380,6 +427,14 @@ def main():
             logger.info(f"Current job type: {config.job_type}")
             logger.info("Attempting cost estimation...")
 
+            # Iteration info for cost estimation
+            iterations_info = ""
+            if config.iterations:
+                if isinstance(config.iterations, int) and config.iterations > 0:
+                    iterations_info = f" for {config.iterations} iterations"
+                elif isinstance(config.iterations, bool) and config.iterations:
+                    iterations_info = " (iterations=True, assuming 1 iteration)"
+            logger.info(f"Calculating cost estimation{iterations_info}...")
 
             # Commented out cost estimation
             if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
@@ -474,6 +529,11 @@ def main():
 
             # Process results
             logger.info("Processing results...")
+            # recursively dump and print the output directory
+            logger.info(f"Recursively dumping output directory: {output_directory}")
+            # recursively dump the output directory
+            logger.info(f"Recursively dumping output directory: {output_directory}")
+
             organize_output(output_directory)
             extract_and_write_scores(output_directory)
             

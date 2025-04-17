@@ -33,7 +33,7 @@ class HTCondorHelper:
         """Setup connection to HTCondor submit node"""
         try:
             # Enable debug logging
-            htcondor.enable_debug()
+            #htcondor.enable_debug()
             
             # Print info about the token directory
             print(f"Token directory: {self.token_dir}")
@@ -156,7 +156,10 @@ class HTCondorHelper:
                 "+GPUJobLength": '"short"',
                 "stream_error": "True",
                 "stream_output": "True",
+                # Transfer the entire output directory recursively
                 "transfer_output_files": "output",
+                # Ensure that HTCondor preserves the directory structure
+                "transfer_output_remaps": '""',
             })
 
             # Add credentials for required services again before submission

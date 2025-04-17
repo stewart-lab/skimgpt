@@ -12,6 +12,14 @@ def write_to_json(data, file_path, output_directory, config: Config):
     logger = config.logger
     # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
     file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
+    
+    # Since process_results already handles the iteration directory path,
+    # we don't need to add it again here
+    
+    # Create output directory if it doesn't exist
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+        
     file_path = os.path.join(output_directory, file_path)
     logger.debug(f" IN WRITE TO JSON   File path: {file_path}")
     with open(file_path, "w") as outfile:

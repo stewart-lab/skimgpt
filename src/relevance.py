@@ -8,6 +8,7 @@ import time
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
 import socket
+import os
 
 
 
@@ -159,6 +160,19 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
 
+    # Determine output directory based on iteration
+    output_base_dir = "output"
+    
+    # If we're in an iteration, use the iteration subdirectory
+    if config.iterations and hasattr(config, 'current_iteration') and config.current_iteration > 0:
+        iteration_dir = f"iteration_{config.current_iteration}"
+        output_base_dir = os.path.join(output_base_dir, iteration_dir)
+        # Make sure the directory exists
+        os.makedirs(output_base_dir, exist_ok=True)
+        logger.info(f"Writing results to iteration directory: {output_base_dir}")
+    else:
+        logger.info(f"Writing results to base output directory: {output_base_dir}")
+
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
         logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
@@ -182,7 +196,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
                 output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, "output", config) 
+            write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 def main():
@@ -231,7 +245,6 @@ def main():
         max_retries=config.global_settings.get("MAX_RETRIES", 3),
         backoff_factor=0.5
     )
-
     logger.info("Initialized PubMedFetcher")
     
     # Process each row individually
@@ -333,12 +346,57 @@ def main():
     # Final processing and output
     out_df = process_dataframe(out_df, config, pubmed_fetcher)
     
-    output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
-    out_df.to_csv(output_file, sep="\t")
-    logger.info(f"Saved processed data to {output_file}")
-
-    # Process results using the new function
-    process_results(out_df, config, num_abstracts_fetched)
+    # Save the initial processed dataframe
+    initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
+    out_df.to_csv(initial_output_file, sep="\t")
+    logger.info(f"Saved initial processed data to {initial_output_file}")
+    
+    # Check if we need to run iterations
+    if config.iterations:
+        # Determine number of iterations
+        num_iterations = 1
+        if isinstance(config.iterations, bool) and config.iterations:
+            logger.warning("iterations is set to True but no number specified, defaulting to 1 iteration")
+        elif isinstance(config.iterations, int) and config.iterations > 0:
+            num_iterations = config.iterations
+            logger.info(f"Will perform {num_iterations} iterations of analysis")
+        else:
+            logger.warning("Invalid iterations config, defaulting to 1 iteration")
+        
+        # Create base output directory for iterations
+        logger.info(f"Setting up for {num_iterations} iterations")
+        # Create iteration directories
+        for i in range(1, num_iterations + 1):
+            iteration_dir = os.path.join(config.km_output_dir, f"iteration_{i}")
+            if not os.path.exists(iteration_dir):
+                os.makedirs(iteration_dir)
+                logger.info(f"Created output directory for iteration {i}: {iteration_dir}")
+        
+        # Use the same filtered data for all iterations
+        filtered_df = out_df.copy(deep=True)
+        
+        # Process all iterations
+        for iteration in range(1, num_iterations + 1):
+            iteration_start_time = time.time()
+            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
+            
+            # Set current iteration in config to update output paths
+            config.set_iteration(iteration)
+            
+            # Process results for this iteration (using same filtered data)
+            process_results(filtered_df, config, num_abstracts_fetched)
+            
+            iteration_end_time = time.time()
+            iteration_elapsed_time = iteration_end_time - iteration_start_time
+            logger.info(f"Iteration {iteration} completed in {iteration_elapsed_time:.2f} seconds")
+        
+        logger.info(f"All {num_iterations} iterations completed successfully")
+    else:
+        # No iterations, just process results once to the base output directory
+        logger.info("No iterations requested, processing results once")
+        # Reset current_iteration to 0 to ensure results go to the base directory
+        config.current_iteration = 0
+        process_results(out_df, config, num_abstracts_fetched)
 
     end_time = time.time()
     elapsed_time = end_time - start_time

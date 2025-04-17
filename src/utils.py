@@ -173,6 +173,10 @@ class Config:
         self.max_retries = self.global_settings["MAX_RETRIES"]
         self.retry_delay = self.global_settings["RETRY_DELAY"]
         
+        # Add iterations configuration
+        self.iterations = self.global_settings.get("iterations", False)
+        self.current_iteration = 0
+        
         # Add HTCondor configuration
         self.htcondor_config = self.job_config.get("HTCONDOR", {})
         
@@ -230,10 +234,18 @@ class Config:
         assert "a_term" in self.data.columns, "Input TSV must have an a_term."
         assert "b_term" in self.data.columns, "Input TSV must have a b_term."
 
-    def add_file_handler(self):
+    def add_file_handler(self, output_dir=None):
         """Add file handler to logger after output directory is known"""
-        if self.km_output_dir:
-            log_file = os.path.join(self.km_output_dir, "SKiM-GPT.log")
+        # Use provided output directory or default to km_output_dir
+        log_dir = output_dir if output_dir else self.km_output_dir
+        
+        if log_dir:
+            # Remove existing file handlers to avoid duplicate logging
+            for handler in self.logger.handlers[:]:
+                if isinstance(handler, logging.FileHandler):
+                    self.logger.removeHandler(handler)
+                    
+            log_file = os.path.join(log_dir, "SKiM-GPT.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
                 '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
@@ -534,3 +546,41 @@ class Config:
         missing = [key for key in required if not self.secrets.get(key)]
         if missing:
             raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")
+
+    def set_iteration(self, iteration_number: int):
+        """Set the current iteration and update output paths accordingly"""
+        self.current_iteration = iteration_number
+        # Update output paths for this iteration
+        self._update_output_paths_for_iteration()
+        
+    def _update_output_paths_for_iteration(self):
+        """Update output paths based on current iteration"""
+        if self.iterations and self.km_output_dir and self.current_iteration > 0:
+            # Create iteration-specific output directory
+            iteration_dir = os.path.join(self.km_output_dir, f"iteration_{self.current_iteration}")
+            if not os.path.exists(iteration_dir):
+                os.makedirs(iteration_dir)
+                
+            # Update file paths to use iteration-specific directory
+            self.filtered_tsv_name = os.path.join(
+                iteration_dir, f"filtered_{self.km_output_base_name}.tsv"
+            )
+            self.debug_tsv_name = os.path.join(
+                iteration_dir, f"debug_{self.km_output_base_name}.tsv"
+            )
+            
+            # Update logger with new file handler for this iteration
+            self.add_file_handler(iteration_dir)
+        else:
+            # When iterations is False or current_iteration is 0,
+            # update file paths to use the base output directory
+            self.filtered_tsv_name = os.path.join(
+                self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv"
+            )
+            self.debug_tsv_name = os.path.join(
+                self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
+            )
+            
+            # Update logger with new file handler for the base directory
+            self.add_file_handler(self.km_output_dir)
+            
