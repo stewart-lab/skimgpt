@@ -175,7 +175,7 @@ def main():
 
     main_py = os.path.join(project_dir, "main.py")
 
-    # ─── Phase 1: Serial run of the FIRST year ───────────────────────────────
+    # Serial run of the FIRST year
     first = years[0]
     first_dir = os.path.join(parent_dir, "output", f"output_{ts}_cy{first}")
     os.makedirs(first_dir, exist_ok=True)
@@ -192,7 +192,7 @@ def main():
     shutil.rmtree(first_dir, ignore_errors=True)
     logger.info(f"Removed cost-only directory for year {first}")
 
-    # ─── Phase 2: Fire off ALL years (including first) in parallel ─────────
+    # Fire off ALL years (including first) in parallel
     work_dirs = {
         y: os.path.join(parent_dir, "output", f"output_{ts}_cy{y}")
         for y in years
@@ -226,7 +226,7 @@ def main():
                     logger.info(f"censor_year {y} status: {st}")
             time.sleep(30)
 
-    # ─── Phase 3: Flatten, merge results, clean up sentinel ────────────────
+    # Merge results, clean up sentinel, and flatten per-year folders
     total = time.time() - datetime.datetime.strptime(ts, "%Y%m%d%H%M%S").timestamp()
     logger.info(f"Wrapper completed in {total:.2f} seconds")
 

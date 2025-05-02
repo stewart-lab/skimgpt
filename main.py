@@ -440,56 +440,6 @@ def main():
                     iterations_info = " (iterations=True, assuming 1 iteration)"
             logger.info(f"Calculating cost estimation{iterations_info}...")
 
-            
-            # Cost estimation
-            # if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
-            #     try:
-            #         estimator = KMCostEstimator(config)
-            #         input_tokens = estimator.estimate_input_costs(combined_df)
-                    
-            #         if not calculate_total_cost_and_prompt(config, input_tokens):
-            #             logger.info("Job aborted by user")
-            #             sys.exit(0)
-                    
-            #     except Exception as e:
-            #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-            #         sys.exit(1)
-            # elif config.job_type == "skim_with_gpt":
-            #     try:
-            #         estimator = SkimCostEstimator(config)
-            #         input_tokens = estimator.estimate_input_costs(combined_df)
-                    
-            #         if not calculate_total_cost_and_prompt(config, input_tokens):
-            #             logger.info("Job aborted by user")
-            #             sys.exit(0)
-                    
-            #     except Exception as e:
-            #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-            #         sys.exit(1)
-            # else:
-            #     logger.info(f"Skipping KM cost estimation for job type: {config.job_type}")
-
-            # if os.getenv("WRAPPER_PARENT_DIR"):
-            #     logger.info("Running under wrapper; skipping per-run cost estimation")
-            # else:
-            #     try:
-            #         if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
-            #             estimator = KMCostEstimator(config)
-            #             input_tokens = estimator.estimate_input_costs(combined_df)
-            #         elif config.job_type == "skim_with_gpt":
-            #             estimator = SkimCostEstimator(config)
-            #             input_tokens = estimator.estimate_input_costs(combined_df)
-            #         else:
-            #             logger.info(f"Skipping cost estimation for job type: {config.job_type}")
-            #             input_tokens = 0
-
-            #         if not calculate_total_cost_and_prompt(config, input_tokens):
-            #             logger.info("Job aborted by user")
-            #             sys.exit(0)
-            #     except Exception as e:
-            #         logger.error(f"Error during cost estimation: {e}", exc_info=True)
-            #         sys.exit(1)
-
             wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
             sentinel      = os.path.join(wrapper_parent or "", ".cost_prompt_done")
 
@@ -499,8 +449,6 @@ def main():
             print("\n")
 
             if wrapper_parent and not os.path.isfile(sentinel):
-                # --- FIRST wrapper-run only: compute tokens and prompt total cost ---
-                # figure out how many years are in the wrapper
                 yrange = os.getenv("CENSOR_YEAR_RANGE", "")
                 yinc   = int(os.getenv("CENSOR_YEAR_INCREMENT", "1"))
                 lo, hi = map(int, yrange.split("-"))
@@ -527,7 +475,6 @@ def main():
                 logger.info("Wrapper run detected; skipping per-run cost estimation")
 
             else:
-                # --- totally unwrapped → do the old per-run prompt ---
                 # compute tokens and prompt as before
                 if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
                     input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
@@ -540,7 +487,6 @@ def main():
                     logger.info("Job aborted by user")
                     sys.exit(1)
             
-
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
 
