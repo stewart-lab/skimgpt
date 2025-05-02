@@ -5,7 +5,12 @@ from src.eval_JSON_results import extract_and_write_scores
 from src.jobs import main_workflow
 from src.utils import Config
 from src.htcondor_helper import HTCondorHelper
-from src.cost_estimator import calculate_total_cost_and_prompt, KMCostEstimator, SkimCostEstimator
+from src.cost_estimator import (
+    calculate_total_cost_and_prompt,
+    KMCostEstimator,
+    SkimCostEstimator,
+    WrapperCostEstimator
+)
 import itertools
 import multiprocessing
 import os
@@ -413,7 +418,7 @@ def main():
                 # Write the combined TSV file
                 combined_df.to_csv(combined_tsv_path, sep="\t", index=False)
                 logger.info(f"Concatenated TSV file saved at {combined_tsv_path}")
-
+                
             else:
                 logger.info("Single TSV file found, no concatenation needed")
                 combined_tsv_path = tsv_files[0]
@@ -422,8 +427,7 @@ def main():
             # Update files.txt to contain only the combined/single file
             with open(files_txt_path, "w") as f:
                 f.write(os.path.basename(combined_tsv_path) + "\n")
-
-            # Cost estimation - moved outside the len(tsv_files) > 1 condition
+                
             logger.info(f"Current job type: {config.job_type}")
             logger.info("Attempting cost estimation...")
 
@@ -436,34 +440,106 @@ def main():
                     iterations_info = " (iterations=True, assuming 1 iteration)"
             logger.info(f"Calculating cost estimation{iterations_info}...")
 
-            # Commented out cost estimation
-            if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
-                try:
-                    estimator = KMCostEstimator(config)
-                    input_tokens = estimator.estimate_input_costs(combined_df)
+            
+            # Cost estimation
+            # if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
+            #     try:
+            #         estimator = KMCostEstimator(config)
+            #         input_tokens = estimator.estimate_input_costs(combined_df)
                     
-                    if not calculate_total_cost_and_prompt(config, input_tokens):
-                        logger.info("Job aborted by user")
-                        sys.exit(0)
+            #         if not calculate_total_cost_and_prompt(config, input_tokens):
+            #             logger.info("Job aborted by user")
+            #             sys.exit(0)
                     
-                except Exception as e:
-                    logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                    sys.exit(1)
-            elif config.job_type == "skim_with_gpt":
-                try:
-                    estimator = SkimCostEstimator(config)
-                    input_tokens = estimator.estimate_input_costs(combined_df)
+            #     except Exception as e:
+            #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+            #         sys.exit(1)
+            # elif config.job_type == "skim_with_gpt":
+            #     try:
+            #         estimator = SkimCostEstimator(config)
+            #         input_tokens = estimator.estimate_input_costs(combined_df)
                     
-                    if not calculate_total_cost_and_prompt(config, input_tokens):
-                        logger.info("Job aborted by user")
-                        sys.exit(0)
+            #         if not calculate_total_cost_and_prompt(config, input_tokens):
+            #             logger.info("Job aborted by user")
+            #             sys.exit(0)
                     
-                except Exception as e:
-                    logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
-                    sys.exit(1)
-            else:
-                logger.info(f"Skipping KM cost estimation for job type: {config.job_type}")
+            #     except Exception as e:
+            #         logger.error(f"Error calculating cost estimation: {str(e)}", exc_info=True)
+            #         sys.exit(1)
+            # else:
+            #     logger.info(f"Skipping KM cost estimation for job type: {config.job_type}")
 
+            # if os.getenv("WRAPPER_PARENT_DIR"):
+            #     logger.info("Running under wrapper; skipping per-run cost estimation")
+            # else:
+            #     try:
+            #         if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
+            #             estimator = KMCostEstimator(config)
+            #             input_tokens = estimator.estimate_input_costs(combined_df)
+            #         elif config.job_type == "skim_with_gpt":
+            #             estimator = SkimCostEstimator(config)
+            #             input_tokens = estimator.estimate_input_costs(combined_df)
+            #         else:
+            #             logger.info(f"Skipping cost estimation for job type: {config.job_type}")
+            #             input_tokens = 0
+
+            #         if not calculate_total_cost_and_prompt(config, input_tokens):
+            #             logger.info("Job aborted by user")
+            #             sys.exit(0)
+            #     except Exception as e:
+            #         logger.error(f"Error during cost estimation: {e}", exc_info=True)
+            #         sys.exit(1)
+
+            wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
+            sentinel      = os.path.join(wrapper_parent or "", ".cost_prompt_done")
+
+            print("\n")
+            print(f"wrapper_parent: {wrapper_parent}")
+            print(f"sentinel: {sentinel}")
+            print("\n")
+
+            if wrapper_parent and not os.path.isfile(sentinel):
+                # --- FIRST wrapper-run only: compute tokens and prompt total cost ---
+                # figure out how many years are in the wrapper
+                yrange = os.getenv("CENSOR_YEAR_RANGE", "")
+                yinc   = int(os.getenv("CENSOR_YEAR_INCREMENT", "1"))
+                lo, hi = map(int, yrange.split("-"))
+                num_years = len(range(lo, hi+1, yinc))
+
+                # compute tokens just once
+                if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
+                    input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
+                elif config.job_type == "skim_with_gpt":
+                    input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
+                else:
+                    input_tokens = 0
+
+                # prompt wrapper-level cost
+                if not WrapperCostEstimator(config).prompt_total_cost(input_tokens, num_years):
+                    logger.info("User aborted wrapper cost prompt")
+                    sys.exit(1)
+
+                # user said 'yes' → sentinel is written by prompt method, now exit cleanly
+                sys.exit(0)
+
+            elif wrapper_parent:
+                # any subsequent wrapper child sees sentinel → skip any cost logic
+                logger.info("Wrapper run detected; skipping per-run cost estimation")
+
+            else:
+                # --- totally unwrapped → do the old per-run prompt ---
+                # compute tokens and prompt as before
+                if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
+                    input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
+                elif config.job_type == "skim_with_gpt":
+                    input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
+                else:
+                    input_tokens = 0
+
+                if not calculate_total_cost_and_prompt(config, input_tokens):
+                    logger.info("Job aborted by user")
+                    sys.exit(1)
+            
 
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)

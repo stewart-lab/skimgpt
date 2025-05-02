@@ -11,69 +11,91 @@ def extract_and_write_scores(directory):
     # Define the outer keys to look for
     outer_keys = ["A_B_C_Relationship", "A_C_Relationship", "A_B_Relationship", "A_B1_B2_Relationship"]
 
-    # Walk through all files in the directory
+    # 1) detect whether iterations were enabled
+    cfg_path      = os.path.join(directory, "config.json")
+    has_iterations = False
+    if os.path.isfile(cfg_path):
+        try:
+            cfg        = json.load(open(cfg_path))
+            iterations = cfg.get("GLOBAL_SETTINGS", {}).get("iterations", None)
+            if isinstance(iterations, int) and iterations > 1:
+                has_iterations = True
+        except Exception:
+            pass
+    # fallback: look for iteration_N subdirectories
+    if not has_iterations:
+        for name in os.listdir(directory):
+            if name.startswith("iteration_") and os.path.isdir(os.path.join(directory, name)):
+                has_iterations = True
+                break
+
+    # 2) walk all JSON files and capture an 'Iteration' for each
     for root, dirs, files in os.walk(directory):
-        for file in files:
-            if file.endswith(".json") and file != "config.json":
-                # Construct the full file path
-                file_path = os.path.join(root, file)
-                # Open and load the JSON file
-                with open(file_path, "r", encoding="utf-8") as json_file:
-                    try:
-                        data = json.load(json_file)
-                    except json.JSONDecodeError as e:
-                        print(f"Error decoding JSON in file {file_path}: {e}")
+        for fname in files:
+            if not fname.endswith(".json") or fname == "config.json":
+                continue
+
+            # determine iteration number from path if needed
+            iter_number = ""
+            if has_iterations:
+                rel_root = os.path.relpath(root, directory)
+                for part in rel_root.split(os.sep):
+                    if part.startswith("iteration_"):
+                        iter_number = part.split("_", 1)[1]
+                        break
+
+            with open(os.path.join(root, fname), encoding="utf-8") as json_file:
+                try:
+                    data = json.load(json_file)
+                except json.JSONDecodeError:
+                    continue
+
+            for entry in data:
+                for outer_key in outer_keys:
+                    relationship_data = entry.get(outer_key)
+                    if not relationship_data:
                         continue
+                    Relationship   = relationship_data.get("Relationship", "").strip()
+                    score_details  = relationship_data.get("Result", [])
+                    for detail in score_details:
+                        match = re.search(
+                            r"\**Score\**:\**\s*\**([-+]?\d+|N/A)\**",
+                            detail,
+                            re.IGNORECASE,
+                        )
+                        if not match:
+                            continue
+                        score = match.group(1).strip()
+                        # build the row
+                        results.append({
+                            "Relationship_Type": outer_key,
+                            "Relationship":     Relationship,
+                            "Score":            score,
+                            "Iteration":        iter_number
+                        })
 
-                    # Iterate over each entry in the JSON array
-                    for entry in data:
-                        # Iterate over the specified outer keys
-                        for outer_key in outer_keys:
-                            relationship_data = entry.get(outer_key)
-                            if relationship_data:
-                                Relationship = relationship_data.get(
-                                    "Relationship", "No Relationship Provided"
-                                )
-                                score_details = relationship_data.get("Result", [])
-                                for detail in score_details:
-                                    # Updated regex to capture numbers and 'N/A'
-                                    match = re.search(
-                                        r"\**Score\**:\**\s*\**([-+]?\d+|N/A)\**",
-                                        detail,
-                                        re.IGNORECASE,
-                                    )
-                                    if match:
-                                        score = match.group(1).strip()
-                                        if score.upper() == "N/A":
-                                            # Convert 'N/A' to '0 (not enough information)'
-                                            score = "0 (not enough information)"
-                                        else:
-                                            # Optionally, you can convert the score to an integer or keep as string
-                                            score = score
-                                        results.append(
-                                            {
-                                                "Relationship_Type": outer_key,
-                                                "Relationship": Relationship,
-                                                "Score": score,
-                                            }
-                                        )
+    # 3) write results.txt, injecting the Iteration column only if needed
+    out_path = os.path.join(directory, "results.txt")
+    with open(out_path, "w", encoding="utf-8") as outf:
+        if has_iterations:
+            outf.write("Relationship_Type\tRelationship\tScore\tIteration\n")
+            for r in results:
+                outf.write(
+                    f"{r['Relationship_Type']}\t"
+                    f"{r['Relationship']}\t"
+                    f"{r['Score']}\t"
+                    f"{r['Iteration']}\n"
+                )
+        else:
+            outf.write("Relationship_Type\tRelationship\tScore\n")
+            for r in results:
+                outf.write(
+                    f"{r['Relationship_Type']}\t"
+                    f"{r['Relationship']}\t"
+                    f"{r['Score']}\n"
+                )
 
-    if not results:
-        print("No scores found in the specified directory.")
-        return
-
-    # Writing results to results.txt file in the specified directory
-    results_file_path = os.path.join(directory, "results.txt")
-    with open(results_file_path, "w", encoding="utf-8") as file:
-        # Write header
-        file.write("Relationship_Type\tRelationship\tScore\n")
-        # Write each result
-        for result in results:
-            file.write(
-                f"{result['Relationship_Type']}\t{result['Relationship']}\t{result['Score']}\n"
-            )
-
-    print(f"Results written to {results_file_path}")
+    print(f"Results written to {out_path}")
 
 
 def main():
