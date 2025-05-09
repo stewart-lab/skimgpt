@@ -31,7 +31,7 @@ def setup_logger(parent_dir, job_type):
     logger.propagate = False
     for h in list(logger.handlers):
         logger.removeHandler(h)
-    fmt = "%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
+    fmt = "%(asctime)s - SKiM-GPT-wrapper - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
     formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
     ch = logging.StreamHandler(); ch.setFormatter(formatter); logger.addHandler(ch)
     fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))

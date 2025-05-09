@@ -19,6 +19,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
+from main_wrapper import setup_logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -443,31 +444,54 @@ def main():
             wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
             sentinel      = os.path.join(wrapper_parent or "", ".cost_prompt_done")
 
-            print("\n")
-            print(f"wrapper_parent: {wrapper_parent}")
-            print(f"sentinel: {sentinel}")
-            print("\n")
-
             if wrapper_parent and not os.path.isfile(sentinel):
+                # --- FIRST wrapper-run only: compute tokens & prompt total cost ---
+                # figure out how many years in the wrapper
                 yrange = os.getenv("CENSOR_YEAR_RANGE", "")
                 yinc   = int(os.getenv("CENSOR_YEAR_INCREMENT", "1"))
                 lo, hi = map(int, yrange.split("-"))
-                num_years = len(range(lo, hi+1, yinc))
+                num_years = len(range(lo, hi + 1, yinc))
 
-                # compute tokens just once
+                # compute tokens once
                 if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
                     input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
+                    base_est     = KMCostEstimator(config)
                 elif config.job_type == "skim_with_gpt":
                     input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
+                    base_est     = SkimCostEstimator(config)
                 else:
                     input_tokens = 0
+                    base_est     = None
 
-                # prompt wrapper-level cost
-                if not WrapperCostEstimator(config).prompt_total_cost(input_tokens, num_years):
+                wrapper_est = WrapperCostEstimator(config)
+                if not wrapper_est.prompt_total_cost(input_tokens, num_years):
                     logger.info("User aborted wrapper cost prompt")
                     sys.exit(1)
 
-                # user said 'yes' → sentinel is written by prompt method, now exit cleanly
+                # user said 'yes' → sentinel is written
+
+                # Re-instantiate your wrapper logger
+                wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
+                wrapper_logger = setup_logger(wrapper_parent, config.job_type)
+
+                # Recompute what you showed the user
+                output_tokens = base_est.get_output_tokens()    # you already have base_est
+                in_cost       = base_est._calculate_cost(input_tokens, is_input=True)
+                out_cost      = base_est._calculate_cost(output_tokens, is_input=False)
+                cost_per_iter = in_cost + out_cost
+                num_iters     = (
+                    config.iterations
+                    if isinstance(config.iterations, int) and config.iterations > 0
+                    else 1
+                )
+                total_cost = cost_per_iter * num_iters * num_years
+
+                wrapper_logger.info(
+                    f"Wrapper total estimated cost: ${total_cost:.2f} "
+                    f"({num_years} years x {num_iters} iters at ${cost_per_iter:.2f}/iteration)"
+                )
+
+                # Now exit so wrapper can kick off the real parallel runs
                 sys.exit(0)
 
             elif wrapper_parent:
