@@ -1,7 +1,13 @@
 import logging
+import os
 from typing import List, Tuple
 import pandas as pd
-from src.prompt_library import km_with_gpt, skim_with_gpt, skim_with_gpt_ac, km_with_gpt_direct_comp
+from src.prompt_library import (
+    km_with_gpt,
+    skim_with_gpt,
+    skim_with_gpt_ac,
+    km_with_gpt_direct_comp,
+)
 from src.utils import Config
 
 class CostEstimator:
@@ -229,3 +235,69 @@ def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
             return False
         else:
             print("Please enter 'y' or 'n'")
+
+class WrapperCostEstimator:
+    """
+    Estimates and prompts a single, aggregate cost for a full wrapper run
+    spanning multiple years × iterations.
+    """
+    def __init__(self, config: Config):
+        self.config = config
+        self.logger = logging.getLogger("SKiM-GPT")
+
+    def prompt_total_cost(self, input_tokens: int, num_years: int) -> bool:
+        """
+        Calculate and prompt total cost (years × iterations) exactly once.
+        Uses a sentinel file in WRAPPER_PARENT_DIR/.cost_prompt_done.
+        """
+        wrapper_parent = os.getenv("WRAPPER_PARENT_DIR", "")
+        sentinel = os.path.join(wrapper_parent, ".cost_prompt_done")
+
+        # if already prompted for this wrapper run, skip
+        if wrapper_parent and os.path.isfile(sentinel):
+            return True
+
+        # pick the correct underlying estimator
+        if self.config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
+            base = KMCostEstimator(self.config)
+        else:
+            base = SkimCostEstimator(self.config)
+
+        try:
+            output_tokens = base.get_output_tokens()
+            in_cost = base._calculate_cost(input_tokens)
+            out_cost = base._calculate_cost(output_tokens, is_input=False)
+            cost_per_iter = in_cost + out_cost
+
+            iters = self.config.iterations
+            num_iters = iters if isinstance(iters, int) and iters > 0 else 1
+
+            total_cost = cost_per_iter * num_iters * num_years
+
+            print("\n" + "="*50)
+            print(
+                f"COST ESTIMATION FOR {self.config.job_type.upper()} "
+                f"WITH {self.config.model.upper()} wrapper run "
+                f"({num_years} years × {num_iters} iters)"
+            )
+            print("="*50)
+            print(f"Cost per iteration:      ${cost_per_iter:.2f}")
+            print(f"Number of iterations:    {num_iters}")
+            print(f"Number of years:         {num_years}")
+            print("-"*50)
+            print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f}")
+            print("="*50)
+
+            while True:
+                resp = input("Do you want to continue? (y/n): ").strip().lower()
+                if resp in ("y", "yes"):
+                    # mark as done
+                    open(sentinel, "w").close()
+                    return True
+                if resp in ("n", "no"):
+                    self.logger.info("User chose to abort the job due to cost concerns")
+                    return False
+                print("Please enter 'y' or 'n'")
+        except Exception as e:
+            self.logger.error(f"Wrapper cost estimation failed: {e}", exc_info=True)
+            return False
