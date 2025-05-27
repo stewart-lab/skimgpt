@@ -1,6 +1,7 @@
 {
     "JOB_TYPE": "",
     "KM_hypothesis": "",
+    "KM_direct_comp_hypothesis": "",
     "SKIM_hypotheses": {
         "BC": "",
         "AB": "",
@@ -17,21 +18,25 @@
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
         "MODEL": "o1-preview",
+        "REASONING_EFFORT": "medium",
         "API_URL": "http://localhost:5099/skim/api/jobs",
         "PORT": "5081",
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
-        "RETRY_DELAY": 5
+        "RETRY_DELAY": 5,
+        "LOG_LEVEL": "INFO",
+        "OUTDIR_SUFFIX": "",
+        "iterations": 3
     },
-    "SSH": {
-        "server": "ap2002.chtc.wisc.edu",
-        "port": 22,
-        "chtc_username": "",
-        "key_path": "",
-        "config_path": "",
-        "src_path": "",
-        "remote_path": ""
+    "HTCONDOR": {
+        "collector_host": "cm.chtc.wisc.edu",
+        "submit_host": "ap2002.chtc.wisc.edu",
+        "request_gpus": "1",
+        "request_cpus": "1",
+        "request_memory": "24GB",
+        "request_disk": "50GB",
+        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
     },
     "abstract_filter": {
         "MODEL": "lexu14/porpoise1",
@@ -56,6 +61,18 @@
                 "censor_year": 1980
             }
         },
+        "km_with_gpt_direct_comp": {
+            "position": false,
+            "A_TERM_LIST": false,
+            "A_TERMS_FILE": "./input_lists/test/km_a.txt",
+            "B_TERMS_FILE": "./input_lists/cervicalCancer_b_terms_HPVvsHSV_directlyForNewCode.txt",
+            "SORT_COLUMN": "ab_sort_ratio",
+            "NUM_B_TERMS": 25,
+            "km_with_gpt_direct_comp": {
+                "ab_fet_threshold": 1,
+                "censor_year": 1990
+            }
+        },
         "skim_with_gpt": {
             "position": true,
             "A_TERM_LIST": true,
@@ -64,7 +81,7 @@
             "NUM_B_TERMS": 20000,
             "C_TERMS_FILE": "../input_lists/exercise3/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
-            "skim": {
+            "skim_with_gpt": {
                 "ab_fet_threshold": 0.1,
                 "bc_fet_threshold": 0.5,
                 "censor_year": 2024,

@@ -1,35 +1,52 @@
 from __future__ import annotations
 import pandas as pd
-from Bio import Entrez
 import vllm
 import argparse
-from utils import Config, RaggedTensor
-import tiktoken
-from classifier import process_single_row, write_to_json, calculate_relevance_ratios
+from src.utils import Config, RaggedTensor
 from itertools import chain
-from leakage import load_data, update_ab_pmid_intersection, save_updated_data
-import re
-import logging
-from typing import List, Dict, Any
 import time
+from src.pubmed_fetcher import PubMedFetcher
+from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
+import socket
+import os
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 def getHypothesis(
-    config, a_term: str = None, b_term: str = None, c_term: str = None
+    config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
-    job_type = config.get("JOB_TYPE", "").lower()
-
-    if job_type == "km_with_gpt":
+    logger = config.logger
+    if config.is_km_with_gpt:
         assert a_term and b_term and not c_term
-        hypothesis_template = config.get("KM_hypothesis", "")
-
+        hypothesis_template = config.km_hypothesis
         return hypothesis_template.format(a_term=a_term, b_term=b_term)
-
-    elif job_type == "skim_with_gpt":
+    elif config.is_km_with_gpt_direct_comp:
+        logger.debug(f"config.is_km_with_gpt_direct_comp is: {config.is_km_with_gpt_direct_comp}")
+        assert a_term and b_term and not c_term
+        logger.debug(f"a_term: {a_term}, b_term: {b_term}")
+        logger.debug(f"b_term is a list: {isinstance(b_term, list)}")
+        if not isinstance(b_term, list):
+            # Remove brackets and split by comma
+            b_term_str = b_term.strip("[]")  # Remove brackets
+            b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespaceß
+            # Filter out any empty strings that might result from the split
+            b_term = [item for item in b_term_list if item]
+            assert len(b_term) == 2
+        logger.debug(f"b_term1: {b_term[0]}, b_term2: {b_term[1]}")
+        logger.debug(f"b_term length: {len(b_term)}")
+        logger.debug(f"b_term type: {type(b_term)}")
+        hypothesis_template = config.km_direct_comp_hypothesis
+        logger.debug(f"hypothesis_template: {hypothesis_template}")
+        
+        # Check if b_term is a list and extract b_term1 and b_term2
+        if isinstance(b_term, list) and len(b_term) == 2:
+            b_term1, b_term2 = b_term[0], b_term[1]
+            return hypothesis_template.format(a_term=a_term, b_term1=b_term1, b_term2=b_term2)
+        else:
+            #   Handle the case where b_term is not a list or not of length 2 (optional error handling)
+            logger.error("Error: b_term is not a list of exactly two terms for km_with_gpt_direct_comp")
+            return "Error in hypothesis generation" # Or raise an exception
+    elif config.is_skim_with_gpt:
         assert (
             (a_term and b_term and not c_term)
             or (b_term and c_term and not a_term)
@@ -37,19 +54,16 @@ def getHypothesis(
         )
 
         if a_term and b_term and not c_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("AB")
+            hypothesis_template = config.skim_hypotheses.get("AB")
             return hypothesis_template.format(a_term=a_term, b_term=b_term)
-
         elif b_term and c_term and not a_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("BC")
+            hypothesis_template = config.skim_hypotheses.get("BC")
             return hypothesis_template.format(b_term=b_term, c_term=c_term)
-
         elif a_term and c_term and not b_term:
-            hypothesis_template = config.get("SKIM_hypotheses", "").get("rel_AC")
+            hypothesis_template = config.skim_hypotheses.get("rel_AC")
             return hypothesis_template.format(a_term=a_term, c_term=c_term)
 
-    else:
-        return "No valid hypothesis for the provided JOB_TYPE."
+    return "No valid hypothesis for the provided JOB_TYPE."
 
 
 def prompt(abstract, hyp) -> str:
@@ -74,123 +88,6 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
         hypotheses.break_point,
     )
 
-
-def validate_pmids(pmids: List[Any]) -> List[str]:
-    """Validate PMIDs to ensure they are numeric."""
-    valid_pmids = []
-    for pmid in pmids:
-        pmid_str = str(pmid)  # Convert to string
-        if pmid_str.isdigit() and len(pmid_str) > 0:
-            valid_pmids.append(pmid_str)
-        else:
-            logging.warning(f"Invalid PMID detected and skipped: {pmid}")
-    return valid_pmids
-
-
-def batch_pmids(pmids: List[str], batch_size: int = 200) -> List[List[str]]:
-    """Splits PMIDs into batches of specified size."""
-    return [pmids[i : i + batch_size] for i in range(0, len(pmids), batch_size)]
-
-
-def fetch_with_retry(
-    batch: List[str], config: dict, max_retries: int, backoff_factor: float
-) -> Dict[str, str]:
-    """Fetch abstracts for a batch of PMIDs with retry logic."""
-    for attempt in range(1, max_retries + 1):
-        try:
-            with Entrez.efetch(
-                db="pubmed", id=batch, retmode="xml", rettype="abstract"
-            ) as efetch:
-                output = Entrez.read(efetch)
-
-            returned_pmids = []
-            returned_contents = []
-            delimiter = "\n\n===END OF ABSTRACT===\n\n"
-
-            for paper in output.get("PubmedArticle", []):
-                pmid = str(paper["MedlineCitation"]["PMID"])
-                article = paper["MedlineCitation"]["Article"]
-
-                # Extract the title
-                title = article.get("ArticleTitle", "No title available")
-
-                # Extract the abstract
-                abstract_text = " ".join(
-                    article.get("Abstract", {}).get(
-                        "AbstractText", ["No abstract available"]
-                    )
-                )
-                # Check if the abstract has at least 50 words
-                if len(abstract_text.split()) >= 50:
-                    returned_pmids.append(pmid)
-                    content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
-                    returned_contents.append(content)
-
-            # Identify any missing PMIDs in the response
-            fetched_pmids = [
-                str(paper["MedlineCitation"]["PMID"])
-                for paper in output.get("PubmedArticle", [])
-            ]
-            missing_pmids = set(batch) - set(fetched_pmids)
-
-            if missing_pmids:
-                logging.warning(f"PMIDs not fetched in batch {batch}: {missing_pmids}")
-                # Optionally, attempt to fetch missing PMIDs individually here
-                # Or log them for manual review
-
-            # Create and return the abstract dictionary for this batch
-            return dict(zip(returned_pmids, returned_contents))
-
-        except Exception as e:
-            logging.error(
-                f"Attempt {attempt} - Error fetching abstracts for batch {batch}: {e}"
-            )
-            if attempt < max_retries:
-                sleep_time = backoff_factor * (2 ** (attempt - 1))
-                logging.info(f"Retrying after {sleep_time} seconds...")
-                time.sleep(sleep_time)
-            else:
-                logging.error(
-                    f"Max retries reached for batch {batch}. Skipping this batch."
-                )
-                return {}
-
-
-def getAbstractMap(
-    config: dict, pmids: List[str], max_retries: int = 10, backoff_factor: float = 0.5
-) -> Dict[str, str]:
-    """Fetch abstracts for a list of PMIDs with validation, batching, and retries."""
-    Entrez.email = "your_email@example.com"  # Replace with your email
-    Entrez.api_key = config.get("PUBMED_API_KEY", "")
-    Entrez.max_tries = config.get("GLOBAL_SETTINGS", {}).get("MAX_RETRIES", 3)
-    Entrez.sleep_between_tries = config.get("GLOBAL_SETTINGS", {}).get("RETRY_DELAY", 5)
-
-    # Validate PMIDs
-    pmids = validate_pmids(pmids)
-    if not pmids:
-        logging.error("No valid PMIDs to fetch.")
-        return {}
-
-    # Batch PMIDs
-    batches = batch_pmids(pmids, batch_size=200)
-    abstract_dict = {}
-
-    for batch in batches:
-        # Fetch abstracts with retry logic
-        batch_result = fetch_with_retry(batch, config, max_retries, backoff_factor)
-        if batch_result:
-            abstract_dict.update(batch_result)
-        time.sleep(0.34)  # Sleep to respect rate limit (3 requests per second)
-
-    if not abstract_dict:
-        logging.error("No abstracts fetched successfully.")
-    else:
-        logging.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
-
-    return abstract_dict
-
-
-# Packages all the inputted data into the provided dataframes
 def postProcess(
     config: Config,
     outputs: RaggedTensor,
@@ -200,14 +97,13 @@ def postProcess(
     terms: str,
     shape: list,
 ):
+    logger = config.logger
     abstracts.reshape(shape)
 
     if not config.debug:
-        # If we're not debugging, the only output from the model will be a number from 0 to 1, so we can create answer masks
         answer_masks = outputs.map(eval)
         answer_masks.reshape(shape)
         abstracts.applyFilter(answer_masks)
-
     else:
         answer_masks = RaggedTensor([eval(answer[0]) for answer in outputs])
         answer_masks.reshape(shape)
@@ -215,168 +111,97 @@ def postProcess(
         cot.reshape(shape)
 
         if terms == "ac":
-            out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
-            out_df[f"{terms}_cot"] = cot.data * len(out_df)
-            out_df[f"{terms}_hypothesis"] = hypotheses.data * len(out_df)
-
+            out_df[f"{terms}_mask"] = answer_masks.data
+            out_df[f"{terms}_cot"] = cot.data
+            out_df[f"{terms}_hypothesis"] = hypotheses.data
         else:
             out_df[f"{terms}_mask"] = answer_masks.data
             out_df[f"{terms}_cot"] = cot.data
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
-    # This is because we'll only ever have one AC relation in a tsv
-    if terms == "ac":
-        out_df[f"{terms}_pmid_intersection"] = abstracts.data * len(out_df)
-        out_df[f"{terms}_mask"] = answer_masks.data * len(out_df)
-    else:
-        # Debug file doesn't have the filter applied.
-        out_df[f"{terms}_mask"] = answer_masks.data
-        out_df[f"{terms}_pmid_intersection"] = abstracts.data
+    out_df[f"{terms}_mask"] = answer_masks.data
+    out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
 
-def optimize_text_length(df, model="gpt-4"):
-    enc = tiktoken.encoding_for_model(model)
-
-    # Define maximum tokens
-    max_tokens = 10000000
-
-    # Check for presence of columns
-    has_bc = "bc_pmid_intersection" in df.columns
-    has_ac = "ac_pmid_intersection" in df.columns
-
-    # Calculate number of text fields to divide the tokens among
-    num_fields = 1 + has_bc + has_ac
-
-    # Tokens per field
-    tokens_per_field = max_tokens // num_fields
-
-    def truncate_text(text_list, max_tokens):
-        if isinstance(text_list, list):
-            text = " ".join(text_list)
-        else:
-            text = text_list
-
-        sentences = text.split(". ")
-        truncated_text = ""
-        current_tokens = 0
-
-        for sentence in sentences:
-            sentence_with_period = sentence + ". "
-            sentence_tokens = enc.encode(sentence_with_period)
-            if current_tokens + len(sentence_tokens) > max_tokens:
-                break
-            truncated_text += sentence_with_period
-            current_tokens += len(sentence_tokens)
-        print(f"Truncated text token length: {current_tokens}")
-        return truncated_text.strip()
-
-    # Truncate ab_pmid_intersection
-    df["ab_pmid_intersection"] = df["ab_pmid_intersection"].apply(
-        lambda x: truncate_text(x, tokens_per_field)
-    )
-
-    # Truncate bc_pmid_intersection if present
-    if has_bc:
-        df["bc_pmid_intersection"] = df["bc_pmid_intersection"].apply(
-            lambda x: truncate_text(x, tokens_per_field)
-        )
-
-    # Truncate ac_pmid_intersection if present
-    if has_ac:
-        df["ac_pmid_intersection"] = df["ac_pmid_intersection"].apply(
-            lambda x: truncate_text(x, tokens_per_field)
-        )
-
-    return df
-
-
-def interleave_and_get_top_n_pmids(text, n):
-    if not isinstance(text, str) or text == "[]":
-        return ""
-
-    # Split the text by PMID
-    pmid_entries = re.split(r"(?=PMID: \d+)", text)
-    # Remove any empty entries
-    pmid_entries = [entry.strip() for entry in pmid_entries if entry.strip()]
-
-    # Extract PMIDs, skipping entries that don't match the expected format
-    pmids = []
-    for entry in pmid_entries:
-        match = re.search(r"PMID: (\d+)", entry)
-        if match:
-            pmids.append(int(match.group(1)))
-
-    if not pmids:
-        return ""  # Return empty string if no valid PMIDs found
-
-    # Create a sorted copy of PMIDs in descending order
-    sorted_pmids = sorted(pmids, reverse=True)
-    print(f"Original PMIDs: {pmids}")
-    print(f"Sorted PMIDs: {sorted_pmids}")
-
-    # Interleave the original and sorted PMIDs
-    interleaved = []
-    for original, sorted_pmid in zip(pmids, sorted_pmids):
-        if original not in interleaved:
-            interleaved.append(original)
-        if sorted_pmid not in interleaved:
-            interleaved.append(sorted_pmid)
-
-    # Add any remaining PMIDs
-    interleaved.extend(
-        [pmid for pmid in pmids + sorted_pmids if pmid not in interleaved]
-    )
-
-    # Take the top n PMIDs
-    top_n_pmids = interleaved[:n]
-
-    # Map the top n PMIDs back to their original entries
-    pmid_to_entry = {
-        int(re.search(r"PMID: (\d+)", entry).group(1)): entry
-        for entry in pmid_entries
-        if re.search(r"PMID: (\d+)", entry)
-    }
-    top_n_entries = [
-        pmid_to_entry[pmid] for pmid in top_n_pmids if pmid in pmid_to_entry
-    ]
-
-    # Join them back together
-    return " ".join(top_n_entries)
-
-
-def filter_top_n_articles(df, config):
-    post_n = config.post_n
-    if post_n <= 0:
-        return df  # Return original dataframe if POST_N is not set or invalid
-
-    columns_to_filter = [
+def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
+    """Process dataframe with optimizations and filtering."""
+    logger = config.logger
+    columns_to_process = [col for col in [
         "ab_pmid_intersection",
         "bc_pmid_intersection",
-        "ac_pmid_intersection",
-    ]
-
-    for column in columns_to_filter:
-        if column in df.columns:
-            df[column] = df[column].apply(
-                lambda x: interleave_and_get_top_n_pmids(x, post_n)
+        "ac_pmid_intersection"
+    ] if col in out_df.columns]
+    
+    num_intersections = len(columns_to_process)
+    logger.info(f"Processing {num_intersections} intersections")
+    
+    for column in columns_to_process:
+        # Optimize text length with evenly distributed tokens
+        out_df[column] = out_df[column].apply(
+            lambda x: pubmed_fetcher.optimize_text_length(
+                x, 
+                max_tokens=110000,  # Total tokens across all intersections
+                num_intersections=num_intersections
             )
-
-    return df
-
-
-def process_dataframe(out_df, config):
-    out_df = optimize_text_length(out_df)
-    out_df = calculate_relevance_ratios(out_df)
-    out_df = filter_top_n_articles(out_df, config)  # Add this line
-
+        )
+        # Sort by year and limit to top N if configured
+        if config.post_n > 0:
+            out_df[column] = out_df[column].apply(
+                lambda x: pubmed_fetcher.interleave_abstracts(x, config.post_n, config.top_n_articles_most_cited, config.top_n_articles_most_recent)
+            )
+    logger.debug(f"out_df in classifier process_dataframe: {out_df}")
+    out_df = calculate_relevance_ratios(out_df, config)
     return out_df
 
 
+def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
+    logger = config.logger
+    """Process results and write to JSON files."""
+    total_rows = len(out_df)
+    logger.info(f"Processing {total_rows} results...")
+
+    # Determine output directory based on iteration
+    output_base_dir = "output"
+    
+    # If we're in an iteration, use the iteration subdirectory
+    if config.iterations and hasattr(config, 'current_iteration') and config.current_iteration > 0:
+        iteration_dir = f"iteration_{config.current_iteration}"
+        output_base_dir = os.path.join(output_base_dir, iteration_dir)
+        # Make sure the directory exists
+        os.makedirs(output_base_dir, exist_ok=True)
+        logger.info(f"Writing results to iteration directory: {output_base_dir}")
+    else:
+        logger.info(f"Writing results to base output directory: {output_base_dir}")
+
+    for index, row in out_df.iterrows():
+        result_dict = process_single_row(row, config)
+        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+        if result_dict:
+            for ratio_type in ["ab", "bc", "ac"]:
+                ratio_col = f"{ratio_type}_relevance_ratio"
+                fraction_col = f"{ratio_type}_relevance_fraction"
+                if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                    ratio = row[ratio_col]
+                    fraction = row[fraction_col]
+                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+
+            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+            if config.is_skim_with_gpt:
+                output_json = f"{row['a_term']}_{row['c_term']}_{row['b_term']}_skim_with_gpt.json"
+            elif config.is_km_with_gpt_direct_comp:
+                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt_direct_comp.json"
+            else:
+                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
+            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+            logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+            write_to_json([result_dict], output_json, output_base_dir, config)
+
+
 def main():
-    ###################### Argument Parsing ############################
-
+    # Parse arguments FIRST
     parser = argparse.ArgumentParser(description="Mistral7B Inference")
-
     parser.add_argument(
         "--km_output",
         type=str,
@@ -386,55 +211,110 @@ def main():
     parser.add_argument(
         "--config", type=str, required=True, help="Config file for kmGPT run."
     )
+    parser.add_argument(
+        "--secrets", type=str, required=True, help="Secrets file for kmGPT run."
+    )  
     args = parser.parse_args()
-    ###################### AB Data Loading & Processsing ############################
-    config = Config(args)
+    
+    # THEN create Config
+    config = Config(args.config)  # Pass config path from arguments
+    logger = config.logger
+    logger.debug(f"config: {config}")
+    logger.debug(f"args.km_output: {args.km_output}")
+    config.load_km_output(args.km_output)   
+    start_time = time.time()
+    logger.info("Starting relevance analysis...")
+    
+    try:
+        # DNS resolution test in Python
+        host = "eutils.ncbi.nlm.nih.gov"
+        ip_address = socket.gethostbyname(host)
+        logger.info(f"Python DNS resolution test: Successfully resolved '{host}' to '{ip_address}'")
+    except socket.gaierror as e:
+        logger.error(f"Python DNS resolution test: Failed to resolve '{host}'. Error: {e}")
+        raise  # Re-raise the exception to stop script execution
+
     out_df = config.data.copy(deep=True)
+    logger.debug(f"Working with dataframe of shape {out_df.shape}")
 
-    a_term = config.data.a_term.unique().tolist()[0].split("&")[0]
-    b_terms = config.data.b_term.unique().tolist()
-
-    ab_pmids = RaggedTensor([eval(lst) for lst in config.data.ab_pmid_intersection])
-    ab_hypotheses = RaggedTensor(
-        [
-            getHypothesis(config.job_config, a_term=a_term, b_term=b_term)
-            for b_term in b_terms
-        ]
+    # Initialize PubMedFetcher
+    pubmed_fetcher = PubMedFetcher(
+        config=config,
+        email="jfreeman@morgridge.org",
+        api_key=config.secrets["PUBMED_API_KEY"],
+        max_retries=config.global_settings.get("MAX_RETRIES", 3),
+        backoff_factor=0.5
     )
+    logger.info("Initialized PubMedFetcher")
+    
+    # Process each row individually
+    ab_pmids = []
+    ab_hypotheses = []
+
+    for _, row in config.data.iterrows():
+        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+        logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
+        b_term = row['b_term']
+        
+        # Convert string representation of list to actual list
+        pmids = eval(row['ab_pmid_intersection'])
+        ab_pmids.append(pmids)
+        
+        # Generate hypothesis for this specific pair
+        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
+        ab_hypotheses.append(hypothesis)
+
+    # Convert to RaggedTensor format
+    ab_pmids = RaggedTensor(ab_pmids)
+    ab_hypotheses = RaggedTensor(ab_hypotheses)
 
     all_pmids = ab_pmids.flatten()
     all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
-    ###################### BC Data Loading & Processsing ############################
-    if config.is_skim_gpt:
-        c_term = config.data.c_term.unique().tolist()[0]
-        bc_pmids = RaggedTensor([eval(lst) for lst in config.data.bc_pmid_intersection])
-        bc_hypotheses = RaggedTensor(
-            [
-                getHypothesis(config.job_config, c_term=c_term, b_term=b_term)
-                for b_term in b_terms
-            ]
-        )
+    if config.is_skim_with_gpt:
+        # Process BC and AC terms row by row
+        bc_pmids = []
+        bc_hypotheses = []
+        ac_pmids = []
+        ac_hypotheses = []
 
+        for _, row in config.data.iterrows():
+            b_term = row['b_term']
+            c_term = row['c_term']
+            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+            
+            # Process BC terms
+            bc_pmid_list = eval(row['bc_pmid_intersection'])
+            bc_pmids.append(bc_pmid_list)
+            bc_hypothesis = getHypothesis(config=config, c_term=c_term, b_term=b_term)
+            bc_hypotheses.append(bc_hypothesis)
+            
+            # Process AC terms if available
+            if config.has_ac and 'ac_pmid_intersection' in row:
+                ac_pmid_list = eval(row['ac_pmid_intersection'])
+                ac_pmids.append(ac_pmid_list)
+                ac_hypothesis = getHypothesis(config=config, a_term=a_term, c_term=c_term)
+                ac_hypotheses.append(ac_hypothesis)
+
+        # Convert to RaggedTensor format and add to all_pmids/hypotheses
+        bc_pmids = RaggedTensor(bc_pmids)
+        bc_hypotheses = RaggedTensor(bc_hypotheses)
         all_pmids += bc_pmids.flatten()
         all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
 
-        if config.has_ac:
-            # For each atomic run there should only be one unique ac_pmid intersection
-            ac_pmids = RaggedTensor(eval(config.data.ac_pmid_intersection[0]))
-            ac_hypothesis = RaggedTensor(
-                [getHypothesis(config.job_config, a_term=a_term, c_term=c_term)]
-            )
+        if config.has_ac and ac_pmids:
+            ac_pmids = RaggedTensor(ac_pmids)
+            ac_hypotheses = RaggedTensor(ac_hypotheses)
+            all_pmids += ac_pmids.flatten()
+            all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
 
-            all_pmids += ac_pmids
-            all_hypotheses += ac_hypothesis.expand([ac_pmids.shape])
-
-    abstract_map = getAbstractMap(config.job_config, all_pmids)
+    # Fetch abstracts
+    abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
+    num_abstracts_fetched = len(abstract_map)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
-
-    ##################### Model Loading & Generation ############################
+    
+    # Model setup and inference
     model = vllm.LLM(model=config.filter_config["MODEL"], max_model_len=4000)
-
     sampling_config = vllm.SamplingParams(
         temperature=config.filter_config["TEMPERATURE"],
         top_k=config.filter_config["TOP_K"],
@@ -442,87 +322,86 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    ##################### LLM Inference ############################
     prompts = getPrompts(abstracts, all_hypotheses)
     answers = gen(prompts, model, sampling_config)
 
-    ##################### Post process answers ############################
-    # Adding defaults for unraveling. In the case where there's no AC or BC, they will be filled with empty RaggedTensors
+    # Post-processing
     defaults = 3 * [RaggedTensor([])]
-
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
     ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
 
     postProcess(
-        config,
-        ab_outputs,
-        ab_abstracts,
-        ab_hypotheses,
-        out_df,
-        terms="ab",
-        shape=ab_pmids.shape,
+        config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
     )
 
-    ##################### Post process BC answers ############################
-    if config.is_skim_gpt:
+    if config.is_skim_with_gpt:
         postProcess(
-            config,
-            bc_outputs,
-            bc_abstracts,
-            bc_hypotheses,
-            out_df,
-            terms="bc",
-            shape=bc_pmids.shape,
+            config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
         )
         if config.has_ac:
             postProcess(
-                config,
-                ac_outputs,
-                ac_abstracts,
-                ac_hypothesis,
-                out_df,
-                terms="ac",
-                shape=[ac_pmids.shape],
+                config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape 
             )
-    # save the updated dataframe and add "pre" to the name
-    out_df = process_dataframe(out_df, config)
 
-    if config.test_leakage:
-        leakage_data = load_data("leakage.csv")
-        out_df = update_ab_pmid_intersection(
-            out_df, leakage_data, config.test_leakage_type
-        )
-    out_df.to_csv(
-        f"{config.debug_tsv_name if config.debug else config.filtered_tsv_name}",
-        sep="\t",
-    )
-    # out_df = pd.read_csv("output_filtered.tsv", sep="\t")
-    ##################### Classify ############################
-    for index, row in out_df.iterrows():
-        result_dict = process_single_row(row, config)
-        if result_dict:
-            for ratio_type in ["ab", "bc", "ac"]:
-                ratio_col = f"{ratio_type}_relevance_ratio"
-                fraction_col = f"{ratio_type}_relevance_fraction"
-                if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                    ratio = row[ratio_col]
-                    fraction = row[fraction_col]
-                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
-            print(f"Processed row {index + 1} ({row['b_term']}) of {len(out_df)}")
-            if config.is_skim_gpt:
-                output_json = f"{row['a_term']}_{row['b_term']}_{row['c_term']}_skim_with_gpt.json"
-            else:
-                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
-            write_to_json([result_dict], output_json)  # Wrap result_dict in a list
-            print(f"Analysis results have been saved to {output_json}")
-
-
-if __name__ == "__main__":
-    start_time = time.time()
-    logging.info("Relevance script started.")
-
-    main()  # Call the existing main function
+    # Final processing and output
+    out_df = process_dataframe(out_df, config, pubmed_fetcher)
+    
+    # Save the initial processed dataframe
+    initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
+    out_df.to_csv(initial_output_file, sep="\t")
+    logger.info(f"Saved initial processed data to {initial_output_file}")
+    
+    # Check if we need to run iterations
+    if config.iterations:
+        # Determine number of iterations
+        num_iterations = 1
+        if isinstance(config.iterations, bool) and config.iterations:
+            logger.warning("iterations is set to True but no number specified, defaulting to 1 iteration")
+        elif isinstance(config.iterations, int) and config.iterations > 0:
+            num_iterations = config.iterations
+            logger.info(f"Will perform {num_iterations} iterations of analysis")
+        else:
+            logger.warning("Invalid iterations config, defaulting to 1 iteration")
+        
+        # Create base output directory for iterations
+        logger.info(f"Setting up for {num_iterations} iterations")
+        # Create iteration directories
+        for i in range(1, num_iterations + 1):
+            iteration_dir = os.path.join(config.km_output_dir, f"iteration_{i}")
+            if not os.path.exists(iteration_dir):
+                os.makedirs(iteration_dir)
+                logger.info(f"Created output directory for iteration {i}: {iteration_dir}")
+        
+        # Use the same filtered data for all iterations
+        filtered_df = out_df.copy(deep=True)
+        
+        # Process all iterations
+        for iteration in range(1, num_iterations + 1):
+            iteration_start_time = time.time()
+            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
+            
+            # Set current iteration in config to update output paths
+            config.set_iteration(iteration)
+            
+            # Process results for this iteration (using same filtered data)
+            process_results(filtered_df, config, num_abstracts_fetched)
+            
+            iteration_end_time = time.time()
+            iteration_elapsed_time = iteration_end_time - iteration_start_time
+            logger.info(f"Iteration {iteration} completed in {iteration_elapsed_time:.2f} seconds")
+        
+        logger.info(f"All {num_iterations} iterations completed successfully")
+    else:
+        # No iterations, just process results once to the base output directory
+        logger.info("No iterations requested, processing results once")
+        # Reset current_iteration to 0 to ensure results go to the base directory
+        config.current_iteration = 0
+        process_results(out_df, config, num_abstracts_fetched)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
-    logging.info(f"Relevance script completed in {elapsed_time:.2f} seconds.")
+    logger.info(f"Relevance analysis completed in {elapsed_time:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()

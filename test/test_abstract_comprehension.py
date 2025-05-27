@@ -1,5 +1,5 @@
 import openai
-import src.abstract_comprehension as ab
+import dev.abstract_comprehension as ab
 import json
 import os
 import pandas as pd
