@@ -97,7 +97,9 @@ def run_and_save_query(
     result_df = pd.DataFrame(result)
 
     if config.is_skim_with_gpt:
-        file_name = f"{job_config['a_terms'][0]}_{job_config['c_terms'][0]}"
+        # Include B term in filename to avoid overwrites when multiple combinations 
+        # have the same A and C terms but different B terms
+        file_name = f"{job_config['a_terms'][0]}_{job_config['b_terms'][0]}_{job_config['c_terms'][0]}"
     else:
         file_name = job_config["a_terms"][0]
 
