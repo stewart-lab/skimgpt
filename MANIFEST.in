@@ -1,5 +1,4 @@
 include README.md
-include LICENSE
 include requirements.txt
 include config_template.json
 include main.py

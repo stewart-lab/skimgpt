@@ -4,21 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skimgpt"
-version = "0.1.0"
+version = "0.1.1"
 description = "Biomedical Knowledge Mining with co-occurrence modeling and LLMs"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Jack Freeman", email = "jfreeman@morgridge.org"},
     {name = "Ron Stewart", email = "rstewart@morgridge.org"},
     {name = "Rob Millikin", email = "rmillikin@morgridge.org"},
-    {name = "Kevin George", email = "kshinegeorge@morgridge.org"}
+    {name = "Kevin George", email = "kshinegeorge@morgridge.org"},
+    {name = "Jack Freeman", email = "jfreeman@morgridge.org"}
 ]
 maintainers = [
-    {name = "Jack Freeman", email = "jfreeman@morgridge.org"},
     {name = "Ron Stewart", email = "rstewart@morgridge.org"},
     {name = "Rob Millikin", email = "rmillikin@morgridge.org"},
-    {name = "Kevin George", email = "kshinegeorge@morgridge.org"}
+    {name = "Kevin George", email = "kshinegeorge@morgridge.org"},
+    {name = "Jack Freeman", email = "jfreeman@morgridge.org"}
 ]
 keywords = ["biomedical", "nlp", "co-occurrence", "knowledge-mining", "LLMs", "literature-analysis", "skim"]
 classifiers = [
