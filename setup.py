@@ -8,11 +8,11 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="skimgpt",
-    version="0.1.1",
+    version="0.1.2",
     description="Biomedical Knowledge Mining with co-occurrence modeling and LLMs",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Jack Freeman, Ron Stewart, Rob Millikin, Kevin George",
+    author="Jack Freeman, Rob Millikin, Kevin George, Ron Stewart",
     author_email="jfreeman@morgridge.org",
     url="https://github.com/stewart-lab/skimgpt",
     packages=find_packages(),
@@ -29,8 +29,8 @@ setup(
         "biopython>=1.79",
         "requests>=2.25.0",
         "vllm>=0.6.0",
-        "tiktoken>=0.4.0",
-        "htcondor2>=10.0.0",
+        "tiktoken>=0.7.0",
+        "htcondor>=24.6.1",
     ],
     extras_require={
         "dev": [
