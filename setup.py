@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="skimgpt",
-    version="0.1.2",
+    version="0.1.3",
     description="Biomedical Knowledge Mining with co-occurrence modeling and LLMs",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -21,7 +21,7 @@ setup(
         'src': ['*.py', '*.sh'],
         '': ['*.json', '*.txt', '*.md'],
     },
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
         "pandas>=1.3.0",
         "numpy>=1.21.0",
