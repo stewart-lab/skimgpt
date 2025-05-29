@@ -1,0 +1,16 @@
+include README.md
+include requirements.txt
+include config_template.json
+include main.py
+include main_wrapper.py
+include wrapper_result_merger.py
+include run_multiple_analyses.sh
+recursive-include src *.py
+recursive-include src *.sh
+recursive-include input_lists *.txt
+exclude test/*
+exclude .git*
+exclude .pytest_cache
+exclude __pycache__
+exclude *.pyc
+exclude .ipynb_checkpoints 
