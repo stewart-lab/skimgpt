@@ -363,10 +363,8 @@ def main():
         
         htcondor_helper = HTCondorHelper(config, token_dir)
 
-        # Create src directory in output directory
-        output_src_dir = os.path.join(output_directory, "src")  
+        # Create output directory structure (no src directory needed since using package imports)
         output_results_dir = os.path.join(output_directory, "output")
-        os.makedirs(output_src_dir, exist_ok=True)
         os.makedirs(output_results_dir, exist_ok=True)
         
         # Ensure we're working with absolute paths
@@ -514,7 +512,7 @@ def main():
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
 
-        # Copy necessary files to output directory
+        # Copy necessary files to output directory (minimal copying since using package imports)
         src_dir = os.path.join(os.getcwd(), "src")
         for file in ["run.sh", "relevance.py"]:
             src_path = os.path.abspath(os.path.join(src_dir, file))
@@ -525,12 +523,9 @@ def main():
             else:
                 logger.error(f"Required file {file} not found in src directory")
                 raise FileNotFoundError(f"Required file {file} not found in {src_dir}")
-                
-        # Copy source files to src directory
-        for src_file in glob(os.path.join(src_dir, "*.py")):
-            dst_path = os.path.join(output_src_dir, os.path.basename(src_file))
-            if os.path.abspath(src_file) != os.path.abspath(dst_path):
-                shutil.copy2(src_file, dst_path)
+        
+        logger.info("Using skimgpt package imports - skipping source file copying")
+        # Note: We no longer copy all source files since relevance.py now imports from skimgpt package
         
         # Copy input files to output directory
         for src_path in flattened_file_paths:

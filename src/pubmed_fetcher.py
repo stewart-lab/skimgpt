@@ -140,7 +140,7 @@ class PubMedFetcher:
             self.logger.error("No abstracts fetched successfully.")
         else:
             self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
-            self.logger.debug(f"Abstract dict: {abstract_dict}")
+            #self.logger.debug(f"Abstract dict: {abstract_dict}")
 
         return abstract_dict
 
