@@ -1,14 +1,88 @@
 from __future__ import annotations
 import pandas as pd
 import argparse
-from skimgpt.src.utils import Config, RaggedTensor
+from src.utils import Config, RaggedTensor
 from itertools import chain
 import time
-from skimgpt.src.pubmed_fetcher import PubMedFetcher
-from skimgpt.src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
+from src.pubmed_fetcher import PubMedFetcher
+from src.classifier import process_single_row, write_to_json, calculate_relevance_ratios
 import socket
 import os
 
+
+def detect_gpu_environment():
+    """Detect if we're in a GPU-enabled environment"""
+    # Check for explicit GPU mode environment variable (can be set in HTCondor jobs)
+    if os.getenv('SKIMGPT_GPU_MODE', '').lower() in ('true', '1', 'yes'):
+        return True
+    
+    # Check for HTCondor GPU-related environment variables
+    if os.getenv('_CONDOR_AssignedGPUs') or os.getenv('_CONDOR_GPUsSlot'):
+        return True
+    
+    try:
+        import torch
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            return True
+    except ImportError:
+        pass
+    
+    # Check for NVIDIA GPU via nvidia-smi
+    try:
+        import subprocess
+        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=5)
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+        pass
+    
+    # Check environment variables that might indicate GPU availability
+    gpu_indicators = ['CUDA_VISIBLE_DEVICES', 'NVIDIA_VISIBLE_DEVICES', 'GPU_DEVICE_ORDINAL']
+    for indicator in gpu_indicators:
+        if os.getenv(indicator):
+            return True
+    
+    return False
+
+
+def import_vllm():
+    """Dynamically import vLLM when needed"""
+    try:
+        import vllm
+        return vllm
+    except ImportError as e:
+        raise ImportError(f"vLLM is required for GPU-based inference but not available: {e}")
+
+
+def convert_gpu_uuid_to_device_id(gpu_uuid):
+    """Convert GPU UUID to numeric device ID for vLLM compatibility"""
+    try:
+        import subprocess
+        # Get GPU information from nvidia-smi
+        result = subprocess.run([
+            'nvidia-smi', '--query-gpu=uuid,index', 
+            '--format=csv,noheader,nounits'
+        ], capture_output=True, text=True, check=True)
+        
+        for line in result.stdout.strip().split('\n'):
+            if not line.strip():
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 2:
+                uuid_part, index_part = parts[0], parts[1]
+                # Handle different UUID formats
+                if gpu_uuid in uuid_part or uuid_part.endswith(gpu_uuid) or gpu_uuid.startswith(uuid_part.split('-')[0]):
+                    return index_part
+        
+        # If not found, try to extract numeric suffix from UUID
+        if '-' in gpu_uuid:
+            suffix = gpu_uuid.split('-')[-1]
+            if suffix.isdigit():
+                return suffix
+                
+    except (subprocess.SubprocessError, subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    return gpu_uuid  # Return original if conversion fails
 
 
 def getHypothesis(
@@ -67,52 +141,6 @@ def getHypothesis(
 
 def prompt(abstract, hyp) -> str:
     return f"Abstract: {abstract}\nHypothesis: {hyp}\nInstructions: Classify this abstract as either 0 (Not Relevant) or 1 (Relevant) for evaluating the provided hypothesis.\nScore: "
-
-
-def detect_gpu_environment():
-    """Detect if we're in a GPU-enabled environment"""
-    # Check for explicit GPU mode environment variable (can be set in HTCondor jobs)
-    if os.getenv('SKIMGPT_GPU_MODE', '').lower() in ('true', '1', 'yes'):
-        return True
-    
-    # Check for HTCondor GPU-related environment variables
-    if os.getenv('_CONDOR_AssignedGPUs') or os.getenv('_CONDOR_GPUsSlot'):
-        return True
-    
-    try:
-        import torch
-        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-            return True
-    except ImportError:
-        pass
-    
-    # Check for NVIDIA GPU via nvidia-smi
-    try:
-        import subprocess
-        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
-        pass
-    
-    # Check environment variables that might indicate GPU availability
-    gpu_indicators = ['CUDA_VISIBLE_DEVICES', 'NVIDIA_VISIBLE_DEVICES', 'GPU_DEVICE_ORDINAL']
-    for var in gpu_indicators:
-        if var in os.environ and os.environ[var] != '' and os.environ[var] != 'none':
-            return True
-    
-    return False
-
-
-def import_vllm():
-    """Dynamically import vllm with error handling"""
-    try:
-        import vllm
-        return vllm
-    except ImportError as e:
-        if detect_gpu_environment():
-            raise ImportError(f"vLLM import failed in GPU environment: {e}. Make sure vLLM is installed with GPU support.")
-        else:
-            raise ImportError(f"vLLM not available in CPU-only environment: {e}")
 
 
 def gen(
@@ -376,8 +404,8 @@ def main():
             # Just save what we have and exit gracefully
             initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
             out_df.to_csv(initial_output_file, sep="\t")
-            logger.info(f"Saved dataframe to {initial_output_file} for GPU processing")
-            logger.info("Workflow setup complete. Ready for HTCondor GPU submission.")
+            logger.info(f"Saved dataframe to {initial_output_file}")
+            logger.info("Exiting gracefully - GPU processing will occur on GPU nodes")
             return
         
         # We're in a GPU environment, proceed with vLLM
@@ -397,14 +425,6 @@ def main():
         os.environ['TORCHINDUCTOR_CACHE_DIR'] = os.path.join(current_dir, 'torch_cache')
         os.environ['TRITON_CACHE_DIR'] = os.path.join(current_dir, 'triton_cache')
         
-        # Create cache directories
-        for cache_dir in [os.environ['TORCHINDUCTOR_CACHE_DIR'], os.environ['TRITON_CACHE_DIR']]:
-            try:
-                os.makedirs(cache_dir, exist_ok=True)
-                logger.debug(f"Created cache directory: {cache_dir}")
-            except Exception as e:
-                logger.warning(f"Failed to create cache directory {cache_dir}: {e}")
-        
         # Disable other PyTorch features that might cause issues in containerized environments
         os.environ['PYTORCH_DISABLE_DISTRIBUTED_SAMPLING'] = '1'
         os.environ['NCCL_DISABLE_WARN'] = '1'
@@ -419,49 +439,32 @@ def main():
         # Set environment variables to handle GPU device ID issues
         import torch
         if torch.cuda.is_available():
-            # Force CUDA to use numeric device IDs instead of UUIDs
-            os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+            cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
+            logger.info(f"Original CUDA_VISIBLE_DEVICES: {cuda_devices}")
             
-            # Check if CUDA_VISIBLE_DEVICES contains GPU UUIDs and convert to numeric IDs
-            current_cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
-            logger.info(f"Current CUDA_VISIBLE_DEVICES: {current_cuda_devices}")
-            
-            if current_cuda_devices and current_cuda_devices.startswith('GPU-'):
-                # We have a GPU UUID, need to convert to numeric ID
-                logger.info("Detected GPU UUID format, converting to numeric device ID...")
-                try:
-                    # Get all available GPUs and find the one matching our UUID
-                    num_gpus = torch.cuda.device_count()
-                    logger.info(f"Found {num_gpus} total GPUs")
-                    
-                    # For HTCondor, typically we just want to use device 0 since it's the assigned GPU
-                    if num_gpus > 0:
-                        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-                        logger.info(f"Converted GPU UUID {current_cuda_devices} to device ID 0")
+            if cuda_devices and not cuda_devices.replace(',', '').isdigit():
+                # Contains UUIDs, need to convert
+                device_list = [d.strip() for d in cuda_devices.split(',') if d.strip()]
+                converted_devices = []
+                
+                for device in device_list:
+                    if device.startswith('GPU-'):
+                        # Convert UUID to numeric ID
+                        numeric_id = convert_gpu_uuid_to_device_id(device)
+                        logger.info(f"Converted GPU UUID {device} to device ID {numeric_id}")
+                        converted_devices.append(str(numeric_id))
                     else:
-                        logger.warning("No CUDA GPUs found despite UUID being present")
-                except Exception as uuid_convert_error:
-                    logger.warning(f"Failed to convert GPU UUID: {uuid_convert_error}")
-                    # Fallback: try to clear CUDA_VISIBLE_DEVICES and let CUDA auto-detect
-                    logger.info("Clearing CUDA_VISIBLE_DEVICES for auto-detection")
-                    del os.environ['CUDA_VISIBLE_DEVICES']
-            elif not current_cuda_devices:
-                # No CUDA_VISIBLE_DEVICES set, configure for first GPU
-                num_gpus = torch.cuda.device_count()
-                if num_gpus > 0:
-                    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-                    logger.info(f"Set CUDA_VISIBLE_DEVICES=0 (found {num_gpus} GPUs)")
-                else:
-                    logger.warning("No CUDA GPUs found")
-            else:
-                logger.info(f"CUDA_VISIBLE_DEVICES already properly set to: {current_cuda_devices}")
+                        converted_devices.append(device)
+                
+                # Set the converted device list
+                new_cuda_devices = ','.join(converted_devices)
+                os.environ['CUDA_VISIBLE_DEVICES'] = new_cuda_devices
+                logger.info(f"Updated CUDA_VISIBLE_DEVICES: {new_cuda_devices}")
+        
     except Exception as e:
-        logger.warning(f"Failed to configure CUDA environment: {e}")
-        # Try clearing CUDA_VISIBLE_DEVICES as a last resort
-        if 'CUDA_VISIBLE_DEVICES' in os.environ:
-            logger.info("Clearing CUDA_VISIBLE_DEVICES as fallback")
-            del os.environ['CUDA_VISIBLE_DEVICES']
-    
+        logger.error(f"Error configuring GPU environment: {str(e)}")
+        logger.warning("Proceeding with default GPU configuration")
+
     # Model setup and inference with error handling
     try:
         logger.info("Initializing vLLM model...")
@@ -482,40 +485,30 @@ def main():
             # Fallback with additional constraints
             model = vllm.LLM(
                 model=config.filter_config["MODEL"], 
-                max_model_len=4000,
-                gpu_memory_utilization=0.6,
+                max_model_len=2000,  # Reduce model length
+                gpu_memory_utilization=0.6,  # Reduce GPU memory
                 enforce_eager=True,
+                tensor_parallel_size=1,
                 disable_custom_all_reduce=True,
-                trust_remote_code=False,
-                enable_chunked_prefill=False,
-                disable_sliding_window=True
+                trust_remote_code=False
             )
             logger.info("Successfully initialized vLLM model with fallback settings")
-        except Exception as fallback_error:
-            logger.error(f"Fallback model initialization also failed: {fallback_error}")
-            logger.info("Attempting final fallback with tensor parallel size 1...")
+        except Exception as e2:
+            logger.error(f"Fallback model initialization also failed: {e2}")
+            logger.info("Attempting minimal model initialization...")
             try:
-                # Final fallback: single GPU, no parallel processing, minimal features
+                # Last resort: minimal settings
                 model = vllm.LLM(
-                    model=config.filter_config["MODEL"], 
-                    max_model_len=4000,
-                    gpu_memory_utilization=0.5,
+                    model=config.filter_config["MODEL"],
                     tensor_parallel_size=1,
                     enforce_eager=True,
-                    disable_custom_all_reduce=True,
-                    trust_remote_code=False,
-                    enable_chunked_prefill=False,
-                    disable_sliding_window=True,
-                    use_v2_block_manager=False
+                    disable_custom_all_reduce=True
                 )
-                logger.info("Successfully initialized vLLM model with final fallback settings")
-            except Exception as final_fallback_error:
-                logger.error(f"All fallback attempts failed. Final error: {final_fallback_error}")
-                raise RuntimeError(f"Could not initialize vLLM model after all attempts. "
-                                 f"Original error: {e}, "
-                                 f"Fallback error: {fallback_error}, "
-                                 f"Final fallback error: {final_fallback_error}")
-    
+                logger.info("Successfully initialized vLLM model with minimal settings")
+            except Exception as e3:
+                logger.error(f"All model initialization attempts failed: {e3}")
+                raise RuntimeError(f"Unable to initialize vLLM model after multiple attempts: {e3}")
+
     sampling_config = vllm.SamplingParams(
         temperature=config.filter_config["TEMPERATURE"],
         top_k=config.filter_config["TOP_K"],

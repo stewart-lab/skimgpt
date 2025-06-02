@@ -512,9 +512,9 @@ def main():
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
 
-        # Copy necessary files to output directory (minimal copying since using package imports)
+        # Copy necessary files to output directory (only run.sh needed for entry point execution)
         src_dir = os.path.join(os.getcwd(), "src")
-        for file in ["run.sh", "relevance.py"]:
+        for file in ["run.sh"]:  # Only copy run.sh, relevance.py accessed via entry point
             src_path = os.path.abspath(os.path.join(src_dir, file))
             dst_path = os.path.join(output_directory, file)
             if os.path.exists(src_path):
@@ -524,8 +524,7 @@ def main():
                 logger.error(f"Required file {file} not found in src directory")
                 raise FileNotFoundError(f"Required file {file} not found in {src_dir}")
         
-        logger.info("Using skimgpt package imports - skipping source file copying")
-        # Note: We no longer copy all source files since relevance.py now imports from skimgpt package
+        logger.info("Using skimgpt package entry point - only copying run.sh")
         
         # Copy input files to output directory
         for src_path in flattened_file_paths:

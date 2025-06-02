@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skimgpt"
-version = "0.1.3"
+version = "0.1.6"
 description = "Biomedical Knowledge Mining with co-occurrence modeling and LLMs"
 readme = "README.md"
 license = {text = "MIT"}
