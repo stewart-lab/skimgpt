@@ -64,10 +64,10 @@ class APIClient:
 
     def run_api_query(self, payload, url):
         """Initiate an API query and wait for its completion."""
-        logging.debug(f"Initiating API query with payload: {payload}")
+        self.logger.debug(f"Initiating API query with payload: {payload}")
         initial_response = self.post_api_request(url, payload)
         job_id = initial_response["id"]
-        logging.debug(f"Received job ID: {job_id}")
+        self.logger.debug(f"Received job ID: {job_id}")
         return self.wait_for_job_completion(url, job_id)
 
 
@@ -180,7 +180,7 @@ def process_query_results(
     sort_column = config.job_specific_settings.get(
         "SORT_COLUMN", sort_column_default
     )
-    logging.debug(f"Using sort column: {sort_column}")
+    config.logger.debug(f"Using sort column: {sort_column}")
     if sort_column not in df.columns:
         raise KeyError(f"Sort column '{sort_column}' not found in {job_type} results.")
 
@@ -192,7 +192,7 @@ def process_query_results(
     # Parse intersection columns
     for col in intersection_columns:
         if col in df_sorted.columns:
-            logging.debug(f"Parsing intersection column: {col}")
+            config.logger.debug(f"Parsing intersection column: {col}")
             df_sorted[col] = df_sorted[col].apply(ast.literal_eval)
         else:
             raise KeyError(f"Expected column '{col}' not found in {job_type} results.")
@@ -243,7 +243,7 @@ def save_filtered_results(
             else ["a_term", "b_term"]
         )
         no_results_df = removed_rows[columns_to_extract]
-        logging.debug(f"No-result entries: {no_results_df}")
+        config.logger.debug(f"No-result entries: {no_results_df}")
         # Define the path for the no_results.txt file
         no_results_file_path = os.path.join(output_directory, "no_results.txt")
 
