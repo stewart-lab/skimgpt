@@ -177,6 +177,12 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         result_dict = process_single_row(row, config)
         logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
         if result_dict:
+            # Add the raw terms into the JSON payload
+            result_dict["a_term"] = row["a_term"]
+            result_dict["b_term"] = row["b_term"]
+            if "c_term" in row:
+                result_dict["c_term"] = row["c_term"]
+            
             for ratio_type in ["ab", "bc", "ac"]:
                 ratio_col = f"{ratio_type}_relevance_ratio"
                 fraction_col = f"{ratio_type}_relevance_fraction"

@@ -59,6 +59,16 @@ def process_single_row(row, config: Config):
 
     processed_results = {}
 
+    # === include the raw input terms in every result dict ===
+    a_term = row.get("a_term")
+    b_term = row.get("b_term")
+    # c_term may not exist for pure KM jobs
+    c_term = row.get("c_term", None)
+    processed_results["a_term"] = a_term
+    processed_results["b_term"] = b_term
+    if c_term is not None:
+        processed_results["c_term"] = c_term
+
     if config.is_skim_with_gpt:
         a_term = row.get("a_term")
         b_term = row.get("b_term")
