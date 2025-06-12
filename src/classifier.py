@@ -69,6 +69,9 @@ def process_single_row(row, config: Config):
         )
         if abc_result or abc_prompt:
             processed_results["A_B_C_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
+                "c_term": c_term,
                 "Relationship": f"{a_term} - {b_term} - {c_term}",
                 "Result": abc_result,
                 "Prompt": abc_prompt,
@@ -83,6 +86,9 @@ def process_single_row(row, config: Config):
         )
         if ac_result or ac_prompt:
             processed_results["A_C_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
+                "c_term": c_term,
                 "Relationship": f"{a_term} - {c_term}",
                 "Result": ac_result,
                 "Prompt": ac_prompt,
@@ -92,7 +98,6 @@ def process_single_row(row, config: Config):
             }
 
     elif config.job_type == "km_with_gpt":
-        # Handle km_with_gpt job type
         a_term = row.get("a_term")
         b_term = row.get("b_term")
 
@@ -102,12 +107,13 @@ def process_single_row(row, config: Config):
             )
             return None
 
-        # Process A-B relationship
         ab_result, ab_prompt, ab_urls = perform_analysis(
             job_type=config.job_type, row=row, config=config, relationship_type="A_B"
         )
         if ab_result or ab_prompt:
             processed_results["A_B_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
                 "Relationship": f"{a_term} - {b_term}",
                 "Result": ab_result,
                 "Prompt": ab_prompt,
@@ -142,6 +148,8 @@ def process_single_row(row, config: Config):
         # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_URLS: {ab_urls}")
         if ab_result or ab_prompt:
             processed_results["A_B1_B2_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
                 "Relationship": f"{a_term} - {b_term1} - {b_term2}",
                 "Result": ab_result,
                 "Prompt": ab_prompt,
