@@ -64,9 +64,9 @@ Instructions:
 3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
 4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
 5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
-
+6. Provide a "Strength of confidence (SOC) score" about your score, that represents the strength, quality, quantity, and consistency of the evidence provided.  A SOC score of zero represents zero confidence. A SOC score of 100  represents 100% confidence.  Intermediate scores are possible and represent a nuanced degree of confidence based on the evidence.
 Format your response as:
-Score: [Number] - Reasoning: [Reasoning]
+Score: [Number] SOC: [SOC] - Reasoning: [Reasoning]
 
 Scoring Guidelines:
 {sg.cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2)}"""
