@@ -24,6 +24,12 @@ class CostEstimator:
         elif self.model == "o1-mini":
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40
+        elif self.model == "o3":
+            self.input_cost_per_million = 2.00
+            self.output_cost_per_million = 8.00
+        elif self.model == "o3-mini":
+            self.input_cost_per_million = 1.10
+            self.output_cost_per_million = 4.40
         elif self.model == "r1":
             self.input_cost_per_million = 0.55
             self.output_cost_per_million = 2.19
@@ -56,7 +62,7 @@ class CostEstimator:
         return default_tokens
 
 class KMCostEstimator(CostEstimator):
-    KM_INTERVALS = [
+    O1_KM_INTERVALS = [
         (0, 25, 4400), (25, 50, 4600), (50, 75, 4800),
         (75, 100, 5000), (100, 125, 5200), (125, 150, 5400),
         (150, 175, 5600), (175, 200, 5800)
@@ -66,6 +72,12 @@ class KMCostEstimator(CostEstimator):
         (0, 25, 780), (25, 50, 850), (50, 75, 920),
         (75, 100, 990), (100, 125, 1060), (125, 150, 1130),
         (150, 175, 1200), (175, 200, 1270)
+    ]
+    
+    O3_KM_INTERVALS = [
+        (0, 25, 152500), (25, 50, 305000), (50, 75, 457500),
+        (75, 100, 610000), (100, 125, 762500), (125, 150, 915000),
+        (150, 175, 1067500), (175, 200, 1220000)
     ]
     
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
@@ -117,11 +129,13 @@ class KMCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_KM_INTERVALS, "KM")
+        elif self.model in ("o3", "o3-mini"):
+            return self._get_output_tokens(self.O3_KM_INTERVALS, "KM")
         else:
-            return self._get_output_tokens(self.KM_INTERVALS, "KM")
+            return self._get_output_tokens(self.O1_KM_INTERVALS, "KM")
 
 class SkimCostEstimator(CostEstimator):
-    SKIM_INTERVALS = [
+    O1_SKIM_INTERVALS = [
         (0, 25, 8500), (25, 50, 9800), (50, 75, 11000),
         (75, 100, 12300), (100, 125, 13600), (125, 150, 14800),
         (150, 175, 16000), (175, 200, 17400)
@@ -131,6 +145,12 @@ class SkimCostEstimator(CostEstimator):
         (0, 25, 2690), (25, 50, 5710), (50, 75, 8730),
         (75, 100, 11750), (100, 125, 14770), (125, 150, 17790),
         (150, 175, 20810), (175, 200, 23830)
+    ]
+    
+    O3_SKIM_INTERVALS = [
+        (0, 25, 152500), (25, 50, 305000), (50, 75, 457500),
+        (75, 100, 610000), (100, 125, 762500), (125, 150, 915000),
+        (150, 175, 1067500), (175, 200, 1220000)
     ]
     
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
@@ -176,8 +196,10 @@ class SkimCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_SKIM_INTERVALS, "SKIM")
+        elif self.model in ("o3", "o3-mini"):
+            return self._get_output_tokens(self.O3_SKIM_INTERVALS, "SKIM")
         else:
-            return self._get_output_tokens(self.SKIM_INTERVALS, "SKIM")
+            return self._get_output_tokens(self.O1_SKIM_INTERVALS, "SKIM")
 
 def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     """Calculate total cost and prompt user for confirmation."""
