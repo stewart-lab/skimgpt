@@ -468,9 +468,12 @@ def call_openai(client, prompt, config: Config):
             else:
                 params["model"] = config.model
             
+            logger.debug(f" IN CALL OPENAI   Params: {params}")
+            # params["logprobs"] = True   # this is not supported for o1, o3, o3-mini, etc.
+            #  params["top_logprobs"] = 2
             # Make the API call with the parameters
             response = client.chat.completions.create(**params)
-
+            logger.debug(f" IN CALL OPENAI   Response: {response}")
             content = response.choices[0].message.content
             usage = response.usage
             logger.info(
@@ -614,6 +617,11 @@ def call_openai(client, prompt, config: Config):
                     )
                     time.sleep(retry_delay)
                     continue  # Continue to next retry attempt
+            else: # need to catch all other  APIError errors
+                logger.error("An unexpected error occurred: openai.APIError.")
+                logger.info(str(e))
+                time.sleep(retry_delay)
+
             raise  # Re-raise so it's handled by outer layers if needed
 
         except Exception as e:
