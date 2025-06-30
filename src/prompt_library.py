@@ -65,9 +65,9 @@ Instructions:
 4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
 5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
 6. Provide a "Strength of confidence (SOC) score" about your score, that represents the strength, quality, quantity, and consistency of the evidence provided.  A SOC score of zero represents zero confidence. A SOC score of 100  represents 100% confidence.  Intermediate scores are possible and represent a nuanced degree of confidence based on the evidence.
-7. Provide the log probability of the "Score" from the model (e.g., -1.234). This is a measure of the confidence in the score. This is for the score, not the SOC
+7.  Return the number of abstracts that support hypothesis 1 and the number of abstracts that support hypothesis 2 and the number of abstracts that support neither hypothesis or are inconclusive.
 Format your response as:
-Score: [Number] LogProb: [LogProb] SOC: [SOC]
+Score: [Number] SOC: [SOC] #Abstracts supporting hypothesis 1: [Number] #Abstracts supporting hypothesis 2: [Number] #Abstracts supporting neither hypothesis or are inconclusive: [Number] - Reasoning: [Reasoning]
 
 Scoring Guidelines:
 {sg.cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2)}"""
