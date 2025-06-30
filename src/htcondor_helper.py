@@ -1,6 +1,7 @@
 import htcondor2 as htcondor
 import time
 import os
+import threading
 from src.utils import Config
 
 
@@ -11,6 +12,7 @@ class HTCondorHelper:
         self.logger = config.logger
         self.token_dir = token_dir
         self._validate_config()
+        self._configure_htcondor_params()
         self._setup_connection()
 
     def _validate_config(self):
@@ -29,42 +31,53 @@ class HTCondorHelper:
         if missing:
             raise ValueError(f"Missing HTCondor config attributes: {', '.join(missing)}")
 
+    def _configure_htcondor_params(self):
+        """Configure all HTCondor parameters in one place"""
+
+        htcondor.param["TOOL_DEBUG"] = "D_COMMAND"
+        htcondor.param["TOOL_LOG"] = "/dev/null"
+        htcondor.param["FILETRANSFER_DEBUG"] = "FALSE"
+        htcondor.param["MAX_TRANSFER_HISTORY_SIZE"] = "0"
+        abs_token_dir = os.path.abspath(self.token_dir)
+        htcondor.param["SEC_TOKEN_DIRECTORY"] = abs_token_dir
+        htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "TOKEN"
+        htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "TOKEN"
+        htcondor.param["SEC_TOKEN_AUTHENTICATION"] = "REQUIRED"
+        
+        self.logger.info(f"HTCondor parameters configured with token directory: {abs_token_dir}")
+
+    def _parse_memory_size(self, size_str: str) -> int:
+        """Parse memory/disk size string like '16G' or '16384' into MB"""
+        size_str = str(size_str).strip().lower()
+        try:
+            if size_str.endswith(("gb", "g")):
+                suffix_len = 2 if size_str.endswith("gb") else 1
+                return int(float(size_str[:-suffix_len]) * 1024)  # Convert GiB to MiB
+            elif size_str.endswith(("mb", "m")):
+                suffix_len = 2 if size_str.endswith("mb") else 1
+                return int(float(size_str[:-suffix_len]))
+            else:
+                return int(float(size_str))
+        except (ValueError, TypeError):
+            return None
+
+    def _safe_to_int(self, value) -> int:
+        """Safely convert HTCondor values to int"""
+        try:
+            return int(value)
+        except Exception:
+            try:
+                return int(str(value))
+            except Exception:
+                return 0
+
     def _setup_connection(self):
         """Setup connection to HTCondor submit node"""
         try:
-            # Enable debug logging
-            #htcondor.enable_debug()
-            
-            # Print info about the token directory
-            print(f"Token directory: {self.token_dir}")
-            token_files = os.listdir(self.token_dir)
-            print(f"Files in token directory: {token_files}")
-            for f in token_files:
-                full_path = os.path.join(self.token_dir, f)
-                print(f"File {full_path} exists: {os.path.exists(full_path)}, size: {os.path.getsize(full_path)}")
-            
-            # Use explicit token file path
+            # Verify token file exists
             token_file = os.path.join(self.token_dir, 'condor_token')
             if not os.path.exists(token_file):
                 raise ValueError(f"Token file not found at {token_file}")
-                
-            # Set absolute token directory
-            abs_token_dir = os.path.abspath(self.token_dir)
-            self.logger.info(f"Using token directory: {abs_token_dir}")
-            htcondor.param["SEC_TOKEN_DIRECTORY"] = abs_token_dir
-            
-            # Set authentication methods to use only TOKEN
-            htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "TOKEN"
-            htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "TOKEN"
-            
-            # Force token authentication 
-            htcondor.param["SEC_TOKEN_AUTHENTICATION"] = "REQUIRED"
-            
-            # Print debugging info about the token file
-            self.logger.info(f"Token directory contents: {token_files}")
-            self.logger.info(f"Using token file: {token_file}")
- 
-            self.logger.info("HTCondor security parameters configured")
             
             # Setup collector
             self.collector = htcondor.Collector(self.config.collector_host)
@@ -109,15 +122,6 @@ class HTCondorHelper:
                 self.logger.debug(f"Found credential daemon: {cred_ad.get('Name', 'Unknown')}")
                 self.credd = htcondor.Credd(cred_ad)
                 
-                # Add credentials for required services
-                if self.credd:
-                    for service in ["rdrive", "scitokens"]:
-                        try:
-                            self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                            self.logger.debug(f"Added credential for service: {service}")
-                        except Exception as e:
-                            self.logger.warning(f"Could not add credential for {service}: {e}")
-                
             self.logger.info("Successfully connected to HTCondor submit node")
         except Exception as e:
             self.logger.error(f"Failed to setup HTCondor connection: {e}")
@@ -150,27 +154,17 @@ class HTCondorHelper:
                 "request_cpus": self.config.request_cpus,
                 "request_memory": self.config.request_memory,
                 "request_disk": self.config.request_disk,
-                "gpus_minimum_memory": "30G",
+                "gpus_minimum_memory": "10G",
                 "requirements": "(CUDACapability >= 8.0)",
                 "+WantGPULab": "true",
                 "+GPUJobLength": '"short"',
+                "+is_resumable": "true",
                 "stream_error": "True",
                 "stream_output": "True",
-                # Transfer the entire output directory recursively
                 "transfer_output_files": "output",
-                # Ensure that HTCondor preserves the directory structure
                 "transfer_output_remaps": '""',
             })
 
-            # Add credentials for required services again before submission
-            if self.credd:
-                for service in ["rdrive", "scitokens"]:
-                    try:
-                        self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                    except Exception as e:
-                        self.logger.warning(f"Could not add credential for {service}: {e}")
-            
-            
             # Submit jobs for each file using itemdata
             self.logger.debug("Submitting job batch to HTCondor")
             result = self.schedd.submit(submit_desc, spool=True)
@@ -182,18 +176,64 @@ class HTCondorHelper:
             self.logger.error(f"Failed to submit jobs: {e}")
             raise
 
+    def _log_available_resources(self):
+        """Query pool to estimate how many startd slots satisfy the job requirements."""
+        try:
+            # Parse requirements using helper methods
+            req_gpus = int(self.config.request_gpus) if str(self.config.request_gpus).isdigit() else None
+            req_cpus = int(self.config.request_cpus) if str(self.config.request_cpus).isdigit() else None
+            req_mem = self._parse_memory_size(self.config.request_memory)
+            req_disk = self._parse_memory_size(self.config.request_disk)
+
+            # Build constraint parts
+            constraint_parts = ["CUDACapability >= 8.0"]
+            if req_gpus is not None:
+                constraint_parts.append(f"TotalGPUs >= {req_gpus}")
+            if req_cpus is not None:
+                constraint_parts.append(f"Cpus >= {req_cpus}")
+            if req_mem is not None:
+                constraint_parts.append(f"Memory >= {req_mem}")
+            if req_disk is not None:
+                constraint_parts.append(f"Disk >= {req_disk}")
+
+            # Parse GPU memory requirement
+            gpu_mem_raw_cfg = "10G"  # Default fallback
+            try:
+                gpu_mem_raw_cfg = self.config.htcondor_config.get("gpus_minimum_memory", "10G")
+            except (AttributeError, TypeError):
+                pass
+
+            req_gpu_mem_mb = self._parse_memory_size(gpu_mem_raw_cfg)
+            if req_gpu_mem_mb is not None:
+                constraint_parts.append(f"CUDAGlobalMemoryMb >= {req_gpu_mem_mb}")
+
+            constraint = " && ".join(constraint_parts)
+
+            # Query for available resources
+            ads = self.collector.query(
+                htcondor.AdTypes.Startd,
+                constraint=constraint,
+                projection=[
+                    "Name", "TotalGPUs", "State", "Activity",
+                    "CUDAGlobalMemoryMb", "CUDAGlobalMemory", "Disk", "Memory"
+                ]
+            )
+
+            available = len(ads)
+            free_ads = [ad for ad in ads if ad.get("State") == "Unclaimed" or ad.get("Activity") == "Idle"]
+            busy = available - len(free_ads)
+
+            self.logger.info(
+                f"Resource availability – machines meeting requirements ({constraint}): "
+                f"{available} (free {len(free_ads)}, busy {busy})"
+            )
+        except Exception as e:
+            self.logger.warning(f"Failed to query resource availability: {e}")
+
     def monitor_jobs(self, cluster_id: int, check_interval: int = 30) -> bool:
         """Monitor job progress"""
         try:
             while True:
-                # Add credentials for required services before querying
-                if self.credd:
-                    for service in ["rdrive", "scitokens"]:
-                        try:
-                            self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                        except Exception as e:
-                            self.logger.warning(f"Could not add credential for {service}: {e}")
-                
                 self.logger.debug(f"Querying status for cluster {cluster_id}")
                 ads = self.schedd.query(
                     constraint=f"ClusterId == {cluster_id}",
@@ -225,56 +265,16 @@ class HTCondorHelper:
                                      for k, v in status_counts.items())
                 self.logger.info(f"Cluster {cluster_id} status: {status_msg}")
             
-                # Retrieve output files every minute
+                # Retrieve intermediate output files
                 self.logger.info(f"Attempting to retrieve intermediate output files for cluster {cluster_id}")
                 try:
-                    # Add timeout to prevent hanging
-                    retrieve_start = time.time()
-                    self.logger.debug(f"Starting retrieve operation at {retrieve_start}")
-                    
-                    # Set a timeout for the retrieve operation
-                    max_retrieve_time = 60  # 60 seconds timeout
-                    
-                    # Use a separate thread for the retrieve operation
-                    import threading
-                    retrieve_success = [False]
-                    retrieve_error = [None]
-                    
-                    def retrieve_thread():
-                        try:
-                            # Add credentials for required services
-                            if self.credd:
-                                for service in ["rdrive", "scitokens"]:
-                                    try:
-                                        self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                                    except Exception as e:
-                                        self.logger.warning(f"Could not add credential for {service}: {e}")
-                                
-                            self.schedd.retrieve(f"ClusterId == {cluster_id}")
-                            retrieve_success[0] = True
-                        except Exception as e:
-                            retrieve_error[0] = e
-                    
-                    thread = threading.Thread(target=retrieve_thread)
-                    thread.daemon = True
-                    thread.start()
-                    
-                    # Wait for the thread with timeout
-                    thread.join(max_retrieve_time)
-                    
-                    if thread.is_alive():
-                        self.logger.warning(f"Retrieve operation timed out after {max_retrieve_time} seconds")
-                        # Continue with monitoring even if retrieve times out
-                    elif retrieve_success[0]:
-                        self.logger.info(f"Successfully retrieved intermediate output files for cluster {cluster_id}")
-                    else:
-                        self.logger.warning(f"Failed to retrieve intermediate output files: {retrieve_error[0]}")
-                        
-                    retrieve_end = time.time()
-                    self.logger.debug(f"Retrieve operation took {retrieve_end - retrieve_start:.2f} seconds")
-                    
+                    self._retrieve_with_timeout(cluster_id, timeout=60)
                 except Exception as retrieve_err:
-                    self.logger.warning(f"Warning: Failed to retrieve intermediate output files: {retrieve_err}")
+                    self.logger.warning(f"Failed to retrieve intermediate output files: {retrieve_err}")
+                
+                # Log resource availability only while all jobs remain idle
+                if ads and all(ad.get("JobStatus") == 1 for ad in ads):
+                    self._log_available_resources()
                 
                 self.logger.debug(f"Sleeping for {check_interval} seconds before next check")
                 time.sleep(check_interval)
@@ -283,19 +283,40 @@ class HTCondorHelper:
             self.logger.error(f"Error monitoring jobs: {e}", exc_info=True)
             raise
 
+    def _retrieve_with_timeout(self, cluster_id: int, timeout: int = 60):
+        """Retrieve output files with timeout using threading"""
+        retrieve_start = time.time()
+        self.logger.debug(f"Starting retrieve operation at {retrieve_start}")
+        
+        retrieve_success = [False]
+        retrieve_error = [None]
+        
+        def retrieve_thread():
+            try:
+                self.schedd.retrieve(f"ClusterId == {cluster_id}")
+                retrieve_success[0] = True
+            except Exception as e:
+                retrieve_error[0] = e
+        
+        thread = threading.Thread(target=retrieve_thread)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout)
+        
+        if thread.is_alive():
+            self.logger.warning(f"Retrieve operation timed out after {timeout} seconds")
+        elif retrieve_success[0]:
+            self.logger.info(f"Successfully retrieved output files for cluster {cluster_id}")
+        else:
+            raise Exception(f"Retrieve failed: {retrieve_error[0]}")
+        
+        retrieve_end = time.time()
+        self.logger.debug(f"Retrieve operation took {retrieve_end - retrieve_start:.2f} seconds")
+
     def retrieve_output(self, cluster_id: int):
         """Retrieve output files from completed jobs"""
         try:
-            # Add credentials for required services
-            if self.credd:
-                for service in ["rdrive", "scitokens"]:
-                    try:
-                        self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                    except Exception as e:
-                        self.logger.warning(f"Could not add credential for {service}: {e}")
-                
-            self.schedd.retrieve(f"ClusterId == {cluster_id}")
-            self.logger.info(f"Successfully retrieved output for cluster {cluster_id}")
+            self._retrieve_with_timeout(cluster_id, timeout=120)  # Longer timeout for final retrieve
         except Exception as e:
             self.logger.error(f"Failed to retrieve output: {e}")
             raise
@@ -303,14 +324,6 @@ class HTCondorHelper:
     def cleanup(self, cluster_id: int):
         """Clean up after job completion by releasing any held jobs and removing all jobs"""
         try:
-            # Add credentials for required services
-            if self.credd:
-                for service in ["rdrive", "scitokens"]:
-                    try:
-                        self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                    except Exception as e:
-                        self.logger.warning(f"Could not add credential for {service}: {e}")
-            
             # Then remove all jobs from the queue
             self.logger.info(f"Removing all jobs in cluster {cluster_id}")
             remove_result = self.schedd.act(htcondor.JobAction.Remove, f"ClusterId == {cluster_id}")
@@ -324,14 +337,6 @@ class HTCondorHelper:
     def release_held_jobs(self, cluster_id: int):
         """Release any held jobs in the specified cluster"""
         try:
-            # Add credentials for required services
-            if self.credd:
-                for service in ["rdrive", "scitokens"]:
-                    try:
-                        self.credd.add_user_service_cred(htcondor.CredType.OAuth, b"", service)
-                    except Exception as e:
-                        self.logger.warning(f"Could not add credential for {service}: {e}")
-            
             # Release any held jobs
             self.logger.info(f"Releasing any held jobs in cluster {cluster_id}")
             release_result = self.schedd.act(htcondor.JobAction.Release, f"ClusterId == {cluster_id}")

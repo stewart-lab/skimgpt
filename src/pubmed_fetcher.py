@@ -317,7 +317,7 @@ class PubMedFetcher:
         
         entries = text.split("===END OF ABSTRACT===")
         entries = [e.strip() for e in entries if e.strip()]
-        self.logger.debug(f"Entries: {entries}")
+        #self.logger.debug(f"Entries: {entries}")
         optimized_entries = []
         current_tokens = 0
         
