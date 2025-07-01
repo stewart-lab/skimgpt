@@ -1,9 +1,0 @@
-Amacrine Cell
-Bipolar Cell
-Horizontal Cell
-Photoreceptor Cell
-Ganglion Cell
-Retinal Progenitor Cell
-Rod Cell
-Cone Cell
-Muller Glia|Müller glia|Müller cell    
