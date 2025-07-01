@@ -25,8 +25,8 @@ class CostEstimator:
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40
         elif self.model == "o3":
-            self.input_cost_per_million = 10.00
-            self.output_cost_per_million = 40.00
+            self.input_cost_per_million = 2.00
+            self.output_cost_per_million = 8.00
         elif self.model == "o3-mini":
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40

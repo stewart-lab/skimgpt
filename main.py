@@ -20,6 +20,7 @@ import sys
 import time
 from pathlib import Path
 from main_wrapper import setup_logger
+import tempfile  # used for per-job token directory
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -63,14 +64,9 @@ def organize_output(directory):
     debug_dir = os.path.join(directory, "debug")
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(debug_dir, exist_ok=True)
-    
-    # Track directories we've already processed to avoid duplicates
+
     processed_dirs = set()
-    
-    # ------------------------------------------------------------------
-    # First, preserve any iteration subdirectories (e.g. iteration_1, iteration_2…)
-    # ------------------------------------------------------------------
-    # Look for iteration directories both at the top level and within output/
+
     for root, dirs, _ in os.walk(directory):
         for dir_name in dirs:
             if dir_name.startswith("iteration_"):
@@ -106,10 +102,7 @@ def organize_output(directory):
     
     # Define patterns for result JSON files
     result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
-    
-    # Walk the remaining directory tree, skipping the results/debug dirs we
-    # just created (and possibly filled) to avoid re‑processing their
-    # contents.
+
     for root, dirs, files in os.walk(directory):
         # Skip traversal into results or debug to avoid duplicate moves
         if os.path.abspath(root).startswith(os.path.abspath(results_dir)) or os.path.abspath(root).startswith(os.path.abspath(debug_dir)):
@@ -154,107 +147,40 @@ def organize_output(directory):
 
 
 def write_token_to_file():
-    """Write the HTCondor token from environment variable to the token directory"""
+    """Create a *new* per-job token directory (no backward compatibility path checks)."""
+
     token = os.getenv('HTCONDOR_TOKEN')
     if not token:
         raise ValueError("HTCONDOR_TOKEN environment variable not set")
-    
-    token_dir = os.getenv('HTCONDOR_TOKEN_DIR', './token/')
+
+    # Always create under ./token_dirs relative to current working directory
+    root_dir = os.path.join(os.getcwd(), 'token_dirs')
+    os.makedirs(root_dir, exist_ok=True)
+
+    # Create an exclusive per-job directory (timestamp + pid)
+    ts = datetime.now().strftime('%Y%m%d%H%M%S%f')
+    token_dir = os.path.join(root_dir, f'token_{ts}_{os.getpid()}')
     os.makedirs(token_dir, exist_ok=True)
-    
-    # HTCondor expects token files to follow a specific format
-    # First try the default token file name
+
+    # Point HTCondor to this directory
+    os.environ['HTCONDOR_TOKEN_DIR'] = token_dir
+
     token_file = os.path.join(token_dir, 'condor_token')
-    
-    # Check if the token needs to be formatted in the HTCondor way
-    # HTCondor tokens are usually in the format of a JWT with header.payload.signature
-    if not token.count('.') >= 2 and 'eyJ' not in token:
-        print("WARNING: Token doesn't appear to be in JWT format, it may not work with HTCondor")
-    
     with open(token_file, 'w') as f:
         f.write(token)
-    
-    # Set secure permissions (owner read-only)
+
+    # Restrict permissions
     os.chmod(token_file, 0o600)
-    
-    # Log token file details for debugging
-    print(f"Token file written to: {token_file}")
-    print(f"Token file exists: {os.path.exists(token_file)}")
-    print(f"Token file size: {os.path.getsize(token_file)}")
-    print(f"Token file permissions: {oct(os.stat(token_file).st_mode)}")
-    
+
     return token_file
 
 
 def remove_token_file(token_file):
-    """Remove the token file for security"""
-    if os.path.exists(token_file):
-        os.remove(token_file)
+    """Recursively remove the job-specific token directory for security."""
+    token_dir = os.path.dirname(token_file)
+    if os.path.exists(token_dir):
+        shutil.rmtree(token_dir, ignore_errors=True)
 
-
-def test_htcondor_connection(config, token_dir):
-    """Test HTCondor connection using token authentication"""
-    import htcondor2 as htcondor
-    print(f"Testing HTCondor connection with token directory: {token_dir}")
-    
-    # Set token directory
-    htcondor.param["SEC_TOKEN_DIRECTORY"] = token_dir
-    htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "TOKEN"
-    htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "TOKEN"
-    htcondor.param["SEC_TOKEN_AUTHENTICATION"] = "REQUIRED"
-    
-    # Enable debugging
-    htcondor.enable_debug()
-    
-    try:
-        # Connect to collector
-        collector = htcondor.Collector(config.collector_host)
-        submit_host = htcondor.classad.quote(config.submit_host)
-        
-        # Query scheduler daemon
-        print(f"Querying for schedd on {config.submit_host}")
-        schedd_ads = collector.query(
-            htcondor.AdTypes.Schedd,
-            constraint=f"Name=?={submit_host}",
-            projection=["Name", "MyAddress", "DaemonCoreDutyCycle", "CondorVersion"]
-        )
-        
-        if not schedd_ads:
-            print(f"No scheduler found for {config.submit_host}")
-            return False
-            
-        schedd_ad = schedd_ads[0]
-        print(f"Found scheduler: {schedd_ad.get('Name', 'Unknown')}")
-        
-        # Test schedd connection
-        schedd = htcondor.Schedd(schedd_ad)
-        test_query = schedd.query(constraint="False", projection=["ClusterId"])
-        print(f"Schedd connection successful! Got {len(test_query)} results")
-        
-        # Test credential daemon
-        cred_ads = collector.query(
-            htcondor.AdTypes.Credd,
-            constraint=f'Name == "{config.submit_host}"'
-        )
-        
-        if not cred_ads:
-            print(f"No credential daemon found for {config.submit_host}")
-        else:
-            cred_ad = cred_ads[0]
-            print(f"Found credential daemon: {cred_ad.get('Name', 'Unknown')}")
-            credd = htcondor.Credd(cred_ad)
-            
-            # Test adding credentials
-            try:
-                credd.add_user_service_cred(htcondor.CredType.OAuth, b"", "rdrive")
-                print("Successfully added credential for rdrive")
-            except Exception as e:
-                print(f"Failed to add credential: {e}")
-        
-        return True
-    except Exception as e:
-        print(f"Connection test failed: {e}")
-        return False
 
 
 def main():
@@ -355,13 +281,14 @@ def main():
         token_dir = os.path.dirname(token_file)
         logger.info("HTCondor token written to token directory")
         
-        # Test connection before proceeding
-        if not test_htcondor_connection(config, token_dir):
-            logger.error("HTCondor connection test failed. Check token and network access.")
+        # Initialize HTCondor helper (connection is tested during initialization)
+        try:
+            htcondor_helper = HTCondorHelper(config, token_dir)
+        except Exception as e:
+            logger.error(f"Failed to initialize HTCondor helper: {e}")
+            logger.error("Check token and network access.")
             remove_token_file(token_file)
             return
-        
-        htcondor_helper = HTCondorHelper(config, token_dir)
 
         # Create src directory in output directory
         output_src_dir = os.path.join(output_directory, "src")  
@@ -547,9 +474,6 @@ def main():
         os.chdir(output_directory)
         try:
             cluster_id = htcondor_helper.submit_jobs(files_txt_path)
-            logger.info(f"Jobs submitted with cluster ID {cluster_id}")
-
-            # Monitor jobs with enhanced error handling
             monitoring_success = False
             try:
                 monitoring_success = htcondor_helper.monitor_jobs(cluster_id)
@@ -576,8 +500,6 @@ def main():
             # Process results
             logger.info("Processing results...")
             # recursively dump and print the output directory
-            logger.info(f"Recursively dumping output directory: {output_directory}")
-            # recursively dump the output directory
             logger.info(f"Recursively dumping output directory: {output_directory}")
 
             organize_output(output_directory)

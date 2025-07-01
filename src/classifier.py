@@ -69,6 +69,9 @@ def process_single_row(row, config: Config):
         )
         if abc_result or abc_prompt:
             processed_results["A_B_C_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
+                "c_term": c_term,
                 "Relationship": f"{a_term} - {b_term} - {c_term}",
                 "Result": abc_result,
                 "Prompt": abc_prompt,
@@ -83,6 +86,9 @@ def process_single_row(row, config: Config):
         )
         if ac_result or ac_prompt:
             processed_results["A_C_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
+                "c_term": c_term,
                 "Relationship": f"{a_term} - {c_term}",
                 "Result": ac_result,
                 "Prompt": ac_prompt,
@@ -108,6 +114,8 @@ def process_single_row(row, config: Config):
         )
         if ab_result or ab_prompt:
             processed_results["A_B_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
                 "Relationship": f"{a_term} - {b_term}",
                 "Result": ab_result,
                 "Prompt": ab_prompt,
@@ -142,6 +150,9 @@ def process_single_row(row, config: Config):
         # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_URLS: {ab_urls}")
         if ab_result or ab_prompt:
             processed_results["A_B1_B2_Relationship"] = {
+                "a_term": a_term,
+                "b_term1": b_term1,
+                "b_term2": b_term2,
                 "Relationship": f"{a_term} - {b_term1} - {b_term2}",
                 "Result": ab_result,
                 "Prompt": ab_prompt,
@@ -444,7 +455,7 @@ def call_openai(client, prompt, config: Config):
     retry_delay = config.global_settings["RETRY_DELAY"]
     max_retries = config.global_settings["MAX_RETRIES"]
 
-    for _ in range(max_retries):
+    for attempt in range(1, max_retries + 1):
         try:
             # Create parameters dictionary
             params = {
@@ -487,21 +498,10 @@ def call_openai(client, prompt, config: Config):
             break  # Authentication issues won't resolve with retries
 
         except openai.BadRequestError as e:
-            # This handles both OpenAI and Deepseek 400 errors
-            if config.model == "r1":
-                logger.error(
-                    "BadRequestError: Invalid request body format.\n"
-                    "Solution: Please modify your request body according to the DeepSeek API format. "
-                    "Check the error message for specific details."
-                )
-            else:
-                logger.error(
-                    "BadRequestError: Your request was malformed or missing some required parameters.\n"
-                    "Solution: Check the error message for specifics, ensure all required parameters "
-                    "are provided, and verify the format and size of your request data."
-                )
+            logger.warning("BadRequestError: request malformed – retrying after delay …")
             logger.debug(str(e))
-            break  # Bad requests won't resolve with retries
+            time.sleep(retry_delay)
+            continue  # simple retry without altering prompt
 
         except openai.PermissionDeniedError as e:
             logger.error(

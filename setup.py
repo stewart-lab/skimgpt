@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="skimgpt",
-    version="0.1.3",
+    version="0.1.9",
     description="Biomedical Knowledge Mining with co-occurrence modeling and LLMs",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -18,8 +18,8 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     package_data={
-        'src': ['*.py', '*.sh'],
-        '': ['*.json', '*.txt', '*.md'],
+        'skimgpt.src': ['*.py', '*.sh'],
+        'skimgpt': ['*.json', '*.txt', '*.md'],
     },
     python_requires=">=3.10",
     install_requires=[
@@ -57,8 +57,8 @@ setup(
     keywords="biomedical nlp co-occurrence knowledge-mining LLMs literature-analysis skim",
     entry_points={
         'console_scripts': [
-            'skimgpt-relevance=src.relevance:main',
-            'skimgpt-main=main:main',
+            'skimgpt-relevance=skimgpt.src.relevance:main',
+            'skimgpt-main=skimgpt.main:main',
         ],
     },
 ) 
