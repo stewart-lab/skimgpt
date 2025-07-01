@@ -1,6 +1,4 @@
 pandas>=1.3.0
 numpy>=1.21.0
-biopython>=1.79
 requests>=2.25.0
-tiktoken>=0.4.0
 htcondor2>=24.1.0
