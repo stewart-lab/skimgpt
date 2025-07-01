@@ -4,7 +4,7 @@ skimgpt - Scientific Knowledge Mining with GPT
 A biomedical literature analysis tool for knowledge discovery and hypothesis evaluation.
 """
 
-__version__ = "0.1.8"
+__version__ = "0.1.9"
 __author__ = "Jack Freeman"
 __email__ = "jfreeman@morgridge.org"
 

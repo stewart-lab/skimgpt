@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir \
     htcondor>=24.0.0
 
 # Build argument for skimgpt version
-ARG SKIMGPT_VERSION=0.1.8
+ARG SKIMGPT_VERSION=0.1.9
 # Try to install skimgpt from TestPyPI (may need to skip broken dependencies)
 RUN pip install --no-cache-dir --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ --no-deps skimgpt==${SKIMGPT_VERSION} || \
     echo "Warning: Could not install skimgpt from TestPyPI, installing from PyPI instead" && \

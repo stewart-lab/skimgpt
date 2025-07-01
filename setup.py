@@ -8,7 +8,7 @@ with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="skimgpt",
-    version="0.1.8",
+    version="0.1.9",
     description="Biomedical Knowledge Mining with co-occurrence modeling and LLMs",
     long_description=long_description,
     long_description_content_type="text/markdown",
