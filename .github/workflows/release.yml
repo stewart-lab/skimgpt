@@ -1,35 +1,21 @@
-name: Release – TestPyPI & Docker Hub on merge to main
+name: Release – TestPyPI on merge to main
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-env:
-  # final image that downstream services pull
-  IMAGE_NAME: stewartlab/skimgpt
-  # heavy CUDA + PyTorch base we re‑use each run (already in Docker Hub)
-  BASE_IMAGE: stewartlab/skimgpt:0.1.8
-  # TestPyPI endpoints
-  TEST_PYPI_REPOSITORY_URL: https://test.pypi.org/legacy/
-  TEST_PYPI_INDEX_URL: https://test.pypi.org/simple
-
 jobs:
   publish-testpypi:
     name: Build & publish package to TestPyPI
-    runs-on: ubuntu-latest-xl
+    runs-on: ubuntu-latest
     environment: test
     permissions:
       id-token: write   # OIDC trusted publishing
       contents: read
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - id: get_version
-        run: echo "version=$(tr -d '\n' < VERSION)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
         with:
@@ -43,62 +29,5 @@ jobs:
       - name: Publish to TestPyPI via OIDC
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: ${{ env.TEST_PYPI_REPOSITORY_URL }}
+          repository-url: https://test.pypi.org/legacy/
           skip-existing: true
-
-  docker:
-    name: Rebuild & push Docker image (TestPyPI package)
-    needs: publish-testpypi
-    runs-on: ubuntu-latest
-    environment: test
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Capture version from upstream job
-        run: echo "VERSION=${{ needs.publish-testpypi.outputs.version }}" >> "$GITHUB_ENV"
-
-      - name: Wait for TestPyPI to propagate the release
-        env:
-          INDEX_URL: ${{ env.TEST_PYPI_INDEX_URL }}
-        run: |
-          for i in {1..10}; do
-            if python -m pip install --no-deps --dry-run --index-url "$INDEX_URL" skimgpt=="$VERSION"; then
-              echo "Package $VERSION available on TestPyPI ✅"; break; fi;
-            echo "Not yet available, retry #$i …"; sleep 30;
-          done
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Pull heavy base image (cached)
-        run: docker pull $BASE_IMAGE || true
-
-      - name: Build runtime layer with new skimgpt
-        env:
-          INDEX_URL: ${{ env.TEST_PYPI_INDEX_URL }}
-        run: |
-          cat > Dockerfile.release <<EOF
-          FROM ${BASE_IMAGE}
-          ARG VERSION
-          ARG INDEX_URL
-          RUN pip install --no-cache-dir --index-url ${INDEX_URL} skimgpt==${VERSION}
-          EOF
-          docker build -f Dockerfile.release \
-            --build-arg VERSION="$VERSION" \
-            --build-arg INDEX_URL="$INDEX_URL" \
-            -t $IMAGE_NAME:${VERSION}-test \
-            -t $IMAGE_NAME:test \
-            .
-
-      - name: Push image tags to Docker Hub
-        run: |
-          docker push $IMAGE_NAME:${VERSION}-test
-          docker push $IMAGE_NAME:test
