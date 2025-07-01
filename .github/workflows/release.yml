@@ -6,14 +6,18 @@ on:
   workflow_dispatch:
 
 env:
+  # final image that downstream services pull
   IMAGE_NAME: stewartlab/skimgpt
+  # heavy CUDA + PyTorch base we re‑use each run (already in Docker Hub)
+  BASE_IMAGE: stewartlab/skimgpt:0.1.8
+  # TestPyPI endpoints
   TEST_PYPI_REPOSITORY_URL: https://test.pypi.org/legacy/
   TEST_PYPI_INDEX_URL: https://test.pypi.org/simple
 
 jobs:
   publish-testpypi:
     name: Build & publish package to TestPyPI
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-xl
     environment: test
     permissions:
       id-token: write   # OIDC trusted publishing
@@ -22,15 +26,12 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Read VERSION file
-        id: get_version
+      - id: get_version
         run: echo "version=$(tr -d '\n' < VERSION)" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -39,7 +40,7 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
-      - name: Publish to **TestPyPI** via OIDC
+      - name: Publish to TestPyPI via OIDC
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ env.TEST_PYPI_REPOSITORY_URL }}
@@ -52,16 +53,13 @@ jobs:
     environment: test
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python (for availability probe)
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Capture version from upstream job
-        id: version
         run: echo "VERSION=${{ needs.publish-testpypi.outputs.version }}" >> "$GITHUB_ENV"
 
       - name: Wait for TestPyPI to propagate the release
@@ -80,15 +78,15 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Pull existing base image (ignore miss)
-        run: docker pull $IMAGE_NAME:test || true
+      - name: Pull heavy base image (cached)
+        run: docker pull $BASE_IMAGE || true
 
-      - name: Build updated image with TestPyPI package
+      - name: Build runtime layer with new skimgpt
         env:
           INDEX_URL: ${{ env.TEST_PYPI_INDEX_URL }}
         run: |
-          cat > Dockerfile.release <<'EOF'
-          FROM stewartlab/skimgpt:latest
+          cat > Dockerfile.release <<EOF
+          FROM ${BASE_IMAGE}
           ARG VERSION
           ARG INDEX_URL
           RUN pip install --no-cache-dir --index-url ${INDEX_URL} skimgpt==${VERSION}
