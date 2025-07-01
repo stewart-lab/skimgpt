@@ -455,7 +455,7 @@ def call_openai(client, prompt, config: Config):
     retry_delay = config.global_settings["RETRY_DELAY"]
     max_retries = config.global_settings["MAX_RETRIES"]
 
-    for _ in range(max_retries):
+    for attempt in range(1, max_retries + 1):
         try:
             # Create parameters dictionary
             params = {
@@ -498,21 +498,10 @@ def call_openai(client, prompt, config: Config):
             break  # Authentication issues won't resolve with retries
 
         except openai.BadRequestError as e:
-            # This handles both OpenAI and Deepseek 400 errors
-            if config.model == "r1":
-                logger.error(
-                    "BadRequestError: Invalid request body format.\n"
-                    "Solution: Please modify your request body according to the DeepSeek API format. "
-                    "Check the error message for specific details."
-                )
-            else:
-                logger.error(
-                    "BadRequestError: Your request was malformed or missing some required parameters.\n"
-                    "Solution: Check the error message for specifics, ensure all required parameters "
-                    "are provided, and verify the format and size of your request data."
-                )
+            logger.warning("BadRequestError: request malformed – retrying after delay …")
             logger.debug(str(e))
-            break  # Bad requests won't resolve with retries
+            time.sleep(retry_delay)
+            continue  # simple retry without altering prompt
 
         except openai.PermissionDeniedError as e:
             logger.error(

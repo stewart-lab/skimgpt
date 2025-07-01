@@ -20,6 +20,7 @@ import sys
 import time
 from pathlib import Path
 from main_wrapper import setup_logger
+import tempfile  # used for per-job token directory
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -146,25 +147,39 @@ def organize_output(directory):
 
 
 def write_token_to_file():
-    """Write the HTCondor token from environment variable to the token directory"""
+    """Create a *new* per-job token directory (no backward compatibility path checks)."""
+
     token = os.getenv('HTCONDOR_TOKEN')
     if not token:
         raise ValueError("HTCONDOR_TOKEN environment variable not set")
-    
-    token_dir = os.getenv('HTCONDOR_TOKEN_DIR', './token/')
+
+    # Always create under ./token_dirs relative to current working directory
+    root_dir = os.path.join(os.getcwd(), 'token_dirs')
+    os.makedirs(root_dir, exist_ok=True)
+
+    # Create an exclusive per-job directory (timestamp + pid)
+    ts = datetime.now().strftime('%Y%m%d%H%M%S%f')
+    token_dir = os.path.join(root_dir, f'token_{ts}_{os.getpid()}')
     os.makedirs(token_dir, exist_ok=True)
+
+    # Point HTCondor to this directory
+    os.environ['HTCONDOR_TOKEN_DIR'] = token_dir
+
     token_file = os.path.join(token_dir, 'condor_token')
     with open(token_file, 'w') as f:
         f.write(token)
-    
+
+    # Restrict permissions
     os.chmod(token_file, 0o600)
+
     return token_file
 
 
 def remove_token_file(token_file):
-    """Remove the token file for security"""
-    if os.path.exists(token_file):
-        os.remove(token_file)
+    """Recursively remove the job-specific token directory for security."""
+    token_dir = os.path.dirname(token_file)
+    if os.path.exists(token_dir):
+        shutil.rmtree(token_dir, ignore_errors=True)
 
 
 
