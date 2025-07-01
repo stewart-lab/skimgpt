@@ -1,0 +1,9 @@
+/opt/venv/lib/python3.10/site-packages/transformers/utils/hub.py:124: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+/opt/venv/lib/python3.10/site-packages/Bio/Entrez/Parser.py:1075: UserWarning: Failed to save pubmed_240101.dtd at /.config/biopython/Bio/Entrez/DTDs/pubmed_240101.dtd
+  warnings.warn(f"Failed to save {filename} at {path}")
+2024-11-02 00:11:04,027 - INFO - Successfully fetched abstracts for 15 PMIDs.
+Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+Processed prompts:   0%|          | 0/15 [00:00<?, ?it/s]Processed prompts:  20%|██        | 3/15 [00:00<00:00, 23.05it/s]Processed prompts:  47%|████▋     | 7/15 [00:00<00:00, 30.07it/s]Processed prompts:  73%|███████▎  | 11/15 [00:00<00:00, 25.93it/s]Processed prompts: 100%|██████████| 15/15 [00:00<00:00, 29.66it/s]
+2024-11-02 00:13:43,607 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-02 00:13:43,610 - INFO - Early exit for job_type 'skim_with_gpt' and relationship_type 'A_C': Missing 'ac_abstracts'.

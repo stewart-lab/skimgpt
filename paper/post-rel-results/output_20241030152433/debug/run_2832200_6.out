@@ -1,0 +1,35 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2005.chtc.wisc.edu
+GPUs assigned: GPU-06c7cc42
+Job type detected. Running skim_with_gpt.
+INFO 10-30 20:35:09 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 10-30 20:35:11 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 10-30 20:37:11 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 10-30 20:37:12 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 10-30 20:37:12 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 10-30 20:37:15 model_runner.py:756] Graph capturing finished in 3 secs.
+Truncated text token length: 6069
+Truncated text token length: 1626
+Truncated text token length: 965
+Original PMIDs: [24025713, 28507103, 27233476, 19513556, 29156703, 27462772, 26188110, 33597293, 32243098, 37707363, 37456260, 36787658, 36428689, 35724566, 37242714]
+Sorted PMIDs: [37707363, 37456260, 37242714, 36787658, 36428689, 35724566, 33597293, 32243098, 29156703, 28507103, 27462772, 27233476, 26188110, 24025713, 19513556]
+Original PMIDs: [35818423, 38003249, 36948143]
+Sorted PMIDs: [38003249, 36948143, 35818423]
+Original PMIDs: [7954360, 27893436, 36641437]
+Sorted PMIDs: [36641437, 27893436, 7954360]
+Processed row 1 (NAMPT) of 1
+Analysis results have been saved to pancreatic cancer_NAMPT_ginsenoside rb1_skim_with_gpt.json

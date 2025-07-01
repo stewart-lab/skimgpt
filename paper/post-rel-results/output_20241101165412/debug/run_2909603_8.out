@@ -1,0 +1,33 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2007.chtc.wisc.edu
+GPUs assigned: GPU-1c850794
+Job type detected. Running skim_with_gpt.
+INFO 11-01 22:17:19 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 11-01 22:17:21 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 11-01 22:19:21 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 11-01 22:19:22 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 11-01 22:19:22 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 11-01 22:19:26 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 3460
+Truncated text token length: 2
+Truncated text token length: 23314
+Original PMIDs: [25768209, 19275551, 27330188, 20174617, 26002927, 20600030, 21849270, 25907315]
+Sorted PMIDs: [27330188, 26002927, 25907315, 25768209, 21849270, 20600030, 20174617, 19275551]
+Original PMIDs: [10929917, 18268071, 16103768, 9875571, 22089377, 17284576, 15614705, 22984529, 28691103, 24152769, 19186350, 27484005, 18543521, 31304808, 22848696, 15918333, 12960836, 18983478, 21692942, 20587850, 26945366, 26251665, 25197324, 22013040, 23409405, 25886928, 30167339, 28293638, 11590504, 18816208, 11485138, 28061820, 24683016, 25394059, 17763601, 29752857, 19007042, 28623554, 23187939, 32920318, 18034560, 33382732, 37477514, 34474003, 32556207, 36800379]
+Sorted PMIDs: [37477514, 36800379, 34474003, 33382732, 32920318, 32556207, 31304808, 30167339, 29752857, 28691103, 28623554, 28293638, 28061820, 27484005, 26945366, 26251665, 25886928, 25394059, 25197324, 24683016, 24152769, 23409405, 23187939, 22984529, 22848696, 22089377, 22013040, 21692942, 20587850, 19186350, 19007042, 18983478, 18816208, 18543521, 18268071, 18034560, 17763601, 17284576, 16103768, 15918333, 15614705, 12960836, 11590504, 11485138, 10929917, 9875571]
+Processed row 1 (AHR) of 1
+Analysis results have been saved to diabetes_AHR_stavudine_skim_with_gpt.json

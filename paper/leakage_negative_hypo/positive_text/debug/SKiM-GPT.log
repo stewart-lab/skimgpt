@@ -1,0 +1,228 @@
+2025-04-07 10:54:33 - SKiM-GPT - INFO - main.py:initialize_workflow:50 - Initializing workflow in /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen
+2025-04-07 10:54:33 - SKiM-GPT - INFO - main.py:main:213 - Loading term lists...
+2025-04-07 10:54:33 - SKiM-GPT - DEBUG - utils.py:_read_terms_from_file:369 - Read 20 terms from ./input_lists/drugs_with_pipes_and_newlines.txt
+2025-04-07 10:54:33 - SKiM-GPT - DEBUG - skim_and_km_api.py:km_with_gpt_workflow:265 - km_with_gpt_workflow: term = {'a_term': 'Breast Cancer', 'b_terms': ['abemaciclib', 'ado-trastuzumab emtansine', 'alpelisib', 'capivasertib', 'elacestrant dihydrochloride|elacestrant|RAD1901', 'everolimus', 'fam-trastuzumab deruxtecan-nxki', 'lapatinib ditosylate|lapatinib', 'margetuximab-cmkb|margetuximab', 'neratinib maleate|neratinib', 'olaparib', 'palbociclib', 'pembrolizumab', 'pertuzumab', 'ribociclib', 'sacituzumab govitecan-hziy', 'talazoparib tosylate|talazoparib', 'toremifene', 'trastuzumab', 'anastrozole']}, type(b_terms) = <class 'list'>, b_terms = ['abemaciclib', 'ado-trastuzumab emtansine', 'alpelisib', 'capivasertib', 'elacestrant dihydrochloride|elacestrant|RAD1901', 'everolimus', 'fam-trastuzumab deruxtecan-nxki', 'lapatinib ditosylate|lapatinib', 'margetuximab-cmkb|margetuximab', 'neratinib maleate|neratinib', 'olaparib', 'palbociclib', 'pembrolizumab', 'pertuzumab', 'ribociclib', 'sacituzumab govitecan-hziy', 'talazoparib tosylate|talazoparib', 'toremifene', 'trastuzumab', 'anastrozole']
+2025-04-07 10:54:33 - SKiM-GPT - INFO - skim_and_km_api.py:km_with_gpt_workflow:271 - Processing A term: Breast Cancer with 20 B terms
+2025-04-07 10:54:33 - SKiM-GPT - DEBUG - skim_and_km_api.py:run_and_save_query:88 - Running API query for km_with_gpt with a_term: Breast Cancer, b_terms: ['abemaciclib', 'ado-trastuzumab emtansine', 'alpelisib', 'capivasertib', 'elacestrant dihydrochloride|elacestrant|RAD1901', 'everolimus', 'fam-trastuzumab deruxtecan-nxki', 'lapatinib ditosylate|lapatinib', 'margetuximab-cmkb|margetuximab', 'neratinib maleate|neratinib', 'olaparib', 'palbociclib', 'pembrolizumab', 'pertuzumab', 'ribociclib', 'sacituzumab govitecan-hziy', 'talazoparib tosylate|talazoparib', 'toremifene', 'trastuzumab', 'anastrozole'], c_terms: []
+2025-04-07 10:54:33 - SKiM-GPT - DEBUG - skim_and_km_api.py:run_and_save_query:89 - Job config: {'a_terms': ['Breast Cancer'], 'return_pmids': True, 'query_knowledge_graph': False, 'top_n_articles_most_cited': 50, 'top_n_articles_most_recent': 50, 'ab_fet_threshold': 1, 'censor_year': 2024, 'b_terms': ['abemaciclib', 'ado-trastuzumab emtansine', 'alpelisib', 'capivasertib', 'elacestrant dihydrochloride|elacestrant|RAD1901', 'everolimus', 'fam-trastuzumab deruxtecan-nxki', 'lapatinib ditosylate|lapatinib', 'margetuximab-cmkb|margetuximab', 'neratinib maleate|neratinib', 'olaparib', 'palbociclib', 'pembrolizumab', 'pertuzumab', 'ribociclib', 'sacituzumab govitecan-hziy', 'talazoparib tosylate|talazoparib', 'toremifene', 'trastuzumab', 'anastrozole']}
+2025-04-07 10:55:01 - SKiM-GPT - INFO - skim_and_km_api.py:wait_for_job_completion:52 - Job completed successfully
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - skim_and_km_api.py:save_to_tsv:13 - Data saved to /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen/km_with_gpt_Breast Cancer_output.tsv
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - skim_and_km_api.py:save_filtered_results:227 - Filtered km_with_gpt query results saved to /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen/km_with_gpt_Breast_Cancer_output_filtered.tsv
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - skim_and_km_api.py:save_filtered_results:249 - All km_with_gpt queries returned results. No entries to write to no_results.txt.
+2025-04-07 10:55:01 - SKiM-GPT - INFO - main.py:main:292 - fastkm results returned in 28.11 seconds.
+2025-04-07 10:55:01 - SKiM-GPT - INFO - main.py:main:303 - HTCondor token written to token directory
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:_setup_connection:53 - Using token directory: /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/token
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:_setup_connection:64 - Token directory contents: ['condor_token']
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:_setup_connection:65 - Using token file: ./token/condor_token
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:_setup_connection:67 - HTCondor security parameters configured
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:74 - Querying for schedd on ap2002.chtc.wisc.edu
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:85 - Found scheduler: ap2002.chtc.wisc.edu
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:89 - Testing connection to schedd...
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:92 - Successfully connected to schedd, got 0 results
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:98 - Querying for credential daemon on ap2002.chtc.wisc.edu
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:109 - Found credential daemon: ap2002.chtc.wisc.edu
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:117 - Added credential for service: rdrive
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:_setup_connection:117 - Added credential for service: scitokens
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:_setup_connection:121 - Successfully connected to HTCondor submit node
+2025-04-07 10:55:01 - SKiM-GPT - INFO - main.py:main:337 - Creating files.txt at /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen/files.txt
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - main.py:main:344 - Added km_with_gpt_Breast_Cancer_output_filtered.tsv to files.txt
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - main.py:main:412 - Copied run.sh to /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen/run.sh
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - main.py:main:412 - Copied relevance.py to /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen/relevance.py
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:submit_jobs:135 - Submitting jobs for 1 files
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:submit_jobs:172 - Submitting job batch to HTCondor
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:submit_jobs:175 - Successfully submitted 1 jobs in cluster 4248280
+2025-04-07 10:55:01 - SKiM-GPT - INFO - main.py:main:438 - Jobs submitted with cluster ID 4248280
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Held: 1
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041301.8744416
+2025-04-07 10:55:01 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.06 seconds
+2025-04-07 10:55:01 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:55:31 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:55:31 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Idle: 1
+2025-04-07 10:55:31 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:55:31 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041331.9859095
+2025-04-07 10:55:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:55:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.07 seconds
+2025-04-07 10:55:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:56:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:56:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:56:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:56:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041362.1121871
+2025-04-07 10:56:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:56:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.07 seconds
+2025-04-07 10:56:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:56:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:56:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:56:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:56:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041392.2374644
+2025-04-07 10:56:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:56:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.07 seconds
+2025-04-07 10:56:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:57:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:57:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:57:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:57:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041422.372534
+2025-04-07 10:57:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:57:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.08 seconds
+2025-04-07 10:57:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:57:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:57:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:57:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:57:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041452.522248
+2025-04-07 10:57:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:57:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.08 seconds
+2025-04-07 10:57:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:58:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:58:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:58:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:58:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041482.6622396
+2025-04-07 10:58:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:58:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.06 seconds
+2025-04-07 10:58:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:58:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:58:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:58:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:58:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041512.7819302
+2025-04-07 10:58:32 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:58:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.08 seconds
+2025-04-07 10:58:32 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:59:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:59:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:59:02 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:59:02 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041542.922555
+2025-04-07 10:59:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:59:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.10 seconds
+2025-04-07 10:59:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 10:59:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 10:59:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 10:59:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 10:59:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041573.0724823
+2025-04-07 10:59:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 10:59:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.08 seconds
+2025-04-07 10:59:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:00:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:00:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:00:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:00:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041603.2151785
+2025-04-07 11:00:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:00:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:00:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:00:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:00:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:00:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:00:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041633.471728
+2025-04-07 11:00:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:00:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.11 seconds
+2025-04-07 11:00:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:01:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:01:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:01:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:01:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041663.6370926
+2025-04-07 11:01:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:01:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.10 seconds
+2025-04-07 11:01:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:01:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:01:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:01:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:01:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041693.7946692
+2025-04-07 11:01:33 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:01:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.10 seconds
+2025-04-07 11:01:33 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:02:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:02:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:02:03 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:02:03 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041723.9565017
+2025-04-07 11:02:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:02:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.11 seconds
+2025-04-07 11:02:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:02:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:02:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:02:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:02:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041754.1730263
+2025-04-07 11:02:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:02:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:02:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:03:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:03:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:03:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:03:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041784.3541255
+2025-04-07 11:03:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:03:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.11 seconds
+2025-04-07 11:03:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:03:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:03:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:03:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:03:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041814.5245547
+2025-04-07 11:03:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:03:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.13 seconds
+2025-04-07 11:03:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:04:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:04:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:04:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:04:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041844.723083
+2025-04-07 11:04:04 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:04:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:04:04 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:04:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:04:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:04:34 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:04:34 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041874.8981607
+2025-04-07 11:04:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:04:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:04:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:05:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:05:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:05:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:05:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041905.0757103
+2025-04-07 11:05:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:05:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:05:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:05:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:05:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:05:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:05:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041935.3306825
+2025-04-07 11:05:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:05:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:05:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:06:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:06:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:06:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:06:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041965.5058024
+2025-04-07 11:06:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:06:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.14 seconds
+2025-04-07 11:06:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:06:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:06:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:223 - Cluster 4248280 status: Running: 1
+2025-04-07 11:06:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:226 - Attempting to retrieve intermediate output files for cluster 4248280
+2025-04-07 11:06:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:230 - Starting retrieve operation at 1744041995.7022893
+2025-04-07 11:06:35 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:266 - Successfully retrieved intermediate output files for cluster 4248280
+2025-04-07 11:06:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:271 - Retrieve operation took 0.12 seconds
+2025-04-07 11:06:35 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:276 - Sleeping for 30 seconds before next check
+2025-04-07 11:07:05 - SKiM-GPT - DEBUG - htcondor_helper.py:monitor_jobs:194 - Querying status for cluster 4248280
+2025-04-07 11:07:05 - SKiM-GPT - INFO - htcondor_helper.py:monitor_jobs:206 - All jobs in cluster 4248280 completed successfully
+2025-04-07 11:07:05 - SKiM-GPT - INFO - main.py:main:445 - All jobs completed successfully
+2025-04-07 11:07:05 - SKiM-GPT - INFO - main.py:main:458 - Retrieving output files...
+2025-04-07 11:07:06 - SKiM-GPT - INFO - htcondor_helper.py:retrieve_output:295 - Successfully retrieved output for cluster 4248280
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:460 - Output files retrieved successfully
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:465 - Processing results...
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:471 - Cleaning up cluster 4248280...
+2025-04-07 11:07:06 - SKiM-GPT - INFO - htcondor_helper.py:cleanup:312 - Removing all jobs in cluster 4248280
+2025-04-07 11:07:06 - SKiM-GPT - INFO - htcondor_helper.py:cleanup:314 - Remove result: 
+    [
+        TotalError = 0; 
+        TotalJobAds = 56811; 
+        TotalSuccess = 1; 
+        TotalNotFound = 0; 
+        TotalBadStatus = 0; 
+        TotalChangedAds = 1; 
+        TotalAlreadyDone = 0; 
+        TotalPermissionDenied = 0
+    ]
+2025-04-07 11:07:06 - SKiM-GPT - INFO - htcondor_helper.py:cleanup:316 - Cleanup completed for cluster 4248280
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:473 - Cleanup completed
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:483 - HTCondor token file removed for security
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:485 - Analysis complete. Results are in /mnt/cephfs/mir/rstewart/stewart-lab/isi5home/jfreeman/kmGPT/output/output_20250407105433_km_hypothesis_worsen
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:488 - Relevance and API complete in 724.86 seconds.
+2025-04-07 11:07:06 - SKiM-GPT - INFO - main.py:main:490 - Total time taken: 752.97 seconds

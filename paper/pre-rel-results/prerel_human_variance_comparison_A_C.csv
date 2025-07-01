@@ -1,0 +1,15 @@
+Relationship,Human_Range,Human_Mean,Human_Std,Model_Median,Within_Human_Range,Distance_From_Range,Within_1_Std,Distance_In_Std_Units
+Alzheimer's - 2 pam,-2 to 0,-0.75,0.82915619758885,-1.0,True,0.0,True,0.30151134457776363
+Alzheimer's - pp2,-2 to 0,-0.5,0.8660254037844386,0.0,True,0.0,True,0.5773502691896258
+Breast cancer - abemaciclib,2 to 2,2.0,0.0,2.0,True,0.0,True,0.0
+Breast cancer - estrogens,-2 to -2,-2.0,0.0,-2.0,True,0.0,True,0.0
+Diabetes - stavudine,-2 to -2,-2.0,0.0,-2.0,True,0.0,True,0.0
+Diabetes - tirzepatide,2 to 2,2.0,0.0,2.0,True,0.0,True,0.0
+Diabetes - zileuton,0 to 0,0.0,0.0,-1.0,False,1.0,False,inf
+Heart disease - erlotinib,0 to 0,0.0,0.0,1.0,False,1.0,False,inf
+Heart disease - gefitinib,0 to 1,0.5,0.5,1.0,True,0.0,True,1.0
+Lupus - isoniazid,-2 to -2,-2.0,0.0,-2.0,True,0.0,True,0.0
+"Non-alcoholic fatty liver disease - 6-formylindolo(3,2-b)carbazole",0 to 0,0.0,0.0,0.0,True,0.0,True,0.0
+Non-alcoholic fatty liver disease - pp242,0 to 0,0.0,0.0,0.0,True,0.0,True,0.0
+Pancreatic cancer - gant61,2 to 2,2.0,0.0,2.0,True,0.0,True,0.0
+Pancreatic cancer - ginsenoside rb1,1 to 1,1.0,0.0,1.0,True,0.0,True,0.0

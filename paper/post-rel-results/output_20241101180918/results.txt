@@ -1,0 +1,29 @@
+Relationship_Type	Relationship	Score
+A_B_C_Relationship	Non-alcoholic fatty liver disease - AHR - 6-formylindolo(3,2-b)carbazole	0
+A_C_Relationship	Non-alcoholic fatty liver disease - 6-formylindolo(3,2-b)carbazole	0 (not enough information)
+A_B_C_Relationship	heart disease - RAF1 - gefitinib	+1
+A_C_Relationship	heart disease - gefitinib	+1
+A_B_C_Relationship	heart disease - EGFR - erlotinib	+2
+A_C_Relationship	heart disease - erlotinib	+1
+A_B_C_Relationship	diabetes - LOX - zileuton	+1
+A_C_Relationship	diabetes - zileuton	-2
+A_B_C_Relationship	Diabetes - GIPR - tirzepatide	+2
+A_C_Relationship	Diabetes - tirzepatide	+2
+A_B_C_Relationship	Alzheimer's - BCHE - 2 pam	-1
+A_C_Relationship	Alzheimer's - 2 pam	-2
+A_B_C_Relationship	Non-alcoholic fatty liver disease - ULK1 - pp242	+1
+A_C_Relationship	Non-alcoholic fatty liver disease - pp242	0 (not enough information)
+A_B_C_Relationship	Alzheimer's - FYN - PP2	+1
+A_C_Relationship	Alzheimer's - PP2	+1
+A_B_C_Relationship	Lupus - NAT2 - Isoniazid	-1
+A_C_Relationship	Lupus - Isoniazid	-2
+A_B_C_Relationship	Breast cancer - CDK4 - ABEMACICLIB	+2
+A_C_Relationship	Breast cancer - ABEMACICLIB	+2
+A_B_C_Relationship	Breast cancer - ESR1 - estrogens	-1
+A_C_Relationship	Breast cancer - estrogens	-2
+A_B_C_Relationship	pancreatic cancer - CCK - gant61	0 (not enough information)
+A_C_Relationship	pancreatic cancer - gant61	+2
+A_B_C_Relationship	diabetes - AHR - stavudine	0 (not enough information)
+A_C_Relationship	diabetes - stavudine	-2
+A_B_C_Relationship	pancreatic cancer - NAMPT - ginsenoside rb1	-1
+A_C_Relationship	pancreatic cancer - ginsenoside rb1	+1

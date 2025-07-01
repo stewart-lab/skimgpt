@@ -1,0 +1,156 @@
+2024-11-15 10:02:45,019 - INFO - Executing SKIM workflow...
+2024-11-15 10:02:45,019 - INFO - Reading B and C terms from files...
+2024-11-15 10:02:45,019 - INFO - Running and saving SKIM query for a_term: And...
+2024-11-15 10:07:54,630 - INFO - Job completed successfully.
+2024-11-15 10:07:54,772 - INFO - Filtered skim_with_gpt query results saved to ../output/output_20241115100235/skim_with_gpt_And_or_output_filtered.tsv
+2024-11-15 10:07:54,775 - INFO - All skim_with_gpt queries returned results. No entries to write to no_results.txt.
+2024-11-15 10:07:54,826 - INFO - Main workflow completed in 319.77 seconds.
+2024-11-15 10:08:02,304 - INFO - Job submitted: Submitting job(s).
+1 job(s) submitted to cluster 3042466.
+2024-11-15 10:08:03,244 - INFO - Updated: run_3042466.log
+2024-11-15 10:13:12,429 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:18:20,463 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:23:27,051 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:28:30,497 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:33:32,126 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:35:34,516 - INFO - Updated: run_3042466.log
+2024-11-15 10:38:35,344 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-15 10:43:11,634 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:43:12,403 - INFO - Updated: run_3042466_0.out
+2024-11-15 10:43:26,980 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:43:40,802 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 3
+2024-11-15 10:43:42,326 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:44:48,318 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:44:49,081 - INFO - Updated: run_3042466_0.out
+2024-11-15 10:45:53,652 - INFO - Updated: run_3042466.log
+2024-11-15 10:47:01,619 - INFO - Updated: run_3042466_0.out
+2024-11-15 10:47:16,160 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:18,806 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:21,451 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:24,096 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:26,743 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:29,392 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:32,034 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:34,692 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:37,347 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:40,000 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:42,664 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:45,327 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:47,966 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:50,616 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:53,275 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:57,155 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:47:59,811 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:02,441 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:05,084 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:07,767 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:10,453 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:13,141 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:15,856 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:18,524 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:21,214 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:23,884 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:26,996 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:29,648 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:32,319 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:34,992 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:37,764 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:40,684 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:41,890 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 39
+2024-11-15 10:48:43,389 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:46,015 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:48,631 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:51,257 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:53,879 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:56,497 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:48:59,127 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:01,762 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:04,389 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:07,003 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:09,641 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:12,265 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:14,887 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:17,494 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:20,125 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:22,743 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:25,362 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:28,400 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:31,009 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:33,612 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:36,204 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:38,803 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:41,400 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:43,994 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:46,595 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:49,204 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:51,831 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:54,448 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:57,040 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:49:59,639 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:03,029 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:05,664 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:08,263 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:10,875 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:13,506 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:16,134 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:18,758 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:21,369 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:23,976 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:26,612 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:29,246 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:31,861 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:34,473 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:37,084 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:39,747 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:42,380 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:44,256 - INFO - Updated: run_3042466.log
+2024-11-15 10:50:45,013 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:47,648 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:50,276 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:52,911 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:55,561 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:50:58,206 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:00,845 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:03,475 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:06,124 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:08,777 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:11,426 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:14,218 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:16,854 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:19,498 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:22,133 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:24,767 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:27,394 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:30,038 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:32,651 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:35,285 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:37,914 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:40,537 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:51:44,468 - INFO - Updated: run_3042466_0.out
+2024-11-15 10:52:36,843 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:53:17,264 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:53:43,569 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 110
+2024-11-15 10:53:45,092 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:54:12,991 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:54:40,959 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:55:08,962 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:55:48,893 - INFO - Updated: run_3042466.log
+2024-11-15 10:56:04,918 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:56:33,322 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:57:13,990 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:57:29,304 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:57:57,283 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:58:38,311 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:58:52,040 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 120
+2024-11-15 10:59:18,786 - INFO - Updated: run_3042466_0.err
+2024-11-15 10:59:46,693 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:00:14,827 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:00:56,097 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:01:37,762 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:02:05,861 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:02:20,881 - INFO - Updated: run_3042466.log
+2024-11-15 11:02:21,265 - INFO - Updated: classifier.log
+2024-11-15 11:02:22,012 - INFO - Updated: run_3042466_0.err
+2024-11-15 11:02:22,753 - INFO - Updated: run_3042466_0.out
+2024-11-15 11:02:23,502 - INFO - Updated: filtered_skim_with_gpt_And_or_output_filtered.tsv
+2024-11-15 11:02:23,930 - INFO - All files have been copied to the local directory.

@@ -1,0 +1,33 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2007.chtc.wisc.edu
+GPUs assigned: GPU-1c850794
+Job type detected. Running skim_with_gpt.
+INFO 11-01 21:44:35 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 11-01 21:44:40 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 11-01 21:46:40 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 11-01 21:46:41 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 11-01 21:46:41 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 11-01 21:46:45 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 10145
+Truncated text token length: 2
+Truncated text token length: 1618
+Original PMIDs: [7721737, 3966964, 7840313, 1866474, 2226098, 10931047, 8304551, 11830556, 17997137, 12429993, 9041258, 10436805, 2344806, 9807701, 2838842, 24177032, 8338163, 1553366, 1458479, 17934729, 26929740, 26929735, 37759772, 37345148, 36614194]
+Sorted PMIDs: [37759772, 37345148, 36614194, 26929740, 26929735, 24177032, 17997137, 17934729, 12429993, 11830556, 10931047, 10436805, 9807701, 9041258, 8338163, 8304551, 7840313, 7721737, 3966964, 2838842, 2344806, 2226098, 1866474, 1553366, 1458479]
+Original PMIDs: [19860666, 20024066, 27349387, 24297612]
+Sorted PMIDs: [27349387, 24297612, 20024066, 19860666]
+Processed row 1 (CCK) of 1
+Analysis results have been saved to pancreatic cancer_CCK_gant61_skim_with_gpt.json

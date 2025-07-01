@@ -1,0 +1,35 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2005.chtc.wisc.edu
+GPUs assigned: GPU-06c7cc42
+Job type detected. Running skim_with_gpt.
+INFO 10-30 20:09:00 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 10-30 20:09:02 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 10-30 20:11:04 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 10-30 20:11:05 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 10-30 20:11:05 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 10-30 20:11:08 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 6533
+Truncated text token length: 650
+Truncated text token length: 396
+Original PMIDs: [24534818, 30384889, 30805484, 31130285, 22786616, 22465605, 30024444, 30732632, 31560489, 19935936, 34328347, 28525297, 36171012, 36333975, 36238493, 35950157, 32128752]
+Sorted PMIDs: [36333975, 36238493, 36171012, 35950157, 34328347, 32128752, 31560489, 31130285, 30805484, 30732632, 30384889, 30024444, 28525297, 24534818, 22786616, 22465605, 19935936]
+Original PMIDs: [22907845, 26557760]
+Sorted PMIDs: [26557760, 22907845]
+Original PMIDs: [36756695]
+Sorted PMIDs: [36756695]
+Processed row 1 (RAF1) of 1
+Analysis results have been saved to heart disease_RAF1_gefitinib_skim_with_gpt.json

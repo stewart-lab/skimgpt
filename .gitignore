@@ -2,5 +2,4 @@ output
 src/__pycache__
 relevance_tests
 config.json
-input_lists
 

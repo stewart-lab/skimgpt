@@ -1,0 +1,31 @@
+/opt/venv/lib/python3.10/site-packages/transformers/utils/hub.py:124: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+2024-11-11 19:15:48,028 - INFO - Relevance script started.
+/opt/venv/lib/python3.10/site-packages/Bio/Entrez/Parser.py:1075: UserWarning: Failed to save pubmed_240101.dtd at /.config/biopython/Bio/Entrez/DTDs/pubmed_240101.dtd
+  warnings.warn(f"Failed to save {filename} at {path}")
+2024-11-11 19:15:49,362 - INFO - Successfully fetched abstracts for 136 PMIDs.
+Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+Processed prompts:   0%|          | 0/136 [00:00<?, ?it/s]Processed prompts:   3%|▎         | 4/136 [00:00<00:04, 28.15it/s]Processed prompts:   5%|▌         | 7/136 [00:00<00:04, 28.16it/s]Processed prompts:   7%|▋         | 10/136 [00:00<00:04, 26.48it/s]Processed prompts:  10%|▉         | 13/136 [00:00<00:04, 26.51it/s]Processed prompts:  13%|█▎        | 18/136 [00:00<00:03, 31.47it/s]Processed prompts:  16%|█▌        | 22/136 [00:00<00:03, 31.22it/s]Processed prompts:  21%|██▏       | 29/136 [00:00<00:02, 39.06it/s]Processed prompts:  24%|██▍       | 33/136 [00:01<00:02, 34.54it/s]Processed prompts:  27%|██▋       | 37/136 [00:01<00:03, 31.86it/s]Processed prompts:  30%|███       | 41/136 [00:01<00:02, 33.82it/s]Processed prompts:  34%|███▍      | 46/136 [00:01<00:02, 31.27it/s]Processed prompts:  38%|███▊      | 52/136 [00:01<00:02, 37.58it/s]Processed prompts:  42%|████▏     | 57/136 [00:01<00:02, 37.07it/s]Processed prompts:  45%|████▍     | 61/136 [00:01<00:02, 33.12it/s]Processed prompts:  48%|████▊     | 65/136 [00:01<00:02, 31.90it/s]Processed prompts:  51%|█████     | 69/136 [00:02<00:02, 29.66it/s]Processed prompts:  54%|█████▎    | 73/136 [00:02<00:02, 30.11it/s]Processed prompts:  57%|█████▋    | 77/136 [00:02<00:01, 30.92it/s]Processed prompts:  60%|█████▉    | 81/136 [00:02<00:02, 27.11it/s]Processed prompts:  62%|██████▎   | 85/136 [00:02<00:02, 24.93it/s]Processed prompts:  67%|██████▋   | 91/136 [00:02<00:01, 28.42it/s]Processed prompts:  71%|███████   | 96/136 [00:03<00:01, 29.53it/s]Processed prompts:  74%|███████▎  | 100/136 [00:03<00:01, 30.61it/s]Processed prompts:  76%|███████▋  | 104/136 [00:03<00:01, 30.46it/s]Processed prompts:  79%|███████▉  | 108/136 [00:03<00:01, 27.90it/s]Processed prompts:  83%|████████▎ | 113/136 [00:03<00:00, 26.66it/s]Processed prompts:  88%|████████▊ | 119/136 [00:03<00:00, 28.74it/s]Processed prompts:  90%|█████████ | 123/136 [00:04<00:00, 28.71it/s]Processed prompts:  96%|█████████▌| 130/136 [00:04<00:00, 35.61it/s]Processed prompts:  99%|█████████▉| 135/136 [00:04<00:00, 36.32it/s]Processed prompts: 100%|██████████| 136/136 [00:04<00:00, 31.40it/s]
+2024-11-11 19:18:43,515 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:19:27,703 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:20:01,767 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:20:34,645 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:21:36,492 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:21:57,890 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:22:35,149 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:23:08,861 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:23:42,161 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:23:42,164 - ERROR - Expected string for 'text', but got <class 'float'>. Converting to string.
+2024-11-11 19:23:51,580 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:24:22,154 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:24:22,157 - ERROR - Expected string for 'text', but got <class 'float'>. Converting to string.
+2024-11-11 19:24:32,469 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:25:08,555 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:25:33,512 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:25:49,047 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:26:13,468 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:26:36,958 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:27:00,024 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:27:31,621 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:28:00,241 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-11 19:28:00,244 - INFO - Relevance script completed in 732.22 seconds.

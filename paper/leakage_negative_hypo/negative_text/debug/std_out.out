@@ -1,0 +1,90 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu4002.chtc.wisc.edu
+GPUs assigned: GPU-d4c66366
+Number of arguments received: 0
+Arguments received: 
+First argument ($1): ''
+Second argument ($2): ''
+--- Network Connectivity Test (using curl) ---
+Mon Apr  7 18:07:43 UTC 2025
+--- Testing Google (HTTP) (URL: http://google.com) ---
+--- Raw curl -Is output for Google (HTTP): ---
+HTTP/1.1 301 Moved Permanently
+Location: http://www.google.com/
+Content-Type: text/html; charset=UTF-8
+Content-Security-Policy-Report-Only: object-src 'none';base-uri 'self';script-src 'nonce-ge4FSc_M9FfLkit6QYl5PQ' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+Date: Mon, 07 Apr 2025 18:07:43 GMT
+Expires: Wed, 07 May 2025 18:07:43 GMT
+Cache-Control: public, max-age=2592000
+Server: gws
+Content-Length: 219
+X-XSS-Protection: 0
+X-Frame-Options: SAMEORIGIN
+X-Cache: MISS from squid2003
+Via: 1.1 squid2003 (squid/frontier-squid-5.9-3.2.osg23.el8)
+Connection: keep-alive
+
+--- End raw curl output for Google (HTTP) ---
+--- Testing PubMed E-utilities (HTTPS) (URL: https://eutils.ncbi.nlm.nih.gov) ---
+--- Raw curl -Is output for PubMed E-utilities (HTTPS): ---
+HTTP/2 301 
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+content-security-policy: upgrade-insecure-requests
+referrer-policy: origin-when-cross-origin
+location: https://www.ncbi.nlm.nih.gov/books/NBK25501/
+content-type: text/html; charset=iso-8859-1
+date: Mon, 07 Apr 2025 18:07:43 GMT
+server: Apache
+
+--- End raw curl output for PubMed E-utilities (HTTPS) ---
+--- Testing Hugging Face (HTTPS) (URL: https://huggingface.co) ---
+--- Raw curl -Is output for Hugging Face (HTTPS): ---
+HTTP/2 200 
+content-type: text/html; charset=utf-8
+content-length: 129257
+date: Mon, 07 Apr 2025 18:07:03 GMT
+x-powered-by: huggingface-moon
+cross-origin-opener-policy: same-origin
+referrer-policy: strict-origin-when-cross-origin
+x-request-id: Root=1-67f41445-5e6038fd48a2c4a426c96f65
+x-frame-options: DENY
+etag: W/"1f8e9-aqBG4NMeys7QbpwBrOCHx+wAgrM"
+vary: Accept-Encoding
+x-cache: Hit from cloudfront
+via: 1.1 7ed59f1da2b483899e0e5ff5a3da078a.cloudfront.net (CloudFront)
+x-amz-cf-pop: ORD56-P7
+x-amz-cf-id: s6y0tVbygPm292-hG3T-ok9_hFoMPCWXe9QlJkv86GnmcRVKg-Qd8g==
+age: 41
+
+--- End raw curl output for Hugging Face (HTTPS) ---
+--- End Network Connectivity Test ---
+--- HTCondor Environment Variables ---
+_CONDOR_ITEM (env var): 
+_CONDOR_JOBID (env var): 
+_CONDOR_CLUSTERID (env var): 
+_CONDOR_PROCID (env var): 
+_CONDOR_JOBAD_RAW (env var): 
+--- End of HTCondor Environment Variables ---
+Job type detected. Running km_with_gpt.
+INFO 04-07 18:08:07 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 04-07 18:08:10 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 04-07 18:08:31 llm_engine.py:357] # GPU blocks: 5485, # CPU blocks: 682
+INFO 04-07 18:08:32 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 04-07 18:08:32 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 04-07 18:08:38 model_runner.py:756] Graph capturing finished in 6 secs.
+Warning: No breakpoint was specified.
+Warning: No breakpoint was specified.

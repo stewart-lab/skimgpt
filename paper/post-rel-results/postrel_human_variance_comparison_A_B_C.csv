@@ -1,0 +1,15 @@
+Relationship,Human_Range,Human_Mean,Human_Std,Model_Median,Within_Human_Range,Distance_From_Range,Within_1_Std,Distance_In_Std_Units
+Alzheimer's - BCHE - 2 pam,-2 to -1,-1.75,0.4330127018922193,-2.0,True,0.0,True,0.5773502691896258
+Alzheimer's - FYN - pp2,1 to 2,1.25,0.4330127018922193,1.0,True,0.0,True,0.5773502691896258
+Breast cancer - CDK4 - abemaciclib,2 to 2,2.0,0.0,2.0,True,0.0,True,0.0
+Breast cancer - ESR1 - estrogens,-2 to -2,-2.0,0.0,-2.0,True,0.0,True,0.0
+Diabetes - AHR - stavudine,0 to 0,0.0,0.0,0.0,True,0.0,True,0.0
+Diabetes - GIPR - tirzepatide,2 to 2,2.0,0.0,2.0,True,0.0,True,0.0
+Diabetes - LOX - zileuton,0 to 1,0.75,0.4330127018922193,1.0,True,0.0,True,0.5773502691896258
+Heart disease - EGFR - erlotinib,0 to 1,0.75,0.4330127018922193,2.0,False,1.0,False,2.886751345948129
+Heart disease - RAF1 - gefitinib,0 to 1,0.5,0.5,1.0,True,0.0,True,1.0
+Lupus - NAT2 - isoniazid,-2 to 0,-1.5,0.8660254037844386,-1.0,True,0.0,True,0.5773502691896258
+"Non-alcoholic fatty liver disease - AHR - 6-formylindolo(3,2-b)carbazole",-2 to -1,-1.75,0.4330127018922193,-0.5,False,0.5,False,2.886751345948129
+Non-alcoholic fatty liver disease - ULK1 - pp242,-1 to 1,0.25,0.82915619758885,1.0,True,0.0,True,0.9045340337332909
+Pancreatic cancer - CCK - gant61,0 to 0,0.0,0.0,0.0,True,0.0,True,0.0
+Pancreatic cancer - NAMPT - ginsenoside rb1,-2 to -1,-1.25,0.4330127018922193,-2.0,True,0.0,False,1.7320508075688774

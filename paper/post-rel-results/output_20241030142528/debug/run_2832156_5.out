@@ -1,0 +1,33 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2009.chtc.wisc.edu
+GPUs assigned: GPU-763b3aa1
+Job type detected. Running skim_with_gpt.
+INFO 10-30 19:32:56 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 10-30 19:32:58 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 10-30 19:34:58 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 10-30 19:34:59 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 10-30 19:34:59 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 10-30 19:35:03 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 5063
+Truncated text token length: 1864
+Truncated text token length: 2
+Original PMIDs: [23978414, 32042044, 31551937, 31191364, 32240652, 34233158, 33078654, 37438882, 35252196, 36049672, 37700498]
+Sorted PMIDs: [37700498, 37438882, 36049672, 35252196, 34233158, 33078654, 32240652, 32042044, 31551937, 31191364, 23978414]
+Original PMIDs: [30244168, 26636543, 29154199, 37886951]
+Sorted PMIDs: [37886951, 30244168, 29154199, 26636543]
+Processed row 1 (ULK1) of 1
+Analysis results have been saved to Non-alcoholic fatty liver disease_ULK1_pp242_skim_with_gpt.json

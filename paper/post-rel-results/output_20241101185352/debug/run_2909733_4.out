@@ -1,0 +1,33 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2010.chtc.wisc.edu
+GPUs assigned: GPU-0b3215b2
+Job type detected. Running skim_with_gpt.
+INFO 11-02 00:08:00 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 11-02 00:08:02 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 11-02 00:10:02 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 11-02 00:10:03 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 11-02 00:10:03 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 11-02 00:10:06 model_runner.py:756] Graph capturing finished in 3 secs.
+Truncated text token length: 7827
+Truncated text token length: 45129
+Truncated text token length: 2
+Original PMIDs: [24812009, 33037056, 29947894, 26303333, 31401392, 32941865, 31918130, 32831531, 31676775, 32908189, 35062050, 37284280, 35933113, 38067179, 37789023, 35565666, 35412187, 34830313]
+Sorted PMIDs: [38067179, 37789023, 37284280, 35933113, 35565666, 35412187, 35062050, 34830313, 33037056, 32941865, 32908189, 32831531, 31918130, 31676775, 31401392, 29947894, 26303333, 24812009]
+Original PMIDs: [18362915, 21600206, 19699679, 17502624, 19054769, 22392998, 15788723, 23580432, 22867086, 20861855, 23448877, 11097181, 17020875, 23836658, 20350561, 26686552, 15501436, 26712945, 23277104, 22649193, 28703805, 16330490, 25431849, 29483826, 22952984, 25799939, 19615353, 24749687, 21097750, 23382382, 22561122, 30226107, 21883026, 20852066, 24194396, 23625689, 24837423, 22865928, 25402742, 23370907, 29500077, 27783115, 12527705, 23533402, 20132803, 25284723, 27112072, 29501585, 23656719, 26939041, 38185909, 38117383, 37958638, 37747052, 37422682, 37185150, 37175508, 37127348, 36877625, 36657432, 36555220, 36219374, 36047110, 35788946, 35727038, 35461286, 35458697, 35295226, 35237419, 35216489, 35093429, 34856342, 34458427, 34458426, 34454169, 34418602, 34404832, 34267755, 34036678, 33836606, 33790107, 33683656, 33607406, 33499346, 33280241, 33204326, 33178182, 33114713, 33087499, 33004548, 32808713, 32784381, 32711051, 32603427, 32571957, 32563159, 32563119, 32374198, 32040828, 32017483]
+Sorted PMIDs: [38185909, 38117383, 37958638, 37747052, 37422682, 37185150, 37175508, 37127348, 36877625, 36657432, 36555220, 36219374, 36047110, 35788946, 35727038, 35461286, 35458697, 35295226, 35237419, 35216489, 35093429, 34856342, 34458427, 34458426, 34454169, 34418602, 34404832, 34267755, 34036678, 33836606, 33790107, 33683656, 33607406, 33499346, 33280241, 33204326, 33178182, 33114713, 33087499, 33004548, 32808713, 32784381, 32711051, 32603427, 32571957, 32563159, 32563119, 32374198, 32040828, 32017483, 30226107, 29501585, 29500077, 29483826, 28703805, 27783115, 27112072, 26939041, 26712945, 26686552, 25799939, 25431849, 25402742, 25284723, 24837423, 24749687, 24194396, 23836658, 23656719, 23625689, 23580432, 23533402, 23448877, 23382382, 23370907, 23277104, 22952984, 22867086, 22865928, 22649193, 22561122, 22392998, 21883026, 21600206, 21097750, 20861855, 20852066, 20350561, 20132803, 19699679, 19615353, 19054769, 18362915, 17502624, 17020875, 16330490, 15788723, 15501436, 12527705, 11097181]
+Processed row 1 (AHR) of 1
+Analysis results have been saved to Non-alcoholic fatty liver disease_AHR_6-formylindolo(3,2-b)carbazole_skim_with_gpt.json

@@ -1,0 +1,9 @@
+/opt/venv/lib/python3.10/site-packages/transformers/utils/hub.py:124: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+/opt/venv/lib/python3.10/site-packages/Bio/Entrez/Parser.py:1075: UserWarning: Failed to save pubmed_240101.dtd at /.config/biopython/Bio/Entrez/DTDs/pubmed_240101.dtd
+  warnings.warn(f"Failed to save {filename} at {path}")
+2024-11-01 22:43:58,328 - INFO - Successfully fetched abstracts for 28 PMIDs.
+Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+Processed prompts:   0%|          | 0/28 [00:00<?, ?it/s]Processed prompts:   4%|▎         | 1/28 [00:00<00:03,  8.47it/s]Processed prompts:  25%|██▌       | 7/28 [00:00<00:00, 36.20it/s]Processed prompts:  39%|███▉      | 11/28 [00:00<00:00, 33.08it/s]Processed prompts:  54%|█████▎    | 15/28 [00:00<00:00, 31.11it/s]Processed prompts:  71%|███████▏  | 20/28 [00:00<00:00, 32.57it/s]Processed prompts:  86%|████████▌ | 24/28 [00:00<00:00, 25.56it/s]Processed prompts: 100%|██████████| 28/28 [00:00<00:00, 32.36it/s]
+2024-11-01 22:46:47,207 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2024-11-01 22:47:05,335 - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"

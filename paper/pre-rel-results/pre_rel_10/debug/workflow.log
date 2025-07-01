@@ -1,0 +1,79 @@
+2025-01-22 13:16:32,605 - INFO - Executing SKIM workflow...
+2025-01-22 13:16:32,618 - INFO - Reading B and C terms from files...
+2025-01-22 13:16:32,618 - INFO - Running and saving SKIM query for a_term: And...
+2025-01-22 13:20:56,604 - INFO - Job completed successfully
+2025-01-22 13:20:56,630 - INFO - Filtered skim_with_gpt query results saved to ../output/output_20250122131632/skim_with_gpt_And_or_output_filtered.tsv
+2025-01-22 13:20:56,631 - INFO - All skim_with_gpt queries returned results. No entries to write to no_results.txt.
+2025-01-22 13:20:56,679 - INFO - Main workflow completed in 264.39 seconds.
+2025-01-22 13:20:59,471 - INFO - Job submitted: Submitting job(s).
+1 job(s) submitted to cluster 3719818.
+2025-01-22 13:21:00,044 - INFO - Updated: run_3719818.log
+2025-01-22 13:21:57,127 - INFO - Updated: run_3719818.log
+2025-01-22 13:21:58,314 - INFO - Updated: run_3719818.log
+2025-01-22 13:21:58,793 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:21:59,269 - INFO - Updated: run_3719818_0.out
+2025-01-22 13:22:11,657 - INFO - Updated: run_3719818.log
+2025-01-22 13:22:12,134 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:22:25,458 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:22:25,930 - INFO - Updated: run_3719818_0.out
+2025-01-22 13:24:24,362 - INFO - Updated: run_3719818_0.out
+2025-01-22 13:24:26,017 - INFO - Updated: run_3719818_0.out
+2025-01-22 13:24:38,849 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:40,501 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:42,148 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:43,803 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:45,459 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:47,113 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:48,761 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:50,411 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:52,074 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:53,740 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:55,404 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:57,064 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:24:58,720 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:00,370 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:02,038 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:03,692 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:05,344 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:07,002 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:08,666 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:10,327 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:11,981 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:13,644 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:15,294 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:16,951 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:18,602 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:20,265 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:21,919 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:25:23,571 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:26:10,888 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 35
+2025-01-22 13:26:11,836 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:27:00,130 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:27:12,965 - INFO - Updated: run_3719818.log
+2025-01-22 13:27:38,391 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:28:38,285 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:29:26,540 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:29:51,487 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:30:39,733 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:31:15,418 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 42
+2025-01-22 13:31:51,363 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:32:15,859 - INFO - Updated: run_3719818.log
+2025-01-22 13:32:17,997 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:32:42,960 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:33:19,583 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:33:32,901 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:34:56,234 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:35:21,235 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:35:46,233 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:36:11,221 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:36:23,593 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 51
+2025-01-22 13:36:59,573 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:37:12,430 - INFO - Updated: run_3719818.log
+2025-01-22 13:37:26,248 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:39:01,294 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:39:37,502 - INFO - Updated: run_3719818.log
+2025-01-22 13:39:37,747 - INFO - Updated: classifier.log
+2025-01-22 13:39:38,228 - INFO - Updated: run_3719818_0.err
+2025-01-22 13:39:38,709 - INFO - Updated: run_3719818_0.out
+2025-01-22 13:39:39,191 - INFO - Updated: filtered_skim_with_gpt_And_or_output_filtered.tsv
+2025-01-22 13:39:39,476 - INFO - All files have been copied to the local directory.

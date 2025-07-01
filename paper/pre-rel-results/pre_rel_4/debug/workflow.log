@@ -1,0 +1,72 @@
+2024-11-11 15:00:23,432 - INFO - Executing SKIM workflow...
+2024-11-11 15:00:23,433 - INFO - Reading B and C terms from files...
+2024-11-11 15:00:23,433 - INFO - Running and saving SKIM query for a_term: And...
+2024-11-11 15:05:44,560 - INFO - Job completed successfully.
+2024-11-11 15:05:44,665 - INFO - Filtered skim_with_gpt query results saved to ../output/output_20241111150022/skim_with_gpt_And_or_output_filtered.tsv
+2024-11-11 15:05:44,667 - INFO - All skim_with_gpt queries returned results. No entries to write to no_results.txt.
+2024-11-11 15:05:45,062 - INFO - Main workflow completed in 322.93 seconds.
+2024-11-11 15:05:53,733 - INFO - Job submitted: Submitting job(s).
+1 job(s) submitted to cluster 2982225.
+2024-11-11 15:05:54,918 - INFO - Updated: run_2982225.log
+2024-11-11 15:11:02,017 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-11 15:16:08,168 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-11 15:18:29,597 - INFO - Updated: run_2982225.log
+2024-11-11 15:21:17,036 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2024-11-11 15:21:32,264 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:21:33,465 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:21:36,312 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:21:54,544 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:21:55,770 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:23:36,697 - INFO - Updated: run_2982225.log
+2024-11-11 15:23:57,361 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:24:01,549 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:24:04,448 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:08,674 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:12,734 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:17,002 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:21,098 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:25,269 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:29,398 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:33,576 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:37,661 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:41,894 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:46,026 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:50,140 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:54,234 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:24:58,553 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:02,528 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:07,038 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:11,290 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:15,657 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:19,858 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:24,353 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:25:25,523 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:26:11,494 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:26:27,655 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 29
+2024-11-11 15:26:44,041 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:27:31,053 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:28:03,447 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:28:34,442 - INFO - Updated: run_2982225.log
+2024-11-11 15:28:53,456 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:29:11,352 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:29:29,682 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:30:16,415 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:30:48,990 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:30:53,031 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:31:25,614 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:31:41,725 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 39
+2024-11-11 15:31:44,389 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:32:30,699 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:33:03,502 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:33:21,889 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:33:40,047 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:34:12,308 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:34:31,267 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:35:18,186 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:35:36,185 - INFO - Updated: run_2982225_0.err
+2024-11-11 15:35:37,319 - INFO - Updated: run_2982225_0.out
+2024-11-11 15:35:39,183 - INFO - Updated: run_2982225.log
+2024-11-11 15:35:39,902 - INFO - Updated: classifier.log
+2024-11-11 15:35:43,527 - INFO - Updated: filtered_skim_with_gpt_And_or_output_filtered.tsv
+2024-11-11 15:35:44,658 - INFO - Updated: run_2982225.log
+2024-11-11 15:35:49,977 - INFO - All files have been copied to the local directory.

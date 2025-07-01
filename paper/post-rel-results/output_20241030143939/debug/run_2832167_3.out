@@ -1,0 +1,35 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2003.chtc.wisc.edu
+GPUs assigned: GPU-e6226baa
+Job type detected. Running skim_with_gpt.
+INFO 10-30 19:53:09 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 10-30 19:53:11 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 10-30 19:55:12 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 10-30 19:55:13 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 10-30 19:55:13 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 10-30 19:55:17 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 1893
+Truncated text token length: 47023
+Truncated text token length: 2930
+Original PMIDs: [36867212, 36863641, 36795511, 36756695]
+Sorted PMIDs: [36867212, 36863641, 36795511, 36756695]
+Original PMIDs: [22285168, 17463250, 15329413, 21783417, 17452677, 15737014, 29151359, 19692684, 23470965, 16014883, 15711537, 18093943, 18227510, 22281684, 15696205, 16043828, 16043829, 16282176, 18408761, 20493771, 15310767, 22751098, 12196540, 15897464, 22452896, 24269963, 17085664, 14701768, 19917871, 19680293, 23091115, 19949011, 31751012, 18626007, 16467097, 24429876, 18089823, 18483355, 16230409, 16187797, 16890793, 15767641, 19010923, 25175099, 17888036, 16818686, 17290066, 16046538, 23154552, 25009014, 38230772, 38216948, 38202650, 38194721, 38183413, 38177097, 38171775, 38162173, 38159972, 38156131, 38134521, 38130684, 38126937, 38117940, 38093733, 38075671, 38074875, 38071470, 38054791, 38046652, 38035666, 38033496, 38012958, 38010260, 37997468, 37989860, 37989273, 37961334, 37954171, 37949862, 37936359, 37934101, 37921704, 37909584, 37901630, 37900846, 37889671, 37886837, 37879869, 37873383, 37870977, 37868048, 37863665, 37860686, 37854677, 37854628, 37854154, 37847995, 37841421, 37837329]
+Sorted PMIDs: [38230772, 38216948, 38202650, 38194721, 38183413, 38177097, 38171775, 38162173, 38159972, 38156131, 38134521, 38130684, 38126937, 38117940, 38093733, 38075671, 38074875, 38071470, 38054791, 38046652, 38035666, 38033496, 38012958, 38010260, 37997468, 37989860, 37989273, 37961334, 37954171, 37949862, 37936359, 37934101, 37921704, 37909584, 37901630, 37900846, 37889671, 37886837, 37879869, 37873383, 37870977, 37868048, 37863665, 37860686, 37854677, 37854628, 37854154, 37847995, 37841421, 37837329, 31751012, 29151359, 25175099, 25009014, 24429876, 24269963, 23470965, 23154552, 23091115, 22751098, 22452896, 22285168, 22281684, 21783417, 20493771, 19949011, 19917871, 19692684, 19680293, 19010923, 18626007, 18483355, 18408761, 18227510, 18093943, 18089823, 17888036, 17463250, 17452677, 17290066, 17085664, 16890793, 16818686, 16467097, 16282176, 16230409, 16187797, 16046538, 16043829, 16043828, 16014883, 15897464, 15767641, 15737014, 15711537, 15696205, 15329413, 15310767, 14701768, 12196540]
+Original PMIDs: [26039117, 23660125, 25815472, 27313772, 26886479, 34919300, 36795511]
+Sorted PMIDs: [36795511, 34919300, 27313772, 26886479, 26039117, 25815472, 23660125]
+Processed row 1 (EGFR) of 1
+Analysis results have been saved to heart disease_EGFR_erlotinib_skim_with_gpt.json

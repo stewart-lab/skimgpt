@@ -1,0 +1,21 @@
+Relationship_Type	Relationship	Score
+A_B_Relationship	Breast Cancer - Fam-trastuzumab deruxtecan-nxki	+2
+A_B_Relationship	Breast Cancer - Lapatinib	+2
+A_B_Relationship	Breast Cancer - Palbociclib	+2
+A_B_Relationship	Breast Cancer - Margetuximab	+2
+A_B_Relationship	Breast Cancer - Capivasertib	+2
+A_B_Relationship	Breast Cancer - Sacituzumab govitecan-hziy	+2
+A_B_Relationship	Breast Cancer - Ado-trastuzumab emtansine	+2
+A_B_Relationship	Breast Cancer - Toremifene	+2
+A_B_Relationship	Breast Cancer - Anastrozole	+2
+A_B_Relationship	Breast Cancer - Elacestrant	+2
+A_B_Relationship	Breast Cancer - Trastuzumab	+2
+A_B_Relationship	Breast Cancer - Olaparib	+2
+A_B_Relationship	Breast Cancer - Everolimus	+2
+A_B_Relationship	Breast Cancer - Ribociclib	+2
+A_B_Relationship	Breast Cancer - Alpelisib	+2
+A_B_Relationship	Breast Cancer - Talazoparib	+2
+A_B_Relationship	Breast Cancer - Pembrolizumab	+2
+A_B_Relationship	Breast Cancer - Abemaciclib	+2
+A_B_Relationship	Breast Cancer - Neratinib	+2
+A_B_Relationship	Breast Cancer - Pertuzumab	+2

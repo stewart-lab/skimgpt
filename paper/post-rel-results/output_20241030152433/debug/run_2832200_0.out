@@ -1,0 +1,35 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.1.1
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Running job on gpu2009.chtc.wisc.edu
+GPUs assigned: GPU-ca0657f5
+Job type detected. Running skim_with_gpt.
+INFO 10-30 20:30:44 llm_engine.py:87] Initializing an LLM engine with config: model='lexu14/porpoise1', tokenizer='lexu14/porpoise1', tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4000, download_dir=None, load_format=auto, tensor_parallel_size=1, disable_custom_all_reduce=False, quantization=None, enforce_eager=False, kv_cache_dtype=auto, device_config=cuda, seed=0)
+INFO 10-30 20:30:46 weight_utils.py:163] Using model weights format ['*.safetensors']
+INFO 10-30 20:32:46 llm_engine.py:357] # GPU blocks: 10833, # CPU blocks: 682
+INFO 10-30 20:32:47 model_runner.py:684] Capturing the model for CUDA graphs. This may lead to unexpected consequences if the model is not static. To run the model in eager mode, set 'enforce_eager=True' or use '--enforce-eager' in the CLI.
+INFO 10-30 20:32:47 model_runner.py:688] CUDA graphs can take additional 1~3 GiB memory per GPU. If you are running out of memory, consider decreasing `gpu_memory_utilization` or enforcing eager mode. You can also reduce the `max_num_seqs` as needed to decrease memory usage.
+INFO 10-30 20:32:51 model_runner.py:756] Graph capturing finished in 4 secs.
+Truncated text token length: 35465
+Truncated text token length: 12118
+Truncated text token length: 271
+Original PMIDs: [16275899, 1303164, 12162759, 11848688, 19652386, 8363355, 9302273, 10346939, 8792327, 25226236, 16731619, 23419831, 11436125, 23184188, 24291393, 17850125, 17212694, 30599179, 18473814, 24893223, 7489367, 20361801, 18206267, 24236981, 10526094, 25931333, 18274286, 31293414, 29056913, 22032870, 14622273, 10190327, 19548291, 11708910, 27040140, 17194517, 28000737, 24988985, 9536100, 26107513, 38231711, 38202655, 38158335, 38151826, 38149720, 38142494, 38139772, 38047370, 38004276, 38003588, 37957423, 37948312, 37937360, 37913584, 37909464, 37884182, 37852388, 37839515, 37827412, 37806747, 37786521, 37765003, 37723904, 37701628, 37695993, 37693735, 37654616, 37642974, 37636505, 37629144, 37615114, 37579937, 37567058, 37561893, 37549853, 37483326, 37458518, 37452077, 37445877, 37437376, 37406982]
+Sorted PMIDs: [38231711, 38202655, 38158335, 38151826, 38149720, 38142494, 38139772, 38047370, 38004276, 38003588, 37957423, 37948312, 37937360, 37913584, 37909464, 37884182, 37852388, 37839515, 37827412, 37806747, 37786521, 37765003, 37723904, 37701628, 37695993, 37693735, 37654616, 37642974, 37636505, 37629144, 37615114, 37579937, 37567058, 37561893, 37549853, 37483326, 37458518, 37452077, 37445877, 37437376, 37406982, 31293414, 30599179, 29056913, 28000737, 27040140, 26107513, 25931333, 25226236, 24988985, 24893223, 24291393, 24236981, 23419831, 23184188, 22032870, 20361801, 19652386, 19548291, 18473814, 18274286, 18206267, 17850125, 17212694, 17194517, 16731619, 16275899, 14622273, 12162759, 11848688, 11708910, 11436125, 10526094, 10346939, 10190327, 9536100, 9302273, 8792327, 8363355, 7489367, 1303164]
+Original PMIDs: [16293236, 17192662, 22206546, 10817663, 16904809, 25448441, 12893843, 12389909, 10424771, 16598855, 21113795, 17701347, 15325464, 12558160, 20929049, 31004594, 29908755, 32639532, 27102179, 31879781, 31719786, 17963125, 31276662, 31051153, 33592259, 32278739]
+Sorted PMIDs: [33592259, 32639532, 32278739, 31879781, 31719786, 31276662, 31051153, 31004594, 29908755, 27102179, 25448441, 22206546, 21113795, 20929049, 17963125, 17701347, 17192662, 16904809, 16598855, 16293236, 15325464, 12893843, 12558160, 12389909, 10817663, 10424771]
+Original PMIDs: [22647259]
+Sorted PMIDs: [22647259]
+Processed row 1 (BCHE) of 1
+Analysis results have been saved to Alzheimer's_BCHE_2 pam_skim_with_gpt.json

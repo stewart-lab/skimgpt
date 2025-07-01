@@ -1,0 +1,21 @@
+Relationship_Type	Relationship	Score
+A_B_Relationship	Breast Cancer - olaparib	+2
+A_B_Relationship	Breast Cancer - neratinib maleate	+2
+A_B_Relationship	Breast Cancer - elacestrant dihydrochloride	+2
+A_B_Relationship	Breast Cancer - alpelisib	+2
+A_B_Relationship	Breast Cancer - margetuximab-cmkb	+2
+A_B_Relationship	Breast Cancer - palbociclib	+2
+A_B_Relationship	Breast Cancer - anastrozole	+2
+A_B_Relationship	Breast Cancer - talazoparib tosylate	+2
+A_B_Relationship	Breast Cancer - toremifene	+2
+A_B_Relationship	Breast Cancer - everolimus	+2
+A_B_Relationship	Breast Cancer - ado-trastuzumab emtansine	+2
+A_B_Relationship	Breast Cancer - ribociclib	+2
+A_B_Relationship	Breast Cancer - lapatinib ditosylate	+2
+A_B_Relationship	Breast Cancer - pertuzumab	+2
+A_B_Relationship	Breast Cancer - trastuzumab	+2
+A_B_Relationship	Breast Cancer - abemaciclib	+2
+A_B_Relationship	Breast Cancer - capivasertib	+2
+A_B_Relationship	Breast Cancer - sacituzumab govitecan-hziy	+2
+A_B_Relationship	Breast Cancer - pembrolizumab	+2
+A_B_Relationship	Breast Cancer - fam-trastuzumab deruxtecan-nxki	+2

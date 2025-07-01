@@ -1,0 +1,241 @@
+2025-01-03 09:56:58,871 - INFO - Executing SKIM workflow...
+2025-01-03 09:56:58,871 - INFO - Reading B and C terms from files...
+2025-01-03 09:56:58,872 - INFO - Running and saving SKIM query for a_term: And...
+2025-01-03 10:03:15,021 - INFO - Job completed successfully.
+2025-01-03 10:03:15,119 - INFO - Filtered skim_with_gpt query results saved to ../output/output_20250103095657/skim_with_gpt_And_or_output_filtered.tsv
+2025-01-03 10:03:15,121 - INFO - All skim_with_gpt queries returned results. No entries to write to no_results.txt.
+2025-01-03 10:03:15,151 - INFO - Main workflow completed in 377.27 seconds.
+2025-01-03 10:03:39,120 - INFO - Job submitted: Submitting job(s).
+1 job(s) submitted to cluster 3573328.
+2025-01-03 10:03:39,369 - INFO - Updated: run_3573328.log
+2025-01-03 10:08:45,608 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:13:52,828 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:19:00,067 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:24:07,223 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:29:14,966 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:34:22,714 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:39:30,759 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:44:37,921 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:49:45,637 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:54:50,583 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 10:59:59,607 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:05:08,171 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:10:16,024 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:15:23,865 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:20:32,528 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:25:41,045 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:30:48,570 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:35:57,299 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:38:05,016 - INFO - Updated: run_3573328.log
+2025-01-03 11:41:06,000 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 0
+2025-01-03 11:42:52,657 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:42:52,914 - INFO - Updated: run_3573328_0.out
+2025-01-03 11:43:04,454 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:43:15,964 - INFO - Updated: run_3573328.log
+2025-01-03 11:43:28,016 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:43:39,819 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:43:51,620 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:44:36,081 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:44:47,866 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:45:32,345 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:45:33,272 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:45:45,120 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:45:45,381 - INFO - Updated: run_3573328_0.out
+2025-01-03 11:46:07,329 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 12
+2025-01-03 11:47:46,204 - INFO - Updated: run_3573328_0.out
+2025-01-03 11:47:57,999 - INFO - Updated: run_3573328_0.out
+2025-01-03 11:48:09,250 - INFO - Updated: run_3573328.log
+2025-01-03 11:48:21,570 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:33,333 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:45,102 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:45,990 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:46,885 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:47,774 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:48,668 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:49,572 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:50,457 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:51,345 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:52,244 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:48:53,140 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:04,940 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:05,844 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:06,734 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:07,642 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:08,559 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:09,462 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:10,371 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:11,270 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:23,057 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:23,974 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:25,045 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:25,945 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:26,835 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:27,738 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:28,626 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:29,508 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:41,354 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:49:53,182 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:05,004 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:05,937 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:06,825 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:07,708 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:08,592 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:20,389 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:32,213 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:44,060 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:44,935 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:50:56,690 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:07,988 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 54
+2025-01-03 11:51:08,508 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:09,416 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:10,329 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:11,223 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:12,117 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:13,011 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:13,906 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:14,796 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:15,681 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:16,576 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:17,471 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:18,368 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:19,267 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:20,372 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:21,265 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:22,157 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:33,955 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:34,864 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:35,782 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:36,695 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:37,606 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:38,505 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:39,403 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:40,325 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:41,478 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:42,408 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:43,317 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:51:55,131 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:06,961 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:07,862 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:08,763 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:09,662 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:10,560 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:22,378 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:34,240 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:46,068 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:46,984 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:47,875 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:48,773 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:52:49,664 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:01,457 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:13,014 - INFO - Updated: run_3573328.log
+2025-01-03 11:53:13,271 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:25,086 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:26,038 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:27,015 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:39,000 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:39,962 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:51,808 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:52,714 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:53,606 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:54,502 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:55,406 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:56,295 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:57,186 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:53:58,072 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:09,928 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:10,834 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:11,703 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:12,595 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:13,489 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:14,385 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:15,401 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:16,307 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:28,267 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:40,189 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:52,064 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:52,983 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:53,899 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:54,813 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:54:55,716 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:07,513 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:19,353 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:31,340 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:43,248 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:55,074 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:55:55,961 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:07,760 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:08,145 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 131
+2025-01-03 11:56:08,675 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:09,592 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:10,511 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:11,462 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:12,385 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:13,308 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:14,351 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:15,403 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:16,480 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:17,566 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:18,623 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:19,646 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:20,649 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:21,678 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:22,710 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:23,748 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:24,806 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:25,878 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:26,891 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:27,892 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:28,884 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:29,861 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:30,841 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:31,795 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:32,740 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:33,675 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:34,621 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:35,577 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:36,526 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:37,470 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:38,395 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:39,322 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:56:51,216 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:03,015 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:03,908 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:04,798 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:05,691 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:06,592 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:18,498 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:30,713 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:31,840 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:32,942 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:34,045 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:35,147 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:36,213 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:48,311 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:57:48,612 - INFO - Updated: run_3573328_0.out
+2025-01-03 11:58:44,388 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:59:18,355 - INFO - Updated: run_3573328_0.err
+2025-01-03 11:59:52,700 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:00:15,811 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:00:50,416 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:01:13,176 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 183
+2025-01-03 12:01:13,883 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:02:22,559 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:02:57,386 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:03:32,209 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:03:44,424 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:04:19,305 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:04:31,336 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:05:05,756 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:05:39,791 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:06:02,751 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:06:14,130 - INFO - Summary: 0 files transferred. Job terminated: False. Error/Out count: 193
+2025-01-03 12:06:36,649 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:07:21,373 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:07:55,031 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:08:28,745 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:09:02,218 - INFO - Updated: classifier.log
+2025-01-03 12:09:02,351 - INFO - Updated: run_3573328.log
+2025-01-03 12:09:02,618 - INFO - Updated: run_3573328_0.err
+2025-01-03 12:09:02,886 - INFO - Updated: run_3573328_0.out
+2025-01-03 12:09:03,147 - INFO - Updated: filtered_skim_with_gpt_And_or_output_filtered.tsv
+2025-01-03 12:09:03,435 - INFO - All files have been copied to the local directory.

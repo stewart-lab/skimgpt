@@ -1,0 +1,64 @@
+000 (3719915.000.000) 2025-01-22 14:07:23 Job submitted from host: <128.105.68.113:9618?addrs=128.105.68.113-9618+[2607-f388-2200-100-eaeb-d3ff-fea7-d05e]-9618&alias=ap2002.chtc.wisc.edu&noUDP&sock=schedd_3800031_c57e>
+...
+040 (3719915.000.000) 2025-01-22 14:12:50 Started transferring input files
+	Transferring to host: <128.105.69.63:9618?addrs=128.105.69.63-9618+[2607-f388-2200-100-5aa2-e1ff-febe-455e]-9618&alias=gpu4003.chtc.wisc.edu&noUDP&sock=slot1_4_659922_7f8d_16745>
+...
+040 (3719915.000.000) 2025-01-22 14:12:50 Finished transferring input files
+...
+001 (3719915.000.000) 2025-01-22 14:12:51 Job executing on host: <128.105.69.63:9618?addrs=128.105.69.63-9618+[2607-f388-2200-100-5aa2-e1ff-febe-455e]-9618&alias=gpu4003.chtc.wisc.edu&noUDP&sock=startd_20373_c30d>
+	SlotName: slot1_4@gpu4003.chtc.wisc.edu
+	AvailableGPUs = { GPUs_GPU_d9edf92c }
+	CondorScratchDir = "/var/lib/condor/execute/slot1/dir_2649547"
+	Cpus = 1
+	Disk = 52455871
+	GPUs = 1
+	GPUs_GPU_d9edf92c = [ Id = "GPU-d9edf92c"; Capability = 9.0; DeviceName = "NVIDIA H100 80GB HBM3"; DeviceUuid = "d9edf92c-50c2-1c6a-fcb3-fdfeff4a708a"; ECCEnabled = true; DriverVersion = 12.4; DevicePciBusId = "0000:5D:00.0"; GlobalMemoryMb = 80995; MaxSupportedVersion = 12040 ]
+	IoHeavy = 0
+	Memory = 24576
+...
+006 (3719915.000.000) 2025-01-22 14:13:00 Image size of job updated: 342
+	342  -  MemoryUsage of job (MB)
+	350832  -  ResidentSetSize of job (KB)
+...
+006 (3719915.000.000) 2025-01-22 14:18:00 Image size of job updated: 13009
+	13009  -  MemoryUsage of job (MB)
+	13321376  -  ResidentSetSize of job (KB)
+...
+006 (3719915.000.000) 2025-01-22 14:23:01 Image size of job updated: 13016
+	13016  -  MemoryUsage of job (MB)
+	13328644  -  ResidentSetSize of job (KB)
+...
+006 (3719915.000.000) 2025-01-22 14:28:01 Image size of job updated: 13018
+	13018  -  MemoryUsage of job (MB)
+	13331296  -  ResidentSetSize of job (KB)
+...
+006 (3719915.000.000) 2025-01-22 14:30:15 Image size of job updated: 13018
+	13018  -  MemoryUsage of job (MB)
+	13331372  -  ResidentSetSize of job (KB)
+...
+040 (3719915.000.000) 2025-01-22 14:30:15 Started transferring output files
+...
+040 (3719915.000.000) 2025-01-22 14:30:15 Finished transferring output files
+...
+005 (3719915.000.000) 2025-01-22 14:30:15 Job terminated.
+	(1) Normal termination (return value 0)
+		Usr 0 00:00:38, Sys 0 00:00:09  -  Run Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Run Local Usage
+		Usr 0 00:00:38, Sys 0 00:00:09  -  Total Remote Usage
+		Usr 0 00:00:00, Sys 0 00:00:00  -  Total Local Usage
+	831142  -  Run Bytes Sent By Job
+	1616563  -  Run Bytes Received By Job
+	831142  -  Total Bytes Sent By Job
+	1616563  -  Total Bytes Received By Job
+	Partitionable Resources :      Usage  Request Allocated Assigned
+	   Cpus                 :       0           1         1 
+	   Disk (KB)            : 7469531    52428800  52455871 
+	   GPUs                 :       0.02        1         1 "GPU-d9edf92c"
+	   GpusMemory (MB)      :   74744                       
+	   IoHeavy              :                             0 
+	   Memory (MB)          :   13018       24576     24576 
+	   TimeExecute (s)      :    1044                       
+	   TimeSlotBusy (s)     :    1045                       
+
+	Job terminated of its own accord at 2025-01-22T20:30:15Z with exit-code 0.
+...
