@@ -1,0 +1,86 @@
+name: Publish to PyPI & Docker Hub on merge to main
+
+on:
+  push:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    # Allow OIDC‑based publishing to PyPI (preferred) or use an API token
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      version: ${{ steps.read_version.outputs.version }}
+
+    steps:
+      - name: ⬇️ Check out repository
+        uses: actions/checkout@v4
+
+      - name: 🔖 Read VERSION file
+        id: read_version
+        run: echo "version=$(cat VERSION | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Build wheel & sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: 🚀 Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+
+  docker:
+    needs: pypi
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: ⬇Check out repository (tags not needed)
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: ⏳ Wait for package to reach PyPI (retry‑install)
+        env:
+          VERSION: ${{ needs.pypi.outputs.version }}
+        run: |
+          for i in {1..10}; do
+            if python -m pip install --dry-run skimgpt=="$VERSION"; then
+              echo "Package $VERSION available on PyPI "; break; fi;
+            echo "Not yet available, retry #$i ..."; sleep 30;
+          done
+
+      - name: Pull base image
+        run: docker pull stewartlab/skimgpt:latest
+
+      - name: 🛠️ Build new image with updated package
+        env:
+          VERSION: ${{ needs.pypi.outputs.version }}
+        run: |
+          cat > Dockerfile.release <<'EOF'
+          FROM stewartlab/skimgpt:latest
+          ARG VERSION
+          RUN pip install --no-cache-dir skimgpt==${VERSION}
+          EOF
+          docker build -f Dockerfile.release \
+            --build-arg VERSION="$VERSION" \
+            -t stewartlab/skimgpt:${VERSION} \
+            -t stewartlab/skimgpt:latest \
+            .
+
+      - name: Push image tags
+        run: docker push --all-tags stewartlab/skimgpt
