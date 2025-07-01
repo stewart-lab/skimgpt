@@ -1,4 +1,4 @@
-name: Release – PyPI & Docker Hub on merge to main
+name: Release – TestPyPI & Docker Hub on merge to main
 
 on:
   push:
@@ -7,15 +7,16 @@ on:
 
 env:
   IMAGE_NAME: stewartlab/skimgpt
+  TEST_PYPI_REPOSITORY_URL: https://test.pypi.org/legacy/
+  TEST_PYPI_INDEX_URL: https://test.pypi.org/simple
 
 jobs:
-  publish-pypi:
-    name: Build & publish package to PyPI
+  publish-testpypi:
+    name: Build & publish package to TestPyPI
     runs-on: ubuntu-latest
-    # Match the environment name you registered in PyPI (optional)
-    environment: production
+    environment: test
     permissions:
-      id-token: write   # ⭐ Required for OIDC trusted publishing
+      id-token: write   # OIDC trusted publishing
       contents: read
     outputs:
       version: ${{ steps.get_version.outputs.version }}
@@ -36,37 +37,40 @@ jobs:
       - name: Build wheel & sdist
         run: |
           python -m pip install --upgrade pip build
-          python -m build            # outputs to dist/
+          python -m build
 
-      - name: Publish to PyPI via OIDC
+      - name: Publish to **TestPyPI** via OIDC
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          skip-existing: true        # ignore re‑uploads if version already exists
+          repository-url: ${{ env.TEST_PYPI_REPOSITORY_URL }}
+          skip-existing: true
 
   docker:
-    name: Rebuild & push Docker image
-    needs: publish-pypi
+    name: Rebuild & push Docker image (TestPyPI package)
+    needs: publish-testpypi
     runs-on: ubuntu-latest
-    environment: production
+    environment: test
 
     steps:
-      - name: Checkout code (no tags needed)
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python (for PyPI probe)
+      - name: Set up Python (for availability probe)
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Capture version from upstream job
         id: version
-        run: echo "VERSION=${{ needs.publish-pypi.outputs.version }}" >> "$GITHUB_ENV"
+        run: echo "VERSION=${{ needs.publish-testpypi.outputs.version }}" >> "$GITHUB_ENV"
 
-      - name: Wait for PyPI to propagate new release
+      - name: Wait for TestPyPI to propagate the release
+        env:
+          INDEX_URL: ${{ env.TEST_PYPI_INDEX_URL }}
         run: |
           for i in {1..10}; do
-            if python -m pip install --dry-run skimgpt=="$VERSION"; then
-              echo "Package $VERSION available on PyPI ✅"; break; fi;
+            if python -m pip install --no-deps --dry-run --index-url "$INDEX_URL" skimgpt=="$VERSION"; then
+              echo "Package $VERSION available on TestPyPI ✅"; break; fi;
             echo "Not yet available, retry #$i …"; sleep 30;
           done
 
@@ -76,21 +80,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Pull existing base image
-        run: docker pull $IMAGE_NAME:latest
+      - name: Pull existing base image (ignore miss)
+        run: docker pull $IMAGE_NAME:test || true
 
-      - name: Build updated image with fresh package
+      - name: Build updated image with TestPyPI package
+        env:
+          INDEX_URL: ${{ env.TEST_PYPI_INDEX_URL }}
         run: |
           cat > Dockerfile.release <<'EOF'
           FROM stewartlab/skimgpt:latest
           ARG VERSION
-          RUN pip install --no-cache-dir skimgpt==${VERSION}
+          ARG INDEX_URL
+          RUN pip install --no-cache-dir --index-url ${INDEX_URL} skimgpt==${VERSION}
           EOF
           docker build -f Dockerfile.release \
             --build-arg VERSION="$VERSION" \
-            -t $IMAGE_NAME:${VERSION} \
-            -t $IMAGE_NAME:latest \
+            --build-arg INDEX_URL="$INDEX_URL" \
+            -t $IMAGE_NAME:${VERSION}-test \
+            -t $IMAGE_NAME:test \
             .
 
-      - name: Push both tags to Docker Hub
-        run: docker push --all-tags $IMAGE_NAME
+      - name: Push image tags to Docker Hub
+        run: |
+          docker push $IMAGE_NAME:${VERSION}-test
+          docker push $IMAGE_NAME:test
