@@ -3,47 +3,55 @@ skimgpt.src - Core modules for Scientific Knowledge Mining with GPT
 
 This package contains the core functionality for biomedical literature analysis
 and hypothesis evaluation using large language models.
+
+Initialise *skimgpt.src* sub-package.
+
+Keep it entirely lightweight so that a submission host without BioPython /
+openai / vllm can still import modules that do **not** require those heavy
+dependencies (e.g. ``src.eval_JSON_results``).
+
+Heavier sub-modules are loaded lazily on first access.
 """
 
 import os
+from importlib import import_module
+from types import ModuleType
+from typing import Any
 
-# Import main modules for easier access
-from . import classifier
-from . import utils
-from . import pubmed_fetcher
-from . import prompt_library
-from . import scoring_guidelines
+# ---------------------------------------------------------------------------
+# Public interface
+# ---------------------------------------------------------------------------
 
-# Conditionally import relevance module to avoid vLLM import on CPU-only machines
-try:
-    # Check if we're explicitly in a GPU environment
-    gpu_env = os.getenv('SKIMGPT_GPU_MODE', '').lower() in ('true', '1', 'yes')
-    
-    # Only import relevance if we're in GPU mode or if vLLM import succeeds
-    if gpu_env:
-        from . import relevance
-    else:
-        # Try to import, but don't fail if vLLM isn't available
-        try:
-            from . import relevance
-        except ImportError as e:
-            if 'vllm' in str(e).lower() or 'cuda' in str(e).lower():
-                # vLLM/CUDA not available, skip relevance import
-                relevance = None
-            else:
-                # Other import error, re-raise
-                raise
-except ImportError:
-    relevance = None
+_EXPOSED = {
+    "utils",             # numpy/pandas only
+    "classifier",        # needs openai – may be absent, but not critical for CLI
+    "pubmed_fetcher",    # needs BioPython – container provides it
+    "prompt_library",    # no heavy deps
+    "scoring_guidelines",# no heavy deps
+    "relevance",         # vLLM / torch – GPU container only
+}
 
-__all__ = [
-    "classifier",
-    "utils",
-    "pubmed_fetcher",
-    "prompt_library",
-    "scoring_guidelines",
-]
+__all__ = list(_EXPOSED)
 
-# Only add relevance to __all__ if it was successfully imported
-if 'relevance' in locals() and relevance is not None:
-    __all__.append("relevance")
+
+# ---------------------------------------------------------------------------
+# Lazy importer
+# ---------------------------------------------------------------------------
+
+def __getattr__(name: str) -> Any:
+    if name not in _EXPOSED:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+    mod_path = f"{__name__}.{name}"
+
+    try:
+        module: ModuleType = import_module(mod_path)
+    except ImportError as exc:
+        # Provide a friendlier message for optional heavy deps
+        raise AttributeError(
+            f"Sub-module '{name}' could not be imported – optional dependency "
+            f"missing? Original error: {exc}"
+        ) from exc
+
+    globals()[name] = module
+    return module
