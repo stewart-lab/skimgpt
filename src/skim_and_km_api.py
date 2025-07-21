@@ -237,7 +237,12 @@ def save_filtered_results(
     )
 
     # Save the filtered results using the original full-term DataFrame
-    filtered_df = skim_df.loc[valid_rows.index]
+    filtered_df = skim_df.loc[valid_rows.index].copy()
+    # For direct-comp, split the pipe-delimited b_term into two terms; leave a_term/c_term intact
+    if config.is_km_with_gpt_direct_comp and 'b_term' in filtered_df.columns:
+        filtered_df.loc[:, 'b_term'] = filtered_df['b_term'].apply(
+            lambda x: x.split("|")[0:2] if isinstance(x, str) and '|' in x else [x, ""]
+        )
     filtered_df.to_csv(filtered_file_path, sep="\t", index=False)
     config.logger.debug(f"Filtered {job_type} query results saved to {filtered_file_path}")
 
