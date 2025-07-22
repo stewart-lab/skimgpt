@@ -223,12 +223,27 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             result_dict["num_abstracts_fetched"] = num_abstracts_fetched
             logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
 
+            # Truncate long terms for filenames
+            def safe_term(term: str) -> str:
+                if len(term) <= 80:
+                    return term
+                if "|" in term:
+                    return term.split("|")[0]
+                return term[:80]
+
+            raw_a = row.get("a_term", "")
+            raw_b = row.get("b_term", "")
+            raw_c = row.get("c_term", "")
+            a_fname = safe_term(raw_a)
+            b_fname = safe_term(raw_b)
+            c_fname = safe_term(raw_c)
+
             if config.is_skim_with_gpt:
-                output_json = f"{row['a_term']}_{row['c_term']}_{row['b_term']}_skim_with_gpt.json"
+                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
             elif config.is_km_with_gpt_direct_comp:
-                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt_direct_comp.json"
+                output_json = f"{a_fname}_{b_fname}_km_with_gpt_direct_comp.json"
             else:
-                output_json = f"{row['a_term']}_{row['b_term']}_km_with_gpt.json"
+                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
             write_to_json([result_dict], output_json, output_base_dir, config)

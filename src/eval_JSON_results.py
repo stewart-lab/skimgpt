@@ -58,42 +58,63 @@ def extract_and_write_scores(directory):
                     Relationship   = relationship_data.get("Relationship", "").strip()
                     score_details  = relationship_data.get("Result", [])
                     for detail in score_details:
-                        match = re.search(
-                            r"\**Score\**:\**\s*\**([-+]?\d+|N/A)\**",
+                        # Extract score
+                        score_match = re.search(
+                            r"Score:\s*([-+]?\d+|N/A)",
                             detail,
                             re.IGNORECASE,
                         )
-                        if not match:
+                        if not score_match:
                             continue
-                        score = match.group(1).strip()
-                        # build the row
-                        results.append({
+                        score = score_match.group(1).strip()
+                        # Extract SOC and abstract counts if present
+                        soc_match = re.search(r"SOC:\s*(\d+)", detail)
+                        hyp1_match = re.search(r"#Abstracts supporting hypothesis 1:\s*(\d+)", detail)
+                        hyp2_match = re.search(r"#Abstracts supporting hypothesis 2:\s*(\d+)", detail)
+                        neu_match = re.search(r"#Abstracts supporting neither hypothesis or are inconclusive:\s*(\d+)", detail)
+                        soc = soc_match.group(1) if soc_match else ""
+                        hyp1 = hyp1_match.group(1) if hyp1_match else ""
+                        hyp2 = hyp2_match.group(1) if hyp2_match else ""
+                        neu = neu_match.group(1) if neu_match else ""
+                        # build the row dict
+                        row = {
                             "Relationship_Type": outer_key,
                             "Relationship":     Relationship,
                             "Score":            score,
-                            "Iteration":        iter_number
-                        })
+                            "Iteration":        iter_number,
+                            # include SOC and counts for direct-comp
+                            "SOC":              soc,
+                            "Abstracts Supporting Hypothesis 1":      hyp1,
+                            "Abstracts Supporting Hypothesis 2":      hyp2,
+                            "Abstracts Supporting Neither Hypothesis or are Inconclusive":          neu
+                        }
+                        results.append(row)
 
     # 3) write results.txt, injecting the Iteration column only if needed
     out_path = os.path.join(directory, "results.txt")
+    # Determine if we have direct-comp entries (with SOC)
+    has_direct = any(r.get('Relationship_Type') == 'A_B1_B2_Relationship' for r in results)
     with open(out_path, "w", encoding="utf-8") as outf:
+        # build header
+        headers = ["Relationship_Type", "Relationship", "Score"]
         if has_iterations:
-            outf.write("Relationship_Type\tRelationship\tScore\tIteration\n")
-            for r in results:
-                outf.write(
-                    f"{r['Relationship_Type']}\t"
-                    f"{r['Relationship']}\t"
-                    f"{r['Score']}\t"
-                    f"{r['Iteration']}\n"
-                )
-        else:
-            outf.write("Relationship_Type\tRelationship\tScore\n")
-            for r in results:
-                outf.write(
-                    f"{r['Relationship_Type']}\t"
-                    f"{r['Relationship']}\t"
-                    f"{r['Score']}\n"
-                )
+            headers.append("Iteration")
+        if has_direct:
+            headers.extend(["SOC", "Abstracts Supporting Hypothesis 1", "Abstracts Supporting Hypothesis 2", "Abstracts Supporting Neither Hypothesis or are Inconclusive"])
+        outf.write("\t".join(headers) + "\n")
+        # write rows
+        for r in results:
+            cols = [r.get(h, "") for h in ["Relationship_Type", "Relationship", "Score"]]
+            if has_iterations:
+                cols.append(r.get("Iteration", ""))
+            if has_direct:
+                cols.extend([
+                    r.get("SOC", ""),
+                    r.get("Abstracts Supporting Hypothesis 1", ""),
+                    r.get("Abstracts Supporting Hypothesis 2", ""),
+                    r.get("Abstracts Supporting Neither Hypothesis or are Inconclusive", "")
+                ])
+            outf.write("\t".join(cols) + "\n")
 
     print(f"Results written to {out_path}")
 

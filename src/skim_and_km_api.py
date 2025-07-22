@@ -98,13 +98,21 @@ def run_and_save_query(
 
     result_df = pd.DataFrame(result)
 
-    if config.is_skim_with_gpt:
-        # Include B term in filename to avoid overwrites when multiple combinations 
-        # have the same A and C terms but different B terms
-        file_name = f"{job_config['a_terms'][0]}_{job_config['b_terms'][0]}_{job_config['c_terms'][0]}"
-    else:
-        file_name = job_config["a_terms"][0]
+    # Truncate long terms for filenames
+    def safe_term(term: str) -> str:
+        if len(term) <= 80:
+            return term
+        if "|" in term:
+            return term.split("|")[0]
+        return term[:80]
 
+    if config.is_skim_with_gpt:
+        a0 = safe_term(job_config['a_terms'][0])
+        b0 = safe_term(job_config['b_terms'][0])
+        c0 = safe_term(job_config['c_terms'][0])
+        file_name = f"{a0}_{b0}_{c0}"
+    else:
+        file_name = safe_term(job_config['a_terms'][0])
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result_df, file_path, output_directory, config)
     return file_path
@@ -228,8 +236,14 @@ def save_filtered_results(
         f"{os.path.splitext(skim_file_path)[0].replace(' ', '_')}_filtered.tsv",
     )
 
-    # Save the filtered results
-    valid_rows.to_csv(filtered_file_path, sep="\t", index=False)
+    # Save the filtered results using the original full-term DataFrame
+    filtered_df = skim_df.loc[valid_rows.index].copy()
+    # For direct-comp, split the pipe-delimited b_term into two terms; leave a_term/c_term intact
+    if config.is_km_with_gpt_direct_comp and 'b_term' in filtered_df.columns:
+        filtered_df.loc[:, 'b_term'] = filtered_df['b_term'].apply(
+            lambda x: x.split("|")[0:2] if isinstance(x, str) and '|' in x else [x, ""]
+        )
+    filtered_df.to_csv(filtered_file_path, sep="\t", index=False)
     config.logger.debug(f"Filtered {job_type} query results saved to {filtered_file_path}")
 
     # Identify removed rows
