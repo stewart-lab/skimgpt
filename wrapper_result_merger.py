@@ -41,6 +41,8 @@ def parse_results_file(fn: str, job_type: str):
         rd = csv.DictReader(f, delimiter="\t")
         for r in rd:
             iter_number = r.get("Iteration", "").strip()
+            if not iter_number:
+                iter_number = "1"
 
             rel   = r.get("Relationship", "").strip()
             score = r.get("Score",        "").strip()
@@ -60,6 +62,10 @@ def parse_results_file(fn: str, job_type: str):
                     "A_term":  parts[0],
                     "B1_term": parts[1],
                     "B2_term": parts[2],
+                    "SOC": r.get("SOC", "").strip(),
+                    "Abstracts Supporting Hypothesis 1": r.get("Abstracts Supporting Hypothesis 1", "").strip(),
+                    "Abstracts Supporting Hypothesis 2": r.get("Abstracts Supporting Hypothesis 2", "").strip(),
+                    "Abstracts Supporting Neither Hypothesis or are Inconclusive": r.get("Abstracts Supporting Neither Hypothesis or are Inconclusive", "").strip(),
                     "Score":   score
                 }
             else:
@@ -81,7 +87,7 @@ def merge_results(parent_dir: str, logger: logging.Logger):
     if job_type == "skim_with_gpt":
         fieldnames = ["A_term","B_term","C_term","censor_year","iter_number",f"{model}_score"]
     elif job_type == "km_with_gpt_direct_comp":
-        fieldnames = ["A_term","B1_term","B2_term","censor_year","iter_number",f"{model}_score"]
+        fieldnames = ["A_term","B1_term","B2_term","SOC","Abstracts Supporting Hypothesis 1","Abstracts Supporting Hypothesis 2","Abstracts Supporting Neither Hypothesis or are Inconclusive","censor_year","iter_number",f"{model}_score"]
     else:
         fieldnames = ["A_term","B_term","censor_year","iter_number",f"{model}_score"]
 
