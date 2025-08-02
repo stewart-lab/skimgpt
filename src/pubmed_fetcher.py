@@ -138,11 +138,22 @@ class PubMedFetcher:
 
         if not abstract_dict:
             self.logger.error("No abstracts fetched successfully.")
-        else:
-            self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
-            #self.logger.debug(f"Abstract dict: {abstract_dict}")
+            return {}
 
-        return abstract_dict
+        else: 
+            self.logger.info(f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs.")
+
+        # Filter abstracts by publication year bounds
+        lower = self.config.censor_year_lower
+        upper = self.config.censor_year_upper
+        filtered_dict = {}
+        for pmid, content in abstract_dict.items():
+            year = self.pmid_years.get(pmid, 0)
+            if lower <= year <= upper:
+                filtered_dict[pmid] = content
+        self.logger.info(f"Filtered {len(filtered_dict)}/{len(abstract_dict)} abstracts by publication year bounds ({lower}-{upper})")
+
+        return filtered_dict
 
     def interleave_abstracts(self, text: str, n: int = None, top_n_most_cited: int = 0, top_n_most_recent: int = 0) -> str:
         """

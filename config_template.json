@@ -32,10 +32,6 @@
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
         "submit_host": "ap2002.chtc.wisc.edu",
-        "request_gpus": "1",
-        "request_cpus": "1",
-        "request_memory": "24GB",
-        "request_disk": "50GB",
         "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
     },
     "abstract_filter": {
@@ -58,7 +54,8 @@
             "NUM_B_TERMS": 25,
             "km_with_gpt": {
                 "ab_fet_threshold": 1,
-                "censor_year": 1980
+                "censor_year_upper": 1980,
+                "censor_year_lower": 0
             }
         },
         "km_with_gpt_direct_comp": {
@@ -70,7 +67,8 @@
             "NUM_B_TERMS": 25,
             "km_with_gpt_direct_comp": {
                 "ab_fet_threshold": 1,
-                "censor_year": 1990
+                "censor_year_upper": 1990,
+                "censor_year_lower": 0
             }
         },
         "skim_with_gpt": {
@@ -84,7 +82,8 @@
             "skim_with_gpt": {
                 "ab_fet_threshold": 0.1,
                 "bc_fet_threshold": 0.5,
-                "censor_year": 2024,
+                "censor_year_upper": 2024,
+                "censor_year_lower": 0,
                 "top_n": 300
             }
         }
