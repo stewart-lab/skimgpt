@@ -20,15 +20,29 @@ jobs:
           # Fetch all history and tags to check for version tags on the pushed commit
           fetch-depth: 0
 
-      - name: Check for version tag on pushed commit
+      - name: Check for version tag on pushed commit or recent commits
         id: check-tag
         run: |
           # Get the pushed commit SHA
           COMMIT_SHA="${{ github.sha }}"
           echo "Checking for tags on commit: $COMMIT_SHA"
           
-          # Check if this commit has any version tags (v*.*.*)
+          # First check if this exact commit has any version tags (v*.*.*)
           VERSION_TAG=$(git tag --points-at $COMMIT_SHA | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+          
+          # If no tag on the merge commit, check the last few commits (for PR merges)
+          if [ -z "$VERSION_TAG" ]; then
+            echo "No tag on merge commit, checking recent commits..."
+            # Check the last 5 commits for version tags
+            for commit in $(git rev-list -n 5 $COMMIT_SHA); do
+              TAG=$(git tag --points-at $commit | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+              if [ -n "$TAG" ]; then
+                VERSION_TAG=$TAG
+                echo "Found version tag $VERSION_TAG on commit $commit"
+                break
+              fi
+            done
+          fi
           
           if [ -n "$VERSION_TAG" ]; then
             echo "Found version tag: $VERSION_TAG"
