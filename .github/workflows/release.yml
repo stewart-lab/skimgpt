@@ -10,6 +10,7 @@ jobs:
   check-and-publish:
     name: Check for tags and publish package
     runs-on: ubuntu-latest
+
     permissions:
       id-token: write   # OIDC trusted publishing
       contents: read
@@ -46,14 +47,19 @@ jobs:
           
           if [ -n "$VERSION_TAG" ]; then
             echo "Found version tag: $VERSION_TAG"
+            # Extract version number from tag (remove 'v' prefix)
+            VERSION_NUMBER=${VERSION_TAG#v}
+            echo "Extracted version number: $VERSION_NUMBER"
             echo "has_version_tag=true" >> $GITHUB_OUTPUT
             echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+            echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "repository_url=" >> $GITHUB_OUTPUT  # Empty = PyPI production
           else
             echo "No version tag found, will publish to TestPyPI"
             echo "has_version_tag=false" >> $GITHUB_OUTPUT
             echo "version_tag=" >> $GITHUB_OUTPUT
+            echo "version_number=" >> $GITHUB_OUTPUT
             echo "environment=test" >> $GITHUB_OUTPUT
             echo "repository_url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
           fi
@@ -61,6 +67,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Set version from git tag or default
+        run: |
+          if [ "${{ steps.check-tag.outputs.has_version_tag }}" == "true" ]; then
+            # Create VERSION file with the version from git tag
+            echo "${{ steps.check-tag.outputs.version_number }}" > VERSION
+            echo "Created VERSION file with: ${{ steps.check-tag.outputs.version_number }}"
+            VERSION="${{ steps.check-tag.outputs.version_number }}"
+          else
+            # Create VERSION file with development version for TestPyPI
+            DEV_VERSION="0.0.0.dev$(date +%Y%m%d%H%M%S)"
+            echo "$DEV_VERSION" > VERSION
+            echo "Created VERSION file with dev version: $DEV_VERSION"
+            VERSION="$DEV_VERSION"
+          fi
+          
+          # Also update pyproject.toml if it exists and has a version field
+          if [ -f "pyproject.toml" ] && grep -q "^version = " pyproject.toml; then
+            sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+            echo "Updated pyproject.toml version to: $VERSION"
+          fi
 
       - name: Build wheel & sdist
         run: |
