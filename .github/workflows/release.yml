@@ -1,24 +1,51 @@
-name: Release – TestPyPI on merge to main
+name: Release – TestPyPI on PR to main
 
-# Publish to TestPyPI on pushes to main, and to production PyPI on version tags (e.g. v1.2.3)
+# Publish to TestPyPI on PRs to main, and to production PyPI if the merged commit has a version tag
 on:
-  push:
+  pull_request:
     branches: [main]
-    tags:
-      - 'v*.*.*'
+    types: [closed]  # Only when PR is closed (merged or just closed)
   workflow_dispatch:
 
 jobs:
-  publish-testpypi:
-    name: Build & publish package to TestPyPI
+  check-and-publish:
+    # Only run if PR was actually merged (not just closed)
+    if: github.event.pull_request.merged == true
+    name: Check for tags and publish package
     runs-on: ubuntu-latest
-    environment: test
     permissions:
       id-token: write   # OIDC trusted publishing
       contents: read
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Fetch all history and tags to check for version tags on the merged commit
+          fetch-depth: 0
+
+      - name: Check for version tag on merged commit
+        id: check-tag
+        run: |
+          # Get the merged commit SHA
+          COMMIT_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          echo "Checking for tags on commit: $COMMIT_SHA"
+          
+          # Check if this commit has any version tags (v*.*.*)
+          VERSION_TAG=$(git tag --points-at $COMMIT_SHA | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+          
+          if [ -n "$VERSION_TAG" ]; then
+            echo "Found version tag: $VERSION_TAG"
+            echo "has_version_tag=true" >> $GITHUB_OUTPUT
+            echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "repository_url=" >> $GITHUB_OUTPUT  # Empty = PyPI production
+          else
+            echo "No version tag found, will publish to TestPyPI"
+            echo "has_version_tag=false" >> $GITHUB_OUTPUT
+            echo "version_tag=" >> $GITHUB_OUTPUT
+            echo "environment=test" >> $GITHUB_OUTPUT
+            echo "repository_url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+          fi
 
       - uses: actions/setup-python@v5
         with:
@@ -29,35 +56,21 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
-      - name: Publish to TestPyPI via OIDC
+      - name: Publish to TestPyPI
+        if: steps.check-tag.outputs.has_version_tag == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
           skip-existing: true
+        env:
+          # Use test environment secrets
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-# New production publish job – runs only for version tags
-  publish-pypi:
-    if: startsWith(github.ref, 'refs/tags/')
-    name: Build & publish package to PyPI (production)
-    runs-on: ubuntu-latest
-    environment: prod
-    permissions:
-      id-token: write   # OIDC trusted publishing
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Build wheel & sdist
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
-
-      - name: Publish to PyPI via OIDC
+      - name: Publish to PyPI (production)
+        if: steps.check-tag.outputs.has_version_tag == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+        env:
+          # Use production environment secrets
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
