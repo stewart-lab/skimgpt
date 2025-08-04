@@ -234,11 +234,22 @@ class HTCondorHelper:
         """Monitor job progress"""
         try:
             while True:
-                self.logger.debug(f"Querying status for cluster {cluster_id}")
-                ads = self.schedd.query(
-                    constraint=f"ClusterId == {cluster_id}",
-                    projection=["ProcID", "JobStatus"]
-                )
+                try:
+                    self.logger.debug(f"Querying status for cluster {cluster_id}")
+                    ads = self.schedd.query(
+                        constraint=f"ClusterId == {cluster_id}",
+                        projection=["ProcID", "JobStatus"]
+                    )
+                except Exception as query_err:
+                    self.logger.warning(
+                        "Failed to query job status for cluster %s (will retry in %s s): %s",
+                        cluster_id,
+                        check_interval,
+                        query_err,
+                        exc_info=True,
+                    )
+                    time.sleep(check_interval)
+                    continue
                 
                 if not ads:
                     self.logger.warning(f"No jobs found for cluster {cluster_id}")
