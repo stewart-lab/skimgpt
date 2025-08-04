@@ -2,15 +2,12 @@ name: Release – TestPyPI on PR to main
 
 # Publish to TestPyPI on PRs to main, and to production PyPI if the merged commit has a version tag
 on:
-  pull_request:
-    branches: [main]
-    types: [closed]  # Only when PR is closed (merged or just closed)
+  push:
+    branches: [main]  # Trigger on pushes to main (including PR merges)
   workflow_dispatch:
 
 jobs:
   check-and-publish:
-    # Only run if PR was actually merged (not just closed)
-    if: github.event.pull_request.merged == true
     name: Check for tags and publish package
     runs-on: ubuntu-latest
     permissions:
@@ -20,14 +17,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Fetch all history and tags to check for version tags on the merged commit
+          # Fetch all history and tags to check for version tags on the pushed commit
           fetch-depth: 0
 
-      - name: Check for version tag on merged commit
+      - name: Check for version tag on pushed commit
         id: check-tag
         run: |
-          # Get the merged commit SHA
-          COMMIT_SHA="${{ github.event.pull_request.merge_commit_sha }}"
+          # Get the pushed commit SHA
+          COMMIT_SHA="${{ github.sha }}"
           echo "Checking for tags on commit: $COMMIT_SHA"
           
           # Check if this commit has any version tags (v*.*.*)
