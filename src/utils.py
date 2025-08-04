@@ -436,20 +436,7 @@ class Config:
 
     @property
     def censor_year(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
-        # Backward compatibility: use old key or new upper bound
-        return nested.get("censor_year", nested.get("censor_year_upper", 2024))
-
-    @property
-    def censor_year_upper(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
-        return nested.get("censor_year_upper", nested.get("censor_year", 2024))
-
-    @property
-    def censor_year_lower(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
-        # Default lower bound is zero (include all years)
-        return nested.get("censor_year_lower", 0)
+        return self.job_specific_settings.get("censor_year", 2024)
 
     def _validate_htcondor_config(self):
         """Validate required HTCondor settings"""
