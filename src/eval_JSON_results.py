@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
-
 import os
 import json
 import re
 import sys
-
 
 def extract_and_write_scores(directory):
     results = []
