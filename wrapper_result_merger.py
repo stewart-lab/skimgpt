@@ -86,8 +86,7 @@ def merge_results(parent_dir: str, logger: logging.Logger):
 
     if job_type == "skim_with_gpt":
         fieldnames = ["A_term","B_term","C_term","censor_year","iter_number",f"{model}_score"]
-    elif job_type == "km_with_gpt_direct_comp":
-        fieldnames = ["A_term","B1_term","B2_term","SOC","Abstracts Supporting Hypothesis 1","Abstracts Supporting Hypothesis 2","Abstracts Supporting Neither Hypothesis or are Inconclusive","censor_year","iter_number",f"{model}_score"]
+    # Removed legacy direct-comp schema
     else:
         fieldnames = ["A_term","B_term","censor_year","iter_number",f"{model}_score"]
 

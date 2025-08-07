@@ -123,43 +123,7 @@ def process_single_row(row, config: Config):
                     "AB": ab_urls.get("AB", []),
                 },
             }
-    elif config.is_km_with_gpt_direct_comp:
-         # Handle km_with_gpt_direct_comp job type
-        logger.debug(f"Processing row: {row}")
-        logger.debug(f"Row type: {type(row)}")
-        logger.debug(f"Row keys: {row.keys()}")
-
-        a_term = row.get("a_term")
-        b_term = row.get("b_term")
-        logger.debug(f" IN PROCESS SINGLE ROW   B term: {b_term}")
-         # Remove brackets and split by comma
-        b_term_str = b_term.strip("[]")  # Remove brackets
-        b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespace
-        # Filter out any empty strings that might result from the split
-        b_term = [item for item in b_term_list if item]
-        assert len(b_term) == 2
-        b_term1 = b_term[0]
-        b_term2 = b_term[1] if len(b_term) > 1 else ""
-        logger.debug(f" IN PROCESS SINGLE ROW   B term1: {b_term1}")
-        logger.debug(f" IN PROCESS SINGLE ROW   B term2: {b_term2}")
-        ab_result, ab_prompt, ab_urls = perform_analysis(
-            job_type=config.job_type, row=row, config=config, relationship_type="A_B1_B2"
-        )
-        logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_Relationship: {ab_result}")
-        # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_Prompt: {ab_prompt}")
-        # config.logger.debug(f" IN PROCESS SINGLE ROW   A_B1_B2_URLS: {ab_urls}")
-        if ab_result or ab_prompt:
-            processed_results["A_B1_B2_Relationship"] = {
-                "a_term": a_term,
-                "b_term1": b_term1,
-                "b_term2": b_term2,
-                "Relationship": f"{a_term} - {b_term1} - {b_term2}",
-                "Result": ab_result,
-                "Prompt": ab_prompt,
-                "URLS": {
-                    "AB1B2": ab_urls.get("AB1B2", []),
-                },
-            }
+    # Removed legacy km_with_gpt_direct_comp handling
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
     logger.debug(f"Processed results: {processed_results}")
@@ -211,15 +175,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         ab_abstracts = row.get("ab_pmid_intersection", "")
         bc_abstracts = ""  # Not used
         ac_abstracts = ""  # Not used
-    elif relationship_type == "A_B1_B2":
-        a_term = row.get("a_term", "")
-        b_term = row.get("b_term", "")
-        b_term1 = b_term[0]
-        b_term2 = b_term[1]
-        ab_abstracts = row.get("ab_pmid_intersection", "")
-        bc_abstracts = ""  # Not used
-        ac_abstracts = ""  # Not used
-        c_term = ""  # Not used for A-B1-B2 relationship
+    # Removed legacy A_B1_B2 relationship type
     else:
         logger.error(f"Unknown relationship type: {relationship_type}")
         return ["Score: N/A"], "", {}
@@ -239,10 +195,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         urls = {
             "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
         }
-    elif relationship_type == "A_B1_B2":
-        urls = {
-            "AB1B2": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
-        }
+    #
 
     # Conditions for early exit based on abstracts availability
     if relationship_type == "A_B_C":
@@ -269,7 +222,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         consolidated_abstracts = ab_abstracts + bc_abstracts
     elif relationship_type == "A_C":
         consolidated_abstracts = ac_abstracts
-    elif relationship_type == "A_B" or relationship_type == "A_B1_B2":
+    elif relationship_type == "A_B":
         consolidated_abstracts = ab_abstracts
 
     try:
@@ -364,24 +317,11 @@ def generate_prompt(
     logger = config.logger
     job_type_lower = job_type.lower()   
   
-    if job_type == "km_with_gpt_direct_comp":
-        # Remove brackets and split by comma
-        b_term_str = b_term.strip("[]")  # Remove brackets
-        b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespace
-        # Filter out any empty strings that might result from the split
-        b_term = [item for item in b_term_list if item]
-        assert len(b_term) == 2
-        b_term1 = b_term[0]
-        b_term2 = b_term[1]
-        logger.debug(f" IN GENERATE PROMPT   B term: {b_term}")
-        logger.debug(f" IN GENERATE PROMPT B term1: {b_term1}")
-        logger.debug(f" IN GENERATE PROMPT B term2: {b_term2}")
+    # Removed legacy job_type == km_with_gpt_direct_comp parsing
     # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
-    elif job_type == "km_with_gpt_direct_comp":
-        hypothesis_template = config.km_direct_comp_hypothesis.format(b_term1=b_term1, b_term2=b_term2, a_term=a_term)
-        logger.debug(f" IN GENERATE PROMPT   Hypothesis template: {hypothesis_template}")
+    # Removed legacy hypothesis template for direct_comp
     elif job_type == "skim_with_gpt":
         if relationship_type == "A_B_C":
             hypothesis_template = config.skim_hypotheses["ABC"].format(
@@ -438,14 +378,7 @@ def generate_prompt(
             hypothesis_template=hypothesis_template,
             consolidated_abstracts=content,
         )
-    elif relationship_type == "A_B1_B2":
-        return prompt_function(
-            a_term=a_term,
-            b_term1=b_term1,
-            b_term2=b_term2,
-            hypothesis_template=hypothesis_template,
-            consolidated_abstracts=content,
-        )
+    # Legacy A_B1_B2 removed
     else:
         raise ValueError("Invalid relationship type specified.")
 

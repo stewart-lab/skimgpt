@@ -36,7 +36,7 @@ Score: [Number] - Reasoning: [Reasoning]
 Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}"""
 
-def km_with_gpt_direct_comp(b_term1, b_term2, a_term, hypothesis_template, consolidated_abstracts):
+def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, a_term, hypothesis_template, consolidated_abstracts):
     # Extract PMID numbers for clarity
     import re
     pmid_pattern = r"PMID:\s*(\d+)"
@@ -49,28 +49,29 @@ def km_with_gpt_direct_comp(b_term1, b_term2, a_term, hypothesis_template, conso
 Available PMIDs for Citation: {pmid_list}
 
 Assessment Task:
-Evaluate the degree of support for Hypothesis 1 compared to Hypothesis 2, which posits a significant interaction between {a_term} and {b_term1} or {b_term2}. 
-The texts provided above come from PubMed and each abstract will include only {a_term} and either {b_term1} or {b_term2}. 
-The texts need to be your only source of information for arriving at your classification result. 
+Compare the following two hypotheses based solely on the evidence in the abstracts above. Do not use any external information.
+
+Hypothesis 1:
+{hypothesis_1}
+
+Hypothesis 2:
+{hypothesis_2}
 
 IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
 
-Hypothesis:
-{hypothesis_template}
-
 Instructions:
-1. Review each abstract to understand how {a_term} and {b_term1} or {b_term2} might be interconnected based on the available information.
-2. Analyze the presence and implications of the term pairing ({a_term} + {b_term1} or {b_term2}) in the context of the hypothesis.
-3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypothesis: {hypothesis_template}. Remember, no single text may be conclusive.
-4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
-5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
-6. Provide a "Strength of confidence (SOC) score" about your score, that represents the strength, quality, quantity, and consistency of the evidence provided.  A SOC score of zero represents zero confidence. A SOC score of 100  represents 100% confidence.  Intermediate scores are possible and represent a nuanced degree of confidence based on the evidence.
-7.  Return the number of abstracts that support hypothesis 1 and the number of abstracts that support hypothesis 2 and the number of abstracts that support neither hypothesis or are inconclusive.
+1. Review each abstract to understand how the evidence bears on Hypothesis 1 versus Hypothesis 2 in the context of {a_term}.
+2. Synthesize the findings from multiple texts. Consider how the pieces fit together to support one hypothesis over the other. Remember, no single text may be conclusive.
+3. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
+4. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
+5. Provide a "Strength of confidence (SOC) score" about your score, that represents the strength, quality, quantity, and consistency of the evidence provided.  A SOC score of zero represents zero confidence. A SOC score of 100 represents 100% confidence. Intermediate scores are possible and represent a nuanced degree of confidence based on the evidence.
+6. Report how many abstracts support Hypothesis 1, how many support Hypothesis 2, and how many support neither or are inconclusive.
+
 Format your response as:
 Score: [Number] SOC: [SOC] #Abstracts supporting hypothesis 1: [Number] #Abstracts supporting hypothesis 2: [Number] #Abstracts supporting neither hypothesis or are inconclusive: [Number] - Reasoning: [Reasoning]
 
 Scoring Guidelines:
-{sg.cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2)}"""
+{sg.cont_ab_direct_comp_scoring_guidelines(a_term, "Hypothesis 1", "Hypothesis 2")}"""
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
     # Extract PMID numbers for clarity

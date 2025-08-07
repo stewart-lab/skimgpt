@@ -272,10 +272,7 @@ def save_filtered_results(
 
     return filtered_file_path
 
-def km_with_gpt_direct_comp_workflow(term: dict, config: Config, output_directory: str):
-    config.logger.debug(f"km_with_gpt_direct_comp_workflow: term = {term}, type(term['b_terms']) = {type(term['b_terms'])}")
-    filtered_file_path = km_with_gpt_workflow(term, config, output_directory)
-    return filtered_file_path
+# Removed legacy km_with_gpt_direct_comp workflow
 
 def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     """Process one A term with ALL B terms in a single API call"""
@@ -325,6 +322,39 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
         intersection_columns=["ab_pmid_intersection"],
         filter_condition=lambda df: df["ab_pmid_intersection"].apply(len) > 0,
     )
+
+    # DCH: enforce exactly two KM rows corresponding to the configured B terms
+    if config.is_dch:
+        # Normalize desired B terms to match post-filter normalization (first synonym only)
+        desired_b_terms = [
+            (t.split("|")[0] if isinstance(t, str) and "|" in t else t)
+            for t in list(config.b_terms)
+        ]
+        logger.debug(f"DCH mode enabled. Desired B terms: {desired_b_terms}")
+        # Keep only rows for the two configured B terms
+        if "b_term" not in valid_rows.columns:
+            logger.error("Missing 'b_term' column in KM results for DCH mode")
+            return None
+        pruned_rows = valid_rows[valid_rows["b_term"].isin(desired_b_terms)].copy()
+        # If multiple rows per term appear, keep the top-ranked by sort column
+        if not pruned_rows.empty:
+            sort_col = config.sort_column
+            if sort_col in pruned_rows.columns:
+                pruned_rows = pruned_rows.sort_values(by=sort_col, ascending=False)
+            pruned_rows = pruned_rows.drop_duplicates(subset=["b_term"], keep="first")
+
+        # Validation checks
+        missing = [t for t in desired_b_terms if t not in set(pruned_rows.get("b_term", []))]
+        if missing:
+            logger.warning(f"DCH validation: missing rows for B terms: {missing}")
+        # Enforce exactly two rows
+        if len(pruned_rows) != 2:
+            logger.error(f"DCH validation failed: expected exactly 2 rows, found {len(pruned_rows)}")
+            return None
+        # Order rows to match the order of desired_b_terms
+        pruned_rows["_b_cat"] = pd.Categorical(pruned_rows["b_term"], categories=desired_b_terms, ordered=True)
+        pruned_rows = pruned_rows.sort_values("_b_cat").drop(columns=["_b_cat"])
+        valid_rows = pruned_rows
 
     # Save filtered results and handle no_results.txt
     filtered_file_path = save_filtered_results(

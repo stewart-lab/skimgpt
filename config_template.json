@@ -50,6 +50,7 @@
             "A_TERM_LIST": false,
             "A_TERMS_FILE": "../input_lists/test/km_a.txt",
             "B_TERMS_FILE": "../input_lists/hpv.txt",
+            "is_dch": false,
             "SORT_COLUMN": "ab_sort_ratio",
             "NUM_B_TERMS": 25,
             "km_with_gpt": {
@@ -58,19 +59,7 @@
                 "censor_year_lower": 0
             }
         },
-        "km_with_gpt_direct_comp": {
-            "position": false,
-            "A_TERM_LIST": false,
-            "A_TERMS_FILE": "./input_lists/test/km_a.txt",
-            "B_TERMS_FILE": "./input_lists/cervicalCancer_b_terms_HPVvsHSV_directlyForNewCode.txt",
-            "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 25,
-            "km_with_gpt_direct_comp": {
-                "ab_fet_threshold": 1,
-                "censor_year_upper": 1990,
-                "censor_year_lower": 0
-            }
-        },
+        
         "skim_with_gpt": {
             "position": true,
             "A_TERM_LIST": true,

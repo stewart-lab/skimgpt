@@ -101,7 +101,7 @@ def organize_output(directory):
                     shutil.move(src_path, dest_path)
     
     # Define patterns for result JSON files
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
+    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json"]
 
     for root, dirs, files in os.walk(directory):
         # Skip traversal into results or debug to avoid duplicate moves
@@ -244,15 +244,7 @@ def main():
                 }
                 for a_term in config.a_terms
             ]
-    elif config.job_type == "km_with_gpt_direct_comp":
-        terms = [
-            {
-                "a_term": a_term,
-                "b_terms": config.b_terms
-            }
-            for a_term in config.a_terms
-        ]
-        logger.debug("TERMS in main:", terms)
+    # Removed legacy km_with_gpt_direct_comp branch
 
     # Maintain the parallel execution pattern
     workflow = partial(

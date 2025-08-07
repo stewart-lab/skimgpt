@@ -6,6 +6,8 @@ import socket
 import subprocess
 import time
 from itertools import chain
+import openai
+from src import prompt_library as prompts_module
 import torch
 from src.utils import Config, RaggedTensor
 from src.pubmed_fetcher import PubMedFetcher
@@ -13,6 +15,7 @@ from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
     write_to_json,
+    call_openai,
 )
 
 
@@ -51,7 +54,7 @@ def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
     logger = config.logger
-    if config.is_km_with_gpt:
+    if config.is_km_with_gpt or getattr(config, "is_dch", False):
         assert a_term and b_term and not c_term
         hypothesis_template = config.km_hypothesis
         return hypothesis_template.format(a_term=a_term, b_term=b_term)
@@ -208,45 +211,70 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
-    for index, row in out_df.iterrows():
-        result_dict = process_single_row(row, config)
-        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-        if result_dict:
-            for ratio_type in ["ab", "bc", "ac"]:
-                ratio_col = f"{ratio_type}_relevance_ratio"
-                fraction_col = f"{ratio_type}_relevance_fraction"
-                if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                    ratio = row[ratio_col]
-                    fraction = row[fraction_col]
-                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
-
-            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
-
-            # Truncate long terms for filenames
-            def safe_term(term: str) -> str:
-                if len(term) <= 80:
-                    return term
-                if "|" in term:
-                    return term.split("|")[0]
-                return term[:80]
-
-            raw_a = row.get("a_term", "")
-            raw_b = row.get("b_term", "")
-            raw_c = row.get("c_term", "")
-            a_fname = safe_term(raw_a)
-            b_fname = safe_term(raw_b)
-            c_fname = safe_term(raw_c)
-
-            if config.is_skim_with_gpt:
-                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-            elif config.is_km_with_gpt_direct_comp:
-                output_json = f"{a_fname}_{b_fname}_km_with_gpt_direct_comp.json"
-            else:
-                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
-            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+    if getattr(config, "is_dch", False):
+        # Single combined JSON for DCH
+        a_term = out_df.iloc[0].get("a_term", "")
+        b1 = out_df.iloc[0].get("b_term", "")
+        b2 = out_df.iloc[1].get("b_term", "")
+        def safe_term(term: str) -> str:
+            if len(term) <= 80:
+                return term.split("|")[0] if "|" in term else term
+            return (term.split("|")[0] if "|" in term else term)[:80]
+        a_fname = safe_term(a_term)
+        b1_fname = safe_term(b1)
+        b2_fname = safe_term(b2)
+        output_json = f"{a_fname}_{b1_fname}_{b2_fname}_km_with_gpt.json"
+        # Use last computed prompts/answers context
+        result_dict = {
+            "A_B1_B2_Comparison": {
+                "a_term": a_term,
+                "b_term1": b1,
+                "b_term2": b2,
+                "Relationship": f"{a_term} - {b1} - {b2}",
+                "Result": [],
+                "Prompt": "",
+                "URLS": {},
+            }
+        }
+        write_to_json([result_dict], output_json, output_base_dir, config)
+    else:
+        for index, row in out_df.iterrows():
+            result_dict = process_single_row(row, config)
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, output_base_dir, config)
+            if result_dict:
+                for ratio_type in ["ab", "bc", "ac"]:
+                    ratio_col = f"{ratio_type}_relevance_ratio"
+                    fraction_col = f"{ratio_type}_relevance_fraction"
+                    if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                        ratio = row[ratio_col]
+                        fraction = row[fraction_col]
+                        result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+
+                result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+                # Truncate long terms for filenames
+                def safe_term(term: str) -> str:
+                    if len(term) <= 80:
+                        return term
+                    if "|" in term:
+                        return term.split("|")[0]
+                    return term[:80]
+
+                raw_a = row.get("a_term", "")
+                raw_b = row.get("b_term", "")
+                raw_c = row.get("c_term", "")
+                a_fname = safe_term(raw_a)
+                b_fname = safe_term(raw_b)
+                c_fname = safe_term(raw_c)
+
+                if config.is_skim_with_gpt:
+                    output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
+                else:
+                    output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
+                logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+                logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+                write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 def estimate_max_batched_tokens(seq_len: int = 4000,
@@ -342,18 +370,34 @@ def main():
     ab_pmids = []
     ab_hypotheses = []
 
-    for _, row in config.data.iterrows():
-        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
-        logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
-        b_term = row['b_term']
-        
-        # Convert string representation of list to actual list
-        pmids = eval(row['ab_pmid_intersection'])
-        ab_pmids.append(pmids)
-        
-        # Generate hypothesis for this specific pair
-        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
-        ab_hypotheses.append(hypothesis)
+    if getattr(config, "is_dch", False):
+        # DCH expects exactly two rows (enforced upstream)
+        if len(config.data) != 2:
+            logger.error(f"DCH mode requires exactly two KM rows, found {len(config.data)}")
+            raise AssertionError("DCH requires exactly two rows")
+        a_term = config.data.iloc[0]['a_term'].split("&")[0]
+        b1 = config.data.iloc[0]['b_term']
+        b2 = config.data.iloc[1]['b_term']
+        pmids1 = eval(config.data.iloc[0]['ab_pmid_intersection'])
+        pmids2 = eval(config.data.iloc[1]['ab_pmid_intersection'])
+        combined_pmids = pmids1 + pmids2
+        ab_pmids.append(combined_pmids)
+        hyp1 = getHypothesis(config=config, a_term=a_term, b_term=b1)
+        hyp2 = getHypothesis(config=config, a_term=a_term, b_term=b2)
+        ab_hypotheses.append([hyp1, hyp2])
+    else:
+        for _, row in config.data.iterrows():
+            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+            logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
+            b_term = row['b_term']
+            
+            # Convert string representation of list to actual list
+            pmids = eval(row['ab_pmid_intersection'])
+            ab_pmids.append(pmids)
+            
+            # Generate hypothesis for this specific pair
+            hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
+            ab_hypotheses.append(hypothesis)
 
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
@@ -508,17 +552,41 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, model, sampling_config)
+    if getattr(config, "is_dch", False):
+        # Build a single prompt that compares the two hypotheses
+        consolidated_abstracts = "".join(abstracts.data)
+        a_term = config.data.iloc[0]['a_term'].split("&")[0]
+        hyp1, hyp2 = ab_hypotheses.data[0]
+        prompt_text = prompts_module.km_with_gpt_direct_comp(
+            hypothesis_1=hyp1,
+            hypothesis_2=hyp2,
+            a_term=a_term,
+            hypothesis_template="",
+            consolidated_abstracts=consolidated_abstracts,
+        )
+        prompts = RaggedTensor([prompt_text])
+        answers = gen(prompts, model, sampling_config)
+    else:
+        prompts = getPrompts(abstracts, all_hypotheses)
+        answers = gen(prompts, model, sampling_config)
 
     # Post-processing
     defaults = 3 * [RaggedTensor([])]
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
     ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
 
-    postProcess(
-        config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
-    )
+    if getattr(config, "is_dch", False):
+        # Assign the same mask back to both rows
+        dch_mask = ab_outputs.flatten().data
+        out_df.loc[:, 'ab_mask'] = [dch_mask for _ in range(len(out_df))]
+        out_df.loc[:, 'ab_pmid_intersection'] = [
+            config.data.iloc[i]['ab_pmid_intersection'] for i in range(len(out_df))
+        ]
+        out_df.loc[:, 'ab_hypothesis'] = [f"DCH: {ab_hypotheses.data[0][0]} || {ab_hypotheses.data[0][1]}"] * len(out_df)
+    else:
+        postProcess(
+            config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
+        )
 
     if config.is_skim_with_gpt:
         postProcess(
