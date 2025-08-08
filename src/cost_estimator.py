@@ -216,8 +216,9 @@ def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
     # Calculate total cost across all iterations
     total_cost = cost_per_iteration * num_iterations
     
+    display_job_type = "KM_WITH_GPT_DIRECT_COMP" if getattr(config, "is_dch", False) else config.job_type.upper()
     print("\n" + "="*50)
-    print(f"COST ESTIMATION FOR {config.job_type.upper()} WITH {config.model.upper()}")
+    print(f"COST ESTIMATION FOR {display_job_type} WITH {config.model.upper()}")
     print("="*50)
     print(f"POST_N value: {config.post_n}")
     print(f"Estimated input tokens:  {input_tokens:,}")
