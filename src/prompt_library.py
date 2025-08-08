@@ -71,7 +71,7 @@ Format your response as:
 Score: [Number] SOC: [SOC] #Abstracts supporting hypothesis 1: [Number] #Abstracts supporting hypothesis 2: [Number] #Abstracts supporting neither hypothesis or are inconclusive: [Number] - Reasoning: [Reasoning]
 
 Scoring Guidelines:
-{sg.cont_ab_direct_comp_scoring_guidelines(a_term, "Hypothesis 1", "Hypothesis 2")}"""
+{sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}"""
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
     # Extract PMID numbers for clarity
