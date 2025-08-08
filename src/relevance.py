@@ -16,6 +16,7 @@ from src.classifier import (
     process_single_row,
     write_to_json,
     call_openai,
+    extract_pmids_and_generate_urls,
 )
 
 
@@ -211,70 +212,43 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
-    if getattr(config, "is_dch", False):
-        # Single combined JSON for DCH
-        a_term = out_df.iloc[0].get("a_term", "")
-        b1 = out_df.iloc[0].get("b_term", "")
-        b2 = out_df.iloc[1].get("b_term", "")
-        def safe_term(term: str) -> str:
-            if len(term) <= 80:
-                return term.split("|")[0] if "|" in term else term
-            return (term.split("|")[0] if "|" in term else term)[:80]
-        a_fname = safe_term(a_term)
-        b1_fname = safe_term(b1)
-        b2_fname = safe_term(b2)
-        output_json = f"{a_fname}_{b1_fname}_{b2_fname}_km_with_gpt.json"
-        # Use last computed prompts/answers context
-        result_dict = {
-            "A_B1_B2_Comparison": {
-                "a_term": a_term,
-                "b_term1": b1,
-                "b_term2": b2,
-                "Relationship": f"{a_term} - {b1} - {b2}",
-                "Result": [],
-                "Prompt": "",
-                "URLS": {},
-            }
-        }
-        write_to_json([result_dict], output_json, output_base_dir, config)
-    else:
-        for index, row in out_df.iterrows():
-            result_dict = process_single_row(row, config)
+    for index, row in out_df.iterrows():
+        result_dict = process_single_row(row, config)
+        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+        if result_dict:
+            for ratio_type in ["ab", "bc", "ac"]:
+                ratio_col = f"{ratio_type}_relevance_ratio"
+                fraction_col = f"{ratio_type}_relevance_fraction"
+                if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                    ratio = row[ratio_col]
+                    fraction = row[fraction_col]
+                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+
+            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+            # Truncate long terms for filenames
+            def safe_term(term: str) -> str:
+                if len(term) <= 80:
+                    return term
+                if "|" in term:
+                    return term.split("|")[0]
+                return term[:80]
+
+            raw_a = row.get("a_term", "")
+            raw_b = row.get("b_term", "")
+            raw_c = row.get("c_term", "")
+            a_fname = safe_term(raw_a)
+            b_fname = safe_term(raw_b)
+            c_fname = safe_term(raw_c)
+
+            if config.is_skim_with_gpt:
+                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
+            else:
+                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
+            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            if result_dict:
-                for ratio_type in ["ab", "bc", "ac"]:
-                    ratio_col = f"{ratio_type}_relevance_ratio"
-                    fraction_col = f"{ratio_type}_relevance_fraction"
-                    if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                        ratio = row[ratio_col]
-                        fraction = row[fraction_col]
-                        result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
-
-                result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
-
-                # Truncate long terms for filenames
-                def safe_term(term: str) -> str:
-                    if len(term) <= 80:
-                        return term
-                    if "|" in term:
-                        return term.split("|")[0]
-                    return term[:80]
-
-                raw_a = row.get("a_term", "")
-                raw_b = row.get("b_term", "")
-                raw_c = row.get("c_term", "")
-                a_fname = safe_term(raw_a)
-                b_fname = safe_term(raw_b)
-                c_fname = safe_term(raw_c)
-
-                if config.is_skim_with_gpt:
-                    output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-                else:
-                    output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
-                logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
-                logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-                write_to_json([result_dict], output_json, output_base_dir, config)
+            write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 def estimate_max_batched_tokens(seq_len: int = 4000,
@@ -401,10 +375,14 @@ def main():
 
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
-    ab_hypotheses = RaggedTensor(ab_hypotheses)
-
-    all_pmids = ab_pmids.flatten()
-    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
+    if getattr(config, "is_dch", False):
+        # For DCH we don't expand hypotheses per-abstract; we build a single combined prompt later
+        all_pmids = ab_pmids.flatten()
+        all_hypotheses = None
+    else:
+        ab_hypotheses = RaggedTensor(ab_hypotheses)
+        all_pmids = ab_pmids.flatten()
+        all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
     if config.is_skim_with_gpt:
         # Process BC and AC terms row by row
@@ -554,9 +532,9 @@ def main():
 
     if getattr(config, "is_dch", False):
         # Build a single prompt that compares the two hypotheses
-        consolidated_abstracts = "".join(abstracts.data)
+        consolidated_abstracts = "".join(all_pmids.map(lambda pmid: abstract_map.get(str(pmid), "")).data)
         a_term = config.data.iloc[0]['a_term'].split("&")[0]
-        hyp1, hyp2 = ab_hypotheses.data[0]
+        hyp1, hyp2 = ab_hypotheses[0]  # list with two strings
         prompt_text = prompts_module.km_with_gpt_direct_comp(
             hypothesis_1=hyp1,
             hypothesis_2=hyp2,
@@ -576,13 +554,12 @@ def main():
     ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
 
     if getattr(config, "is_dch", False):
-        # Assign the same mask back to both rows
-        dch_mask = ab_outputs.flatten().data
-        out_df.loc[:, 'ab_mask'] = [dch_mask for _ in range(len(out_df))]
+        # For DCH, do not use per-abstract masks; set empty list masks to avoid numeric aggregation errors
+        out_df.loc[:, 'ab_mask'] = [[] for _ in range(len(out_df))]
         out_df.loc[:, 'ab_pmid_intersection'] = [
             config.data.iloc[i]['ab_pmid_intersection'] for i in range(len(out_df))
         ]
-        out_df.loc[:, 'ab_hypothesis'] = [f"DCH: {ab_hypotheses.data[0][0]} || {ab_hypotheses.data[0][1]}"] * len(out_df)
+        out_df.loc[:, 'ab_hypothesis'] = [f"DCH: {ab_hypotheses[0][0]} || {ab_hypotheses[0][1]}"] * len(out_df)
     else:
         postProcess(
             config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
