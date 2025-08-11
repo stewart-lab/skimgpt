@@ -193,7 +193,47 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
-def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
+def _process_dch_result(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int, dch_prompt: str, dch_answer: str, output_base_dir: str):
+    """Processes a DCH result by creating a single consolidated JSON file."""
+    logger = config.logger
+    logger.info("Processing DCH result as a single JSON file.")
+
+    # Extract terms for filename and dict from the two rows
+    a_term = out_df.iloc[0].get("a_term", "")
+    b_term1 = out_df.iloc[0].get("b_term", "")
+    b_term2 = out_df.iloc[1].get("b_term", "")
+
+    result_dict = {
+        "A_B_Relationship": {
+            "a_term": a_term,
+            "b_term": f"{b_term1} vs {b_term2}",
+            "Relationship": f"Direct comparison of hypotheses for '{a_term}' between '{b_term1}' and '{b_term2}'",
+            "Result": [dch_answer],
+            "Prompt": dch_prompt,
+            "URLS": {"AB": []}  # Not applicable for DCH
+        },
+        "num_abstracts_fetched": num_abstracts_fetched
+    }
+
+    # Truncate long terms for filenames
+    def safe_term(term: str) -> str:
+        if len(term) <= 80:
+            return term
+        if "|" in term:
+            return term.split("|")[0]
+        return term[:80]
+
+    a_fname = safe_term(a_term)
+    b1_fname = safe_term(b_term1)
+    b2_fname = safe_term(b_term2)
+
+    output_json = f"{a_fname}_{b1_fname}_vs_{b2_fname}_km_with_gpt.json"
+    
+    logger.info(f"Writing DCH result to {output_json}")
+    write_to_json([result_dict], output_json, output_base_dir, config)
+
+
+def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int, dch_prompt: str = None, dch_answer: str = None) -> None:
     logger = config.logger
     """Process results and write to JSON files."""
     total_rows = len(out_df)
@@ -212,43 +252,49 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
-    for index, row in out_df.iterrows():
-        result_dict = process_single_row(row, config)
-        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-        if result_dict:
-            for ratio_type in ["ab", "bc", "ac"]:
-                ratio_col = f"{ratio_type}_relevance_ratio"
-                fraction_col = f"{ratio_type}_relevance_fraction"
-                if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                    ratio = row[ratio_col]
-                    fraction = row[fraction_col]
-                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+    if getattr(config, "is_dch", False):
+        if dch_prompt is None or dch_answer is None:
+            logger.error("DCH prompt or answer not provided to process_results.")
+            return
+        _process_dch_result(out_df, config, num_abstracts_fetched, dch_prompt, dch_answer, output_base_dir)
 
-            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
-
-            # Truncate long terms for filenames
-            def safe_term(term: str) -> str:
-                if len(term) <= 80:
-                    return term
-                if "|" in term:
-                    return term.split("|")[0]
-                return term[:80]
-
-            raw_a = row.get("a_term", "")
-            raw_b = row.get("b_term", "")
-            raw_c = row.get("c_term", "")
-            a_fname = safe_term(raw_a)
-            b_fname = safe_term(raw_b)
-            c_fname = safe_term(raw_c)
-
-            if config.is_skim_with_gpt:
-                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-            else:
-                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
-            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+    else:
+        # Truncate long terms for filenames
+        def safe_term(term: str) -> str:
+            if len(term) <= 80:
+                return term
+            if "|" in term:
+                return term.split("|")[0]
+            return term[:80]
+        for index, row in out_df.iterrows():
+            result_dict = process_single_row(row, config)
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, output_base_dir, config)
+            if result_dict:
+                for ratio_type in ["ab", "bc", "ac"]:
+                    ratio_col = f"{ratio_type}_relevance_ratio"
+                    fraction_col = f"{ratio_type}_relevance_fraction"
+                    if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                        ratio = row[ratio_col]
+                        fraction = row[fraction_col]
+                        result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+
+                result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+                raw_a = row.get("a_term", "")
+                raw_b = row.get("b_term", "")
+                raw_c = row.get("c_term", "")
+                a_fname = safe_term(raw_a)
+                b_fname = safe_term(raw_b)
+                c_fname = safe_term(raw_c)
+
+                if config.is_skim_with_gpt:
+                    output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
+                else:
+                    output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
+                logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+                logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+                write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 def estimate_max_batched_tokens(seq_len: int = 4000,
@@ -530,6 +576,9 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
+    dch_prompt = None
+    dch_answer = None
+
     if getattr(config, "is_dch", False):
         # Build a single prompt that compares the two hypotheses
         consolidated_abstracts = "".join(all_pmids.map(lambda pmid: abstract_map.get(str(pmid), "")).data)
@@ -544,6 +593,8 @@ def main():
         )
         prompts = RaggedTensor([prompt_text])
         answers = gen(prompts, model, sampling_config)
+        dch_prompt = prompt_text
+        dch_answer = answers.data[0] if answers.data else "Error: No answer from LLM."
     else:
         prompts = getPrompts(abstracts, all_hypotheses)
         answers = gen(prompts, model, sampling_config)
@@ -615,7 +666,7 @@ def main():
             config.set_iteration(iteration)
             
             # Process results for this iteration (using same filtered data)
-            process_results(filtered_df, config, num_abstracts_fetched)
+            process_results(filtered_df, config, num_abstracts_fetched, dch_prompt=dch_prompt, dch_answer=dch_answer)
             
             iteration_end_time = time.time()
             iteration_elapsed_time = iteration_end_time - iteration_start_time
@@ -627,7 +678,7 @@ def main():
         logger.info("No iterations requested, processing results once")
         # Reset current_iteration to 0 to ensure results go to the base directory
         config.current_iteration = 0
-        process_results(out_df, config, num_abstracts_fetched)
+        process_results(out_df, config, num_abstracts_fetched, dch_prompt=dch_prompt, dch_answer=dch_answer)
 
     end_time = time.time()
     elapsed_time = end_time - start_time
