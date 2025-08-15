@@ -162,6 +162,7 @@ class Config:
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
+        self.citation_lambda = self.global_settings.get("CITATION_LAMBDA", 0.1)  # Default 0.1
         
         self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
