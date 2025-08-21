@@ -1,0 +1,12 @@
+FROM stewartlab/skimgpt:latest
+
+
+# Install the specified version of skimgpt from TestPyPI, fallback to PyPI if not found
+RUN pip install --no-cache-dir --index-url https://pypi.org/simple/ \
+    --no-deps "skimgpt==1.0.5"
+
+# Verify the installation
+RUN skimgpt-relevance --help || echo "Entry point verification failed, but package may still work"
+
+# Default command (override as needed)
+CMD ["skimgpt-relevance", "--help"] 

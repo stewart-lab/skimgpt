@@ -101,7 +101,7 @@ def organize_output(directory):
                     shutil.move(src_path, dest_path)
     
     # Define patterns for result JSON files
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json"]
+    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
 
     for root, dirs, files in os.walk(directory):
         # Skip traversal into results or debug to avoid duplicate moves
