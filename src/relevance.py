@@ -570,7 +570,14 @@ def main():
 
     if getattr(config, "is_dch", False):
         # DCH path: Apply POST_N filtering first, then generate the prompt.
+        # Reshape abstracts to match the two DCH rows and populate the dataframe
+        try:
+            abstracts.reshape(ab_pmids.shape)
+        except Exception:
+            pass
         out_df['ab_pmid_intersection'] = abstracts.data
+        # Apply the same filtering routine (POST_N, top_n rules) as other job types
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
         def normalize_abstracts(val) -> str:
             if isinstance(val, list):
