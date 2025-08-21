@@ -193,12 +193,6 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
-def _process_dch_result(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int, dch_prompt: str, dch_answer: str, output_base_dir: str):
-    """Deprecated: DCH special-casing removed in favor of unified flow."""
-    logger = config.logger
-    logger.warning("_process_dch_result is deprecated and no longer used.")
-
-
 def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
     logger = config.logger
     """Process results and write to JSON files."""
