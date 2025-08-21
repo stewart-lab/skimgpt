@@ -194,46 +194,12 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
 
 
 def _process_dch_result(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int, dch_prompt: str, dch_answer: str, output_base_dir: str):
-    """Processes a DCH result by creating a single consolidated JSON file."""
+    """Deprecated: DCH special-casing removed in favor of unified flow."""
     logger = config.logger
-    logger.info("Processing DCH result as a single JSON file.")
-
-    # Extract terms for filename and dict from the two rows
-    a_term = out_df.iloc[0].get("a_term", "")
-    b_term1 = out_df.iloc[0].get("b_term", "")
-    b_term2 = out_df.iloc[1].get("b_term", "")
-
-    result_dict = {
-        "A_B_Relationship": {
-            "a_term": a_term,
-            "b_term": f"{b_term1} vs {b_term2}",
-            "Relationship": f"Direct comparison of hypotheses for '{a_term}' between '{b_term1}' and '{b_term2}'",
-            "Result": [dch_answer],
-            "Prompt": dch_prompt,
-            "URLS": {"AB": []}  # Not applicable for DCH
-        },
-        "num_abstracts_fetched": num_abstracts_fetched
-    }
-
-    # Truncate long terms for filenames
-    def safe_term(term: str) -> str:
-        if len(term) <= 80:
-            return term
-        if "|" in term:
-            return term.split("|")[0]
-        return term[:80]
-
-    a_fname = safe_term(a_term)
-    b1_fname = safe_term(b_term1)
-    b2_fname = safe_term(b_term2)
-
-    output_json = f"{a_fname}_{b1_fname}_vs_{b2_fname}_km_with_gpt.json"
-    
-    logger.info(f"Writing DCH result to {output_json}")
-    write_to_json([result_dict], output_json, output_base_dir, config)
+    logger.warning("_process_dch_result is deprecated and no longer used.")
 
 
-def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int, dch_prompt: str = None, dch_answer: str = None) -> None:
+def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
     logger = config.logger
     """Process results and write to JSON files."""
     total_rows = len(out_df)
@@ -253,48 +219,76 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if getattr(config, "is_dch", False):
-        if dch_prompt is None or dch_answer is None:
-            logger.error("DCH prompt or answer not provided to process_results.")
+        if len(out_df) != 2:
+            logger.error("DCH mode requires exactly two rows.")
             return
-        _process_dch_result(out_df, config, num_abstracts_fetched, dch_prompt, dch_answer, output_base_dir)
 
-    else:
-        # Truncate long terms for filenames
-        def safe_term(term: str) -> str:
-            if len(term) <= 80:
-                return term
-            if "|" in term:
-                return term.split("|")[0]
-            return term[:80]
-        for index, row in out_df.iterrows():
-            result_dict = process_single_row(row, config)
-            logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            if result_dict:
-                for ratio_type in ["ab", "bc", "ac"]:
-                    ratio_col = f"{ratio_type}_relevance_ratio"
-                    fraction_col = f"{ratio_type}_relevance_fraction"
-                    if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                        ratio = row[ratio_col]
-                        fraction = row[fraction_col]
-                        result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+        a_term = out_df.iloc[0].get("a_term", "")
+        b_term1 = out_df.iloc[0].get("b_term", "")
+        b_term2 = out_df.iloc[1].get("b_term", "")
 
-                result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+        def normalize_abstracts(val) -> str:
+            if isinstance(val, list):
+                return "".join(val)
+            return str(val)
 
-                raw_a = row.get("a_term", "")
-                raw_b = row.get("b_term", "")
-                raw_c = row.get("c_term", "")
+        ab_text_1 = normalize_abstracts(out_df.iloc[0].get("ab_pmid_intersection", ""))
+        ab_text_2 = normalize_abstracts(out_df.iloc[1].get("ab_pmid_intersection", ""))
+        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
+
+        dch_row = {
+            "a_term": a_term,
+            "b_term": [b_term1, b_term2],
+            "c_term": "",
+            "ab_pmid_intersection": consolidated_abstracts,
+        }
+        out_df = pd.DataFrame([dch_row])
+
+    # Truncate long terms for filenames
+    def safe_term(term: str) -> str:
+        if len(term) <= 80:
+            term = term.split("|")[0] if "|" in term else term
+        else:
+            term = term.split("|")[0] if "|" in term else term[:80]
+        return term.replace("/", "_")
+
+    for index, row in out_df.iterrows():
+        result_dict = process_single_row(row, config)
+        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+        if result_dict:
+            for ratio_type in ["ab", "bc", "ac"]:
+                ratio_col = f"{ratio_type}_relevance_ratio"
+                fraction_col = f"{ratio_type}_relevance_fraction"
+                if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                    ratio = row[ratio_col]
+                    fraction = row[fraction_col]
+                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+
+            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+            raw_a = row.get("a_term", "")
+            raw_b = row.get("b_term", "")
+            raw_c = row.get("c_term", "")
+
+            if getattr(config, "is_dch", False) and isinstance(raw_b, list) and len(raw_b) == 2:
+                a_fname = safe_term(raw_a)
+                b1_fname = safe_term(raw_b[0])
+                b2_fname = safe_term(raw_b[1])
+                output_json = f"{a_fname}___{b1_fname}____{b2_fname}___km_with_gpt_direct_comp.json"
+            elif config.is_skim_with_gpt:
                 a_fname = safe_term(raw_a)
                 b_fname = safe_term(raw_b)
                 c_fname = safe_term(raw_c)
+                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
+            else:
+                a_fname = safe_term(raw_a)
+                b_fname = safe_term(raw_b)
+                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
 
-                if config.is_skim_with_gpt:
-                    output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-                else:
-                    output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
-                logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
-                logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-                write_to_json([result_dict], output_json, output_base_dir, config)
+            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+            logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+            write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 def estimate_max_batched_tokens(seq_len: int = 4000,
@@ -400,8 +394,8 @@ def main():
         b2 = config.data.iloc[1]['b_term']
         pmids1 = eval(config.data.iloc[0]['ab_pmid_intersection'])
         pmids2 = eval(config.data.iloc[1]['ab_pmid_intersection'])
-        combined_pmids = pmids1 + pmids2
-        ab_pmids.append(combined_pmids)
+        ab_pmids.append(pmids1)
+        ab_pmids.append(pmids2)
         hyp1 = getHypothesis(config=config, a_term=a_term, b_term=b1)
         hyp2 = getHypothesis(config=config, a_term=a_term, b_term=b2)
         ab_hypotheses.append([hyp1, hyp2])
@@ -472,6 +466,10 @@ def main():
     num_abstracts_fetched = len(abstract_map)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
     
+    # For DCH, reshape abstracts to match the two-row structure of ab_pmids
+    if getattr(config, "is_dch", False):
+        abstracts.reshape(ab_pmids.shape)
+
     # Provide a safe default; updated later if GPU memory is detected
     dynamic_max_tokens = 4000
 
@@ -576,14 +574,21 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    dch_prompt = None
-    dch_answer = None
-
     if getattr(config, "is_dch", False):
-        # Build a single prompt that compares the two hypotheses
-        consolidated_abstracts = "".join(all_pmids.map(lambda pmid: abstract_map.get(str(pmid), "")).data)
+        # DCH path: Apply POST_N filtering first, then generate the prompt.
+        out_df['ab_pmid_intersection'] = abstracts.data
+
+        def normalize_abstracts(val) -> str:
+            if isinstance(val, list):
+                return "".join(val)
+            return str(val)
+
+        ab_text_1 = normalize_abstracts(out_df.iloc[0].get("ab_pmid_intersection", ""))
+        ab_text_2 = normalize_abstracts(out_df.iloc[1].get("ab_pmid_intersection", ""))
+        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
+
         a_term = config.data.iloc[0]['a_term'].split("&")[0]
-        hyp1, hyp2 = ab_hypotheses[0]  # list with two strings
+        hyp1, hyp2 = ab_hypotheses[0]
         prompt_text = prompts_module.km_with_gpt_direct_comp(
             hypothesis_1=hyp1,
             hypothesis_2=hyp2,
@@ -593,41 +598,31 @@ def main():
         )
         prompts = RaggedTensor([prompt_text])
         answers = gen(prompts, model, sampling_config)
-        dch_prompt = prompt_text
-        dch_answer = answers.data[0] if answers.data else "Error: No answer from LLM."
     else:
+        # Standard path: Generate relevance scores, then filter in postProcess.
         prompts = getPrompts(abstracts, all_hypotheses)
         answers = gen(prompts, model, sampling_config)
 
-    # Post-processing
-    defaults = 3 * [RaggedTensor([])]
-    ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
-    ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
-
-    if getattr(config, "is_dch", False):
-        # For DCH, do not use per-abstract masks; set empty list masks to avoid numeric aggregation errors
-        out_df.loc[:, 'ab_mask'] = [[] for _ in range(len(out_df))]
-        out_df.loc[:, 'ab_pmid_intersection'] = [
-            config.data.iloc[i]['ab_pmid_intersection'] for i in range(len(out_df))
-        ]
-        out_df.loc[:, 'ab_hypothesis'] = [f"DCH: {ab_hypotheses[0][0]} || {ab_hypotheses[0][1]}"] * len(out_df)
-    else:
+        # Post-processing
+        defaults = 3 * [RaggedTensor([])]
+        ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
+        ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
+        
         postProcess(
             config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
         )
 
-    if config.is_skim_with_gpt:
-        postProcess(
-            config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
-        )
-        if config.has_ac:
+        if config.is_skim_with_gpt:
             postProcess(
-                config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape 
+                config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
             )
+            if config.has_ac:
+                postProcess(
+                    config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
+                )
+        
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
-    # Final processing and output
-    out_df = process_dataframe(out_df, config, pubmed_fetcher)
-    
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
     out_df.to_csv(initial_output_file, sep="\t")
@@ -666,7 +661,7 @@ def main():
             config.set_iteration(iteration)
             
             # Process results for this iteration (using same filtered data)
-            process_results(filtered_df, config, num_abstracts_fetched, dch_prompt=dch_prompt, dch_answer=dch_answer)
+            process_results(filtered_df, config, num_abstracts_fetched)
             
             iteration_end_time = time.time()
             iteration_elapsed_time = iteration_end_time - iteration_start_time
@@ -678,7 +673,7 @@ def main():
         logger.info("No iterations requested, processing results once")
         # Reset current_iteration to 0 to ensure results go to the base directory
         config.current_iteration = 0
-        process_results(out_df, config, num_abstracts_fetched, dch_prompt=dch_prompt, dch_answer=dch_answer)
+        process_results(out_df, config, num_abstracts_fetched)
 
     end_time = time.time()
     elapsed_time = end_time - start_time

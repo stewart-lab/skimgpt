@@ -98,32 +98,42 @@ def process_single_row(row, config: Config):
             }
 
     elif config.job_type == "km_with_gpt":
-        # Handle km_with_gpt job type
         a_term = row.get("a_term")
         b_term = row.get("b_term")
 
-        if not all([a_term, b_term]):
-            logger.error(
-                f"Missing 'a_term' or 'b_term' in row {row.get('id', 'Unknown')}."
+        if getattr(config, "is_dch", False) and isinstance(b_term, list):
+            # DCH case where b_term is a list of two
+            relationship_type = "A_B1_B2"
+            result, prompt, urls = perform_analysis(
+                job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
             )
-            return None
+            if result or prompt:
+                processed_results["A_B_Relationship"] = {
+                    "a_term": a_term,
+                    "b_term": f"{b_term[0]} vs {b_term[1]}",
+                    "Relationship": f"Direct comparison of hypotheses for '{a_term}' between '{b_term[0]}' and '{b_term[1]}'",
+                    "Result": result,
+                    "Prompt": prompt,
+                    "URLS": {"AB": urls.get("AB", [])},
+                }
+        else:
+            # Standard km_with_gpt case
+            if not all([a_term, b_term]):
+                logger.error(f"Missing 'a_term' or 'b_term' in row.")
+                return None
 
-        # Process A-B relationship
-        ab_result, ab_prompt, ab_urls = perform_analysis(
-            job_type=config.job_type, row=row, config=config, relationship_type="A_B"
-        )
-        if ab_result or ab_prompt:
-            processed_results["A_B_Relationship"] = {
-                "a_term": a_term,
-                "b_term": b_term,
-                "Relationship": f"{a_term} - {b_term}",
-                "Result": ab_result,
-                "Prompt": ab_prompt,
-                "URLS": {
-                    "AB": ab_urls.get("AB", []),
-                },
-            }
-    # Removed legacy km_with_gpt_direct_comp handling
+            ab_result, ab_prompt, ab_urls = perform_analysis(
+                job_type=config.job_type, row=row, config=config, relationship_type="A_B"
+            )
+            if ab_result or ab_prompt:
+                processed_results["A_B_Relationship"] = {
+                    "a_term": a_term,
+                    "b_term": b_term,
+                    "Relationship": f"{a_term} - {b_term}",
+                    "Result": ab_result,
+                    "Prompt": ab_prompt,
+                    "URLS": {"AB": ab_urls.get("AB", [])},
+                }
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
     logger.debug(f"Processed results: {processed_results}")
@@ -175,7 +185,13 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         ab_abstracts = row.get("ab_pmid_intersection", "")
         bc_abstracts = ""  # Not used
         ac_abstracts = ""  # Not used
-    # Removed legacy A_B1_B2 relationship type
+    elif relationship_type == "A_B1_B2":
+        a_term = row.get("a_term", "")
+        b_term = row.get("b_term", [])  # Expect a list
+        c_term = ""
+        ab_abstracts = row.get("ab_pmid_intersection", "")
+        bc_abstracts = ""
+        ac_abstracts = ""
     else:
         logger.error(f"Unknown relationship type: {relationship_type}")
         return ["Score: N/A"], "", {}
@@ -195,6 +211,10 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         urls = {
             "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
         }
+    elif relationship_type == "A_B1_B2":
+        urls = {
+            "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
+        }
     #
 
     # Conditions for early exit based on abstracts availability
@@ -210,7 +230,13 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
                 f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
             )
             return ["Score: N/A"], "", urls
-    elif relationship_type == "A_B" or relationship_type == "A_B1_B2":
+    elif relationship_type == "A_B":
+        if not ab_abstracts:
+            logger.error(
+                f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
+            )
+            return ["Score: N/A"], "", urls
+    elif relationship_type == "A_B1_B2":
         if not ab_abstracts:
             logger.error(
                 f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
@@ -224,6 +250,8 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         consolidated_abstracts = ac_abstracts
     elif relationship_type == "A_B":
         consolidated_abstracts = ab_abstracts
+    elif relationship_type == "A_B1_B2":
+        consolidated_abstracts = ab_abstracts
 
     try:
         logger.debug(f"Consolidated abstracts: {consolidated_abstracts}")
@@ -232,8 +260,10 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         logger.debug(f"A term: {a_term}")
         logger.debug(f"B term: {b_term}")
         if relationship_type == "A_B1_B2":
-            logger.debug(f"B term1: {b_term1}")
-            logger.debug(f"B term2: {b_term2}")
+            try:
+                logger.debug(f"B terms for DCH: {b_term[0]} vs {b_term[1]}")
+            except Exception:
+                pass
         logger.debug(f"C term: {c_term}")
         b_term = row.get("b_term", "")
         result, prompt_text = analyze_abstract_with_frontier_LLM(
@@ -317,11 +347,25 @@ def generate_prompt(
     logger = config.logger
     job_type_lower = job_type.lower()   
   
-    # Removed legacy job_type == km_with_gpt_direct_comp parsing
-    # Determine the correct hypothesis template from config
     if job_type == "km_with_gpt":
+        if relationship_type == "A_B1_B2":
+            if not (isinstance(b_term, list) and len(b_term) == 2):
+                logger.error("DCH requires b_term to be a list of two strings.")
+                return ""
+            h1 = config.km_hypothesis.format(a_term=a_term, b_term=b_term[0])
+            h2 = config.km_hypothesis.format(a_term=a_term, b_term=b_term[1])
+            prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
+            if not prompt_function:
+                logger.error("Prompt function for DCH not found.")
+                return ""
+            return prompt_function(
+                hypothesis_1=h1,
+                hypothesis_2=h2,
+                a_term=a_term,
+                hypothesis_template="",
+                consolidated_abstracts=content,
+            )
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
-    # Removed legacy hypothesis template for direct_comp
     elif job_type == "skim_with_gpt":
         if relationship_type == "A_B_C":
             hypothesis_template = config.skim_hypotheses["ABC"].format(
@@ -378,7 +422,9 @@ def generate_prompt(
             hypothesis_template=hypothesis_template,
             consolidated_abstracts=content,
         )
-    # Legacy A_B1_B2 removed
+    elif relationship_type == "A_B1_B2":
+        # Already handled earlier for km_with_gpt
+        return ""
     else:
         raise ValueError("Invalid relationship type specified.")
 
