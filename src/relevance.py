@@ -589,10 +589,16 @@ def main():
         consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
 
         a_term = config.data.iloc[0]['a_term'].split("&")[0]
-        hyp1, hyp2 = ab_hypotheses[0]
+        # Build hypotheses for prompting using only the first part of each b-term (before '|')
+        def _strip_pipe(x: str) -> str:
+            return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
+        b1_full = config.data.iloc[0]['b_term']
+        b2_full = config.data.iloc[1]['b_term']
+        h1 = config.km_hypothesis.format(a_term=a_term, b_term=_strip_pipe(b1_full))
+        h2 = config.km_hypothesis.format(a_term=a_term, b_term=_strip_pipe(b2_full))
         prompt_text = prompts_module.km_with_gpt_direct_comp(
-            hypothesis_1=hyp1,
-            hypothesis_2=hyp2,
+            hypothesis_1=h1,
+            hypothesis_2=h2,
             a_term=a_term,
             hypothesis_template="",
             consolidated_abstracts=consolidated_abstracts,

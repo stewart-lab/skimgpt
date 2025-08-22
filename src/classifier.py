@@ -108,10 +108,16 @@ def process_single_row(row, config: Config):
                 job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
             )
             if result or prompt:
-                processed_results["A_B_Relationship"] = {
+                # For display in final JSON, strip synonyms from b-terms
+                def _strip_pipe(x: str) -> str:
+                    return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
+                b1_disp = _strip_pipe(b_term[0])
+                b2_disp = _strip_pipe(b_term[1])
+                processed_results["A_B1_B2_Relationship"] = {
                     "a_term": a_term,
-                    "b_term": f"{b_term[0]} vs {b_term[1]}",
-                    "Relationship": f"Direct comparison of hypotheses for '{a_term}' between '{b_term[0]}' and '{b_term[1]}'",
+                    "b_term1": b1_disp,
+                    "b_term2": b2_disp,
+                    "Relationship": f"{a_term} - {b1_disp} - {b2_disp}",
                     "Result": result,
                     "Prompt": prompt,
                     "URLS": {"AB": urls.get("AB", [])},
@@ -352,8 +358,15 @@ def generate_prompt(
             if not (isinstance(b_term, list) and len(b_term) == 2):
                 logger.error("DCH requires b_term to be a list of two strings.")
                 return ""
-            h1 = config.km_hypothesis.format(a_term=a_term, b_term=b_term[0])
-            h2 = config.km_hypothesis.format(a_term=a_term, b_term=b_term[1])
+            # Use only the first segment of each b_term (before '|') for prompting
+            def _strip_pipe(x: str) -> str:
+                return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
+            b1_disp = _strip_pipe(b_term[0])
+            b2_disp = _strip_pipe(b_term[1])
+            
+            # Build stripped hypotheses for the prompt
+            h1 = config.km_hypothesis.format(a_term=a_term, b_term=b1_disp)
+            h2 = config.km_hypothesis.format(a_term=a_term, b_term=b2_disp)
             prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
             if not prompt_function:
                 logger.error("Prompt function for DCH not found.")
