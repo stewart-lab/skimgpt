@@ -9,7 +9,7 @@ from itertools import chain
 import openai
 from src import prompt_library as prompts_module
 import torch
-from src.utils import Config, RaggedTensor
+from src.utils import Config, RaggedTensor, strip_pipe
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -55,10 +55,15 @@ def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
     logger = config.logger
-    if config.is_km_with_gpt or getattr(config, "is_dch", False):
+    # Canonicalize inputs for display/prompting
+    a_term_c = a_term
+    b_term_c = strip_pipe(b_term) if b_term is not None else None
+    c_term_c = strip_pipe(c_term) if c_term is not None else None
+
+    if config.is_km_with_gpt or config.is_dch:
         assert a_term and b_term and not c_term
         hypothesis_template = config.km_hypothesis
-        return hypothesis_template.format(a_term=a_term, b_term=b_term)
+        return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
     elif config.is_km_with_gpt_direct_comp:
         logger.debug(f"config.is_km_with_gpt_direct_comp is: {config.is_km_with_gpt_direct_comp}")
         assert a_term and b_term and not c_term
@@ -94,13 +99,13 @@ def getHypothesis(
 
         if a_term and b_term and not c_term:
             hypothesis_template = config.skim_hypotheses.get("AB")
-            return hypothesis_template.format(a_term=a_term, b_term=b_term)
+            return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
         elif b_term and c_term and not a_term:
             hypothesis_template = config.skim_hypotheses.get("BC")
-            return hypothesis_template.format(b_term=b_term, c_term=c_term)
+            return hypothesis_template.format(b_term=b_term_c, c_term=c_term_c)
         elif a_term and c_term and not b_term:
             hypothesis_template = config.skim_hypotheses.get("rel_AC")
-            return hypothesis_template.format(a_term=a_term, c_term=c_term)
+            return hypothesis_template.format(a_term=a_term_c, c_term=c_term_c)
 
     return "No valid hypothesis for the provided JOB_TYPE."
 
@@ -212,7 +217,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
-    if getattr(config, "is_dch", False):
+    if config.is_dch:
         if len(out_df) != 2:
             logger.error("DCH mode requires exactly two rows.")
             return
@@ -240,10 +245,9 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     # Truncate long terms for filenames
     def safe_term(term: str) -> str:
-        if len(term) <= 80:
-            term = term.split("|")[0] if "|" in term else term
-        else:
-            term = term.split("|")[0] if "|" in term else term[:80]
+        term = strip_pipe(term)
+        if isinstance(term, str) and len(term) > 80:
+            term = term[:80]
         return term.replace("/", "_")
 
     for index, row in out_df.iterrows():
@@ -265,7 +269,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             raw_b = row.get("b_term", "")
             raw_c = row.get("c_term", "")
 
-            if getattr(config, "is_dch", False) and isinstance(raw_b, list) and len(raw_b) == 2:
+            if config.is_dch and isinstance(raw_b, list) and len(raw_b) == 2:
                 a_fname = safe_term(raw_a)
                 b1_fname = safe_term(raw_b[0])
                 b2_fname = safe_term(raw_b[1])
@@ -378,7 +382,7 @@ def main():
     ab_pmids = []
     ab_hypotheses = []
 
-    if getattr(config, "is_dch", False):
+    if config.is_dch:
         # DCH expects exactly two rows (enforced upstream)
         if len(config.data) != 2:
             logger.error(f"DCH mode requires exactly two KM rows, found {len(config.data)}")
@@ -409,7 +413,7 @@ def main():
 
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
-    if getattr(config, "is_dch", False):
+    if config.is_dch:
         # For DCH we don't expand hypotheses per-abstract; we build a single combined prompt later
         all_pmids = ab_pmids.flatten()
         all_hypotheses = None
@@ -461,7 +465,7 @@ def main():
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
     
     # For DCH, reshape abstracts to match the two-row structure of ab_pmids
-    if getattr(config, "is_dch", False):
+    if config.is_dch:
         abstracts.reshape(ab_pmids.shape)
 
     # Provide a safe default; updated later if GPU memory is detected
@@ -590,12 +594,10 @@ def main():
 
         a_term = config.data.iloc[0]['a_term'].split("&")[0]
         # Build hypotheses for prompting using only the first part of each b-term (before '|')
-        def _strip_pipe(x: str) -> str:
-            return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
         b1_full = config.data.iloc[0]['b_term']
         b2_full = config.data.iloc[1]['b_term']
-        h1 = config.km_hypothesis.format(a_term=a_term, b_term=_strip_pipe(b1_full))
-        h2 = config.km_hypothesis.format(a_term=a_term, b_term=_strip_pipe(b2_full))
+        h1 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b1_full))
+        h2 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b2_full))
         prompt_text = prompts_module.km_with_gpt_direct_comp(
             hypothesis_1=h1,
             hypothesis_2=h2,

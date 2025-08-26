@@ -3,7 +3,7 @@ import time
 import json
 import re
 from typing import Any
-from src.utils import Config
+from src.utils import Config, strip_pipe
 from src import prompt_library as prompts_module 
 import os
 
@@ -101,23 +101,22 @@ def process_single_row(row, config: Config):
         a_term = row.get("a_term")
         b_term = row.get("b_term")
 
-        if getattr(config, "is_dch", False) and isinstance(b_term, list):
+        if config.is_dch and isinstance(b_term, list):
             # DCH case where b_term is a list of two
             relationship_type = "A_B1_B2"
             result, prompt, urls = perform_analysis(
                 job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
             )
             if result or prompt:
-                # For display in final JSON, strip synonyms from b-terms
-                def _strip_pipe(x: str) -> str:
-                    return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
-                b1_disp = _strip_pipe(b_term[0])
-                b2_disp = _strip_pipe(b_term[1])
+                # For display in final JSON, strip synonyms from terms
+                a_disp = strip_pipe(a_term)
+                b1_disp = strip_pipe(b_term[0])
+                b2_disp = strip_pipe(b_term[1])
                 processed_results["A_B1_B2_Relationship"] = {
-                    "a_term": a_term,
+                    "a_term": a_disp,
                     "b_term1": b1_disp,
                     "b_term2": b2_disp,
-                    "Relationship": f"{a_term} - {b1_disp} - {b2_disp}",
+                    "Relationship": f"{a_disp} - {b1_disp} - {b2_disp}",
                     "Result": result,
                     "Prompt": prompt,
                     "URLS": {"AB": urls.get("AB", [])},
@@ -134,8 +133,8 @@ def process_single_row(row, config: Config):
             if ab_result or ab_prompt:
                 processed_results["A_B_Relationship"] = {
                     "a_term": a_term,
-                    "b_term": b_term,
-                    "Relationship": f"{a_term} - {b_term}",
+                    "b_term": strip_pipe(b_term),
+                    "Relationship": f"{strip_pipe(a_term)} - {strip_pipe(b_term)}",
                     "Result": ab_result,
                     "Prompt": ab_prompt,
                     "URLS": {"AB": ab_urls.get("AB", [])},
@@ -359,10 +358,8 @@ def generate_prompt(
                 logger.error("DCH requires b_term to be a list of two strings.")
                 return ""
             # Use only the first segment of each b_term (before '|') for prompting
-            def _strip_pipe(x: str) -> str:
-                return x.split('|')[0].strip() if isinstance(x, str) and '|' in x else x
-            b1_disp = _strip_pipe(b_term[0])
-            b2_disp = _strip_pipe(b_term[1])
+            b1_disp = strip_pipe(b_term[0])
+            b2_disp = strip_pipe(b_term[1])
             
             # Build stripped hypotheses for the prompt
             h1 = config.km_hypothesis.format(a_term=a_term, b_term=b1_disp)

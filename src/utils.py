@@ -116,6 +116,14 @@ class RaggedTensor:
         return self.data[index]
 
 
+def strip_pipe(term: str) -> str:
+    """Return the canonical token before '|' for any job type.
+    """
+    if isinstance(term, str) and '|' in term:
+        return term.split('|')[0].strip()
+    return term
+
+
 class Config:
     def __init__(self, config_path: str):
         self.job_config_path = config_path
