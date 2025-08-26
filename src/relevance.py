@@ -226,13 +226,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         b_term1 = out_df.iloc[0].get("b_term", "")
         b_term2 = out_df.iloc[1].get("b_term", "")
 
-        def normalize_abstracts(val) -> str:
-            if isinstance(val, list):
-                return "".join(val)
-            return str(val)
-
-        ab_text_1 = normalize_abstracts(out_df.iloc[0].get("ab_pmid_intersection", ""))
-        ab_text_2 = normalize_abstracts(out_df.iloc[1].get("ab_pmid_intersection", ""))
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
+        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
+        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
         consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
 
         dch_row = {
@@ -583,13 +580,10 @@ def main():
         # Apply the same filtering routine (POST_N, top_n rules) as other job types
         out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
-        def normalize_abstracts(val) -> str:
-            if isinstance(val, list):
-                return "".join(val)
-            return str(val)
-
-        ab_text_1 = normalize_abstracts(out_df.iloc[0].get("ab_pmid_intersection", ""))
-        ab_text_2 = normalize_abstracts(out_df.iloc[1].get("ab_pmid_intersection", ""))
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
+        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
+        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
         consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
 
         a_term = config.data.iloc[0]['a_term'].split("&")[0]
