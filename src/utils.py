@@ -124,6 +124,19 @@ def strip_pipe(term: str) -> str:
     return term
 
 
+def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
+    """Canonicalize and truncate a term for safe filename usage across all job types.
+
+    - Uses strip_pipe to canonicalize synonyms (token before '|')
+    - Truncates to max_len characters
+    - Replaces '/' with '_'
+    """
+    canonical = strip_pipe(term)
+    if isinstance(canonical, str) and len(canonical) > max_len:
+        canonical = canonical[:max_len]
+    return canonical.replace("/", "_")
+
+
 class Config:
     def __init__(self, config_path: str):
         self.job_config_path = config_path

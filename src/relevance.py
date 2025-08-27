@@ -9,7 +9,7 @@ from itertools import chain
 import openai
 from src import prompt_library as prompts_module
 import torch
-from src.utils import Config, RaggedTensor, strip_pipe
+from src.utils import Config, RaggedTensor, strip_pipe, sanitize_term_for_filename
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -240,13 +240,6 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         }
         out_df = pd.DataFrame([dch_row])
 
-    # Truncate long terms for filenames
-    def safe_term(term: str) -> str:
-        term = strip_pipe(term)
-        if isinstance(term, str) and len(term) > 80:
-            term = term[:80]
-        return term.replace("/", "_")
-
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
         logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
@@ -267,18 +260,18 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             raw_c = row.get("c_term", "")
 
             if config.is_dch and isinstance(raw_b, list) and len(raw_b) == 2:
-                a_fname = safe_term(raw_a)
-                b1_fname = safe_term(raw_b[0])
-                b2_fname = safe_term(raw_b[1])
+                a_fname = sanitize_term_for_filename(raw_a)
+                b1_fname = sanitize_term_for_filename(raw_b[0])
+                b2_fname = sanitize_term_for_filename(raw_b[1])
                 output_json = f"{a_fname}___{b1_fname}____{b2_fname}___km_with_gpt_direct_comp.json"
             elif config.is_skim_with_gpt:
-                a_fname = safe_term(raw_a)
-                b_fname = safe_term(raw_b)
-                c_fname = safe_term(raw_c)
+                a_fname = sanitize_term_for_filename(raw_a)
+                b_fname = sanitize_term_for_filename(raw_b)
+                c_fname = sanitize_term_for_filename(raw_c)
                 output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
             else:
-                a_fname = safe_term(raw_a)
-                b_fname = safe_term(raw_b)
+                a_fname = sanitize_term_for_filename(raw_a)
+                b_fname = sanitize_term_for_filename(raw_b)
                 output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
 
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")

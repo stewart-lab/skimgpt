@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import time
 import ast
-from src.utils import Config
+from src.utils import Config, sanitize_term_for_filename
 
 def save_to_tsv(data, filename, output_directory, config: Config):
     """Save the data into a TSV (Tab Separated Values) file."""
@@ -98,21 +98,13 @@ def run_and_save_query(
 
     result_df = pd.DataFrame(result)
 
-    # Truncate long terms for filenames
-    def safe_term(term: str) -> str:
-        if len(term) <= 80:
-            return term
-        if "|" in term:
-            return term.split("|")[0]
-        return term[:80]
-
     if config.is_skim_with_gpt:
-        a0 = safe_term(job_config['a_terms'][0])
-        b0 = safe_term(job_config['b_terms'][0])
-        c0 = safe_term(job_config['c_terms'][0])
+        a0 = sanitize_term_for_filename(job_config['a_terms'][0])
+        b0 = sanitize_term_for_filename(job_config['b_terms'][0])
+        c0 = sanitize_term_for_filename(job_config['c_terms'][0])
         file_name = f"{a0}_{b0}_{c0}"
     else:
-        file_name = safe_term(job_config['a_terms'][0])
+        file_name = sanitize_term_for_filename(job_config['a_terms'][0])
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result_df, file_path, output_directory, config)
     return file_path
