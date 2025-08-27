@@ -430,12 +430,6 @@ class Config:
                 "ab": self.job_specific_settings["skim"]["ab_fet_threshold"],
                 "bc": self.job_specific_settings["skim"]["bc_fet_threshold"]
             }
-        elif self.is_dch:
-            # DCH uses km_with_gpt thresholds
-            return {
-                "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
-            }
-        # No legacy direct-comp thresholds
         else:
             return {
                 "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
