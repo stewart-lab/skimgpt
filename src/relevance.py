@@ -64,32 +64,6 @@ def getHypothesis(
         assert a_term and b_term and not c_term
         hypothesis_template = config.km_hypothesis
         return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
-    elif config.is_km_with_gpt_direct_comp:
-        logger.debug(f"config.is_km_with_gpt_direct_comp is: {config.is_km_with_gpt_direct_comp}")
-        assert a_term and b_term and not c_term
-        logger.debug(f"a_term: {a_term}, b_term: {b_term}")
-        logger.debug(f"b_term is a list: {isinstance(b_term, list)}")
-        if not isinstance(b_term, list):
-            # Remove brackets and split by comma
-            b_term_str = b_term.strip("[]")  # Remove brackets
-            b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespaceß
-            # Filter out any empty strings that might result from the split
-            b_term = [item for item in b_term_list if item]
-            assert len(b_term) == 2
-        logger.debug(f"b_term1: {b_term[0]}, b_term2: {b_term[1]}")
-        logger.debug(f"b_term length: {len(b_term)}")
-        logger.debug(f"b_term type: {type(b_term)}")
-        hypothesis_template = config.km_direct_comp_hypothesis
-        logger.debug(f"hypothesis_template: {hypothesis_template}")
-        
-        # Check if b_term is a list and extract b_term1 and b_term2
-        if isinstance(b_term, list) and len(b_term) == 2:
-            b_term1, b_term2 = b_term[0], b_term[1]
-            return hypothesis_template.format(a_term=a_term, b_term1=b_term1, b_term2=b_term2)
-        else:
-            #   Handle the case where b_term is not a list or not of length 2 (optional error handling)
-            logger.error("Error: b_term is not a list of exactly two terms for km_with_gpt_direct_comp")
-            return "Error in hypothesis generation" # Or raise an exception
     elif config.is_skim_with_gpt:
         assert (
             (a_term and b_term and not c_term)

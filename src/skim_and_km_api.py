@@ -112,27 +112,12 @@ def run_and_save_query(
 
 def filter_term_columns(df, config: Config):
     logger = config.logger
-    if config.is_km_with_gpt_direct_comp:
-        for column in ["a_term", "b_term"]:
-            if column == 'a_term':
-                # Use .loc to explicitly set the values
-                df.loc[:, column] = df[column].apply(
-                    lambda x: x.split("|")[0] if "|" in str(x) else x
-                )
-            elif column == 'b_term':
-                # keeping only first 2 b terms for km_with_gpt_direct_comp, return a list of 2 terms
-                logger.debug(f"filter_term_columns: df[column] = {df[column]}")               
-                df.loc[:, column] = df[column].apply(
-                    lambda x: (x.split("|")[0:2]) if "|" in str(x) else [x, ""]
-                )
-                logger.debug(f"filter_term_columns AFTER: df[column] = {df[column]}")
-    else:
-        for column in ["a_term", "b_term", "c_term"]:
-            if column in df.columns:
-                # Use .loc to explicitly set the values
-                df.loc[:, column] = df[column].apply(
-                    lambda x: x.split("|")[0] if "|" in str(x) else x
-                )
+    for column in ["a_term", "b_term", "c_term"]:
+        if column in df.columns:
+            # Use .loc to explicitly set the values
+            df.loc[:, column] = df[column].apply(
+                lambda x: x.split("|")[0] if "|" in str(x) else x
+            )
     return df
 
 
@@ -230,11 +215,6 @@ def save_filtered_results(
 
     # Save the filtered results using the original full-term DataFrame
     filtered_df = skim_df.loc[valid_rows.index].copy()
-    # For direct-comp, split the pipe-delimited b_term into two terms; leave a_term/c_term intact
-    if config.is_km_with_gpt_direct_comp and 'b_term' in filtered_df.columns:
-        filtered_df.loc[:, 'b_term'] = filtered_df['b_term'].apply(
-            lambda x: x.split("|")[0:2] if isinstance(x, str) and '|' in x else [x, ""]
-        )
     filtered_df.to_csv(filtered_file_path, sep="\t", index=False)
     config.logger.debug(f"Filtered {job_type} query results saved to {filtered_file_path}")
 
@@ -335,14 +315,10 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
                 pruned_rows = pruned_rows.sort_values(by=sort_col, ascending=False)
             pruned_rows = pruned_rows.drop_duplicates(subset=["b_term"], keep="first")
 
-        # Validation checks
+        # Validation checks (warn-only; config enforces two B-terms)
         missing = [t for t in desired_b_terms if t not in set(pruned_rows.get("b_term", []))]
         if missing:
-            logger.warning(f"DCH validation: missing rows for B terms: {missing}")
-        # Enforce exactly two rows
-        if len(pruned_rows) != 2:
-            logger.error(f"DCH validation failed: expected exactly 2 rows, found {len(pruned_rows)}")
-            return None
+            logger.warning(f"DCH: missing KM rows for B terms: {missing}")
         # Order rows to match the order of desired_b_terms
         pruned_rows["_b_cat"] = pd.Categorical(pruned_rows["b_term"], categories=desired_b_terms, ordered=True)
         pruned_rows = pruned_rows.sort_values("_b_cat").drop(columns=["_b_cat"])
