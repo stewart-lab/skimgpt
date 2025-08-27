@@ -212,15 +212,10 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         urls = {
             "AC": extract_pmids_and_generate_urls(ac_abstracts, config) if ac_abstracts else [],
         }
-    elif relationship_type == "A_B":
+    elif relationship_type == "A_B" or relationship_type == "A_B1_B2":
         urls = {
             "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
         }
-    elif relationship_type == "A_B1_B2":
-        urls = {
-            "AB": extract_pmids_and_generate_urls(ab_abstracts, config) if ab_abstracts else [],
-        }
-    #
 
     # Conditions for early exit based on abstracts availability
     if relationship_type == "A_B_C":
