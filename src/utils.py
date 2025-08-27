@@ -183,9 +183,6 @@ class Config:
         try:
             if self.job_type == "km_with_gpt":
                 self.is_dch = bool(self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False))
-            elif self.is_km_with_gpt_direct_comp:
-                # Legacy job type remains non-DCH flag path
-                self.is_dch = False
         except Exception:
             self.is_dch = False
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
