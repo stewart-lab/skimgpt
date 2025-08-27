@@ -178,8 +178,6 @@ class Config:
         self.test_leakage_type = self.filter_config["TEST_LEAKAGE_TYPE"]
         self.is_km_with_gpt = self.job_type == "km_with_gpt"
         self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
-        # Remove legacy direct-comp job type
-        self.is_km_with_gpt_direct_comp = False
         # New DCH flag under km_with_gpt job-specific settings
         self.is_dch = False
         try:
