@@ -562,7 +562,7 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    if getattr(config, "is_dch", False):
+    if config.is_dch:
         # DCH path: Apply POST_N filtering first, then generate the prompt.
         # Reshape abstracts to match the two DCH rows and populate the dataframe
         try:
