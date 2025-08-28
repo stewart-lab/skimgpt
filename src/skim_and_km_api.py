@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import time
 import ast
-from src.utils import Config, sanitize_term_for_filename
+from src.utils import Config, sanitize_term_for_filename, strip_pipe
 
 def save_to_tsv(data, filename, output_directory, config: Config):
     """Save the data into a TSV (Tab Separated Values) file."""
@@ -115,9 +115,7 @@ def filter_term_columns(df, config: Config):
     for column in ["a_term", "b_term", "c_term"]:
         if column in df.columns:
             # Use .loc to explicitly set the values
-            df.loc[:, column] = df[column].apply(
-                lambda x: x.split("|")[0] if "|" in str(x) else x
-            )
+            df.loc[:, column] = df[column].apply(strip_pipe)
     return df
 
 
@@ -298,10 +296,7 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     # DCH: enforce exactly two KM rows corresponding to the configured B terms
     if config.is_dch:
         # Normalize desired B terms to match post-filter normalization (first synonym only)
-        desired_b_terms = [
-            (t.split("|")[0] if isinstance(t, str) and "|" in t else t)
-            for t in list(config.b_terms)
-        ]
+        desired_b_terms = [strip_pipe(t) for t in list(config.b_terms)]
         logger.debug(f"DCH mode enabled. Desired B terms: {desired_b_terms}")
         # Keep only rows for the two configured B terms
         if "b_term" not in valid_rows.columns:
