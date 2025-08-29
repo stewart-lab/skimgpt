@@ -189,25 +189,39 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if config.is_dch:
-        # lets get hypotheses
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
+        # Build hypotheses and preserve original terms for downstream prompt generation and filenames
+        hypotheses = [
+            getHypothesis(config=config, a_term=a_term, b_term=b_term)
+            for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])
+        ]
+        
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
         hyp2 = hypotheses[1]
         logger.debug(f"hyp1: {hyp1}")
         logger.debug(f"hyp2: {hyp2}")
 
+        # Consolidate abstracts from both rows for direct comparison prompting
         v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
         v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
         ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
         ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
         consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
 
+        # Preserve a_term and b_terms for KM DCH prompt path and output naming
+        a_term_val = out_df.iloc[0].get("a_term", "")
+        b_term1 = out_df.iloc[0].get("b_term", "")
+        b_term2 = out_df.iloc[1].get("b_term", "")
+
         dch_row = {
+            "a_term": a_term_val,
+            "b_term": [b_term1, b_term2],
             "hypothesis1": hyp1,
             "hypothesis2": hyp2,
             "hypothesis1_pmids": out_df.iloc[0].get("ab_pmid_intersection", ""),
             "hypothesis2_pmids": out_df.iloc[1].get("ab_pmid_intersection", ""),
+            # Provide consolidated abstracts where downstream expects AB abstracts
+            "ab_pmid_intersection": consolidated_abstracts,
         }
         out_df = pd.DataFrame([dch_row])
 
