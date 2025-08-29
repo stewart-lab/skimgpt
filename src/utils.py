@@ -169,7 +169,6 @@ class Config:
         
         # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
-        self.km_direct_comp_hypothesis = self.job_config["KM_direct_comp_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["abstract_filter"]
@@ -178,36 +177,22 @@ class Config:
         self.test_leakage_type = self.filter_config["TEST_LEAKAGE_TYPE"]
         self.is_km_with_gpt = self.job_type == "km_with_gpt"
         self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
-        # New DCH flag under km_with_gpt job-specific settings
-        self.is_dch = False
-        try:
-            if self.job_type == "km_with_gpt":
-                self.is_dch = bool(self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False))
-        except Exception:
-            self.is_dch = False
+        self.is_dch = True if self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False) else False
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
-        
         self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
-        # Add API configuration
         self.km_api_url = self.global_settings["API_URL"]
         self.model = self.global_settings["MODEL"]
         self.rate_limit = self.global_settings["RATE_LIMIT"]
         self.delay = self.global_settings["DELAY"]
         self.max_retries = self.global_settings["MAX_RETRIES"]
         self.retry_delay = self.global_settings["RETRY_DELAY"]
-        
-        # Add iterations configuration
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
-        
-        # Add HTCondor configuration
         self.htcondor_config = self.job_config.get("HTCONDOR", {})
-        
-        # Add abstract filter configuration
         self.temperature = self.filter_config["TEMPERATURE"]
         self.top_k = self.filter_config["TOP_K"]
         self.top_p = self.filter_config["TOP_P"]
@@ -233,10 +218,7 @@ class Config:
             self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
         )
 
-        # Add file handler now that we have output directory
         self.add_file_handler()
-        
-        # Validate data columns
         self._validate_data_columns()
 
     def _validate_data_columns(self):
@@ -433,12 +415,6 @@ class Config:
             }
 
     @property
-    def censor_year(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
-        # Backward compatibility: use old key or new upper bound
-        return nested.get("censor_year", nested.get("censor_year_upper", 2024))
-
-    @property
     def censor_year_upper(self):
         nested = self.job_specific_settings.get(self.job_type, {})
         return nested.get("censor_year_upper", nested.get("censor_year", 2024))
@@ -458,11 +434,7 @@ class Config:
         required_keys = [
             "collector_host", 
             "submit_host",
-            "docker_image",
-            "request_gpus",
-            "request_cpus",
-            "request_memory",
-            "request_disk"
+            "docker_image"
         ]
         
         missing = [key for key in required_keys if key not in self.htcondor_config]
@@ -490,21 +462,6 @@ class Config:
     def docker_image(self):
         return self.htcondor_config.get("docker_image")
 
-    @property
-    def request_gpus(self):
-        return self.htcondor_config.get("request_gpus", "1")
-
-    @property
-    def request_cpus(self):
-        return self.htcondor_config.get("request_cpus", "1")
-
-    @property
-    def request_memory(self):
-        return self.htcondor_config.get("request_memory", "24GB")
-
-    @property
-    def request_disk(self):
-        return self.htcondor_config.get("request_disk", "50GB")
 
     def create_secrets_file(self):
         """Create secrets.json from environment variables if missing"""
@@ -583,8 +540,7 @@ class Config:
             # Update logger with new file handler for this iteration
             self.add_file_handler(iteration_dir)
         else:
-            # When iterations is False or current_iteration is 0,
-            # update file paths to use the base output directory
+
             self.filtered_tsv_name = os.path.join(
                 self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv"
             )
