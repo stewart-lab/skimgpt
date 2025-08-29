@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import time
+import random
 from itertools import chain
 import openai
 from src import prompt_library as prompts_module
@@ -204,7 +205,11 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
         ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
         ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
+        
         consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
+        # Randomly select 50 of the consolidated abstracts 
+        consolidated_abstracts = "".join(random.sample(consolidated_abstracts, 50))
+        logger.info(f" IN PROCESS RESULTS   Consolidated abstracts: {consolidated_abstracts}")
 
         dch_row = {
             "a_term": a_term,
@@ -563,7 +568,6 @@ def main():
             hypothesis_1=h1,
             hypothesis_2=h2,
             a_term=a_term,
-            hypothesis_template="",
             consolidated_abstracts=consolidated_abstracts,
         )
         prompts = RaggedTensor([prompt_text])

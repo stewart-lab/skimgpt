@@ -169,7 +169,6 @@ class Config:
         
         # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
-        self.km_direct_comp_hypothesis = self.job_config["KM_direct_comp_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["abstract_filter"]
@@ -459,10 +458,6 @@ class Config:
             "collector_host", 
             "submit_host",
             "docker_image",
-            "request_gpus",
-            "request_cpus",
-            "request_memory",
-            "request_disk"
         ]
         
         missing = [key for key in required_keys if key not in self.htcondor_config]

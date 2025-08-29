@@ -1,12 +1,14 @@
 import src.scoring_guidelines as sg
+import re
 
-
-def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
-    # Extract PMID numbers for clarity
-    import re
+def extract_pmids(consolidated_abstracts):
     pmid_pattern = r"PMID:\s*(\d+)"
     pmids = re.findall(pmid_pattern, consolidated_abstracts)
     pmid_list = ", ".join(pmids) if pmids else "None found"
+    return pmid_list
+
+def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
+    pmid_list = extract_pmids(consolidated_abstracts)
 
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
@@ -36,22 +38,19 @@ Score: [Number] - Reasoning: [Reasoning]
 Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}"""
 
-def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, a_term, hypothesis_template, consolidated_abstracts):
-    # Extract PMID numbers for clarity
-    import re
-    pmid_pattern = r"PMID:\s*(\d+)"
-    pmids = re.findall(pmid_pattern, consolidated_abstracts)
-    pmid_list = ", ".join(pmids) if pmids else "None found"
+def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, a_term, consolidated_abstracts):
+    pmid_list = extract_pmids(consolidated_abstracts)
 
-    return f"""Biomedical Abstracts for Analysis:
+    return f"""
+
+Biomedical Abstracts (verbatim):
 {consolidated_abstracts}
 
-Available PMIDs for Citation: {pmid_list}
+Available PMIDs for citation: {pmid_list}
 
-Assessment Task:
-Evaluate the degree of support for Hypothesis 1 compared to Hypothesis 2. The texts provided above come from PubMed and each abstract will include only {a_term} and terms relevant to either Hypothesis 1 or Hypothesis 2. The texts need to be your only source of information for arriving at your classification result.
-
-IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
+Task:
+Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above that mention {a_term} and terms relevant to either hypothesis. 
+Classify each abstract, produce tallies, assign a continuous 0–100 score, choose a decision, and list the PMIDs you used.
 
 Hypothesis 1:
 {hypothesis_1}
@@ -59,27 +58,17 @@ Hypothesis 1:
 Hypothesis 2:
 {hypothesis_2}
 
-Instructions:
-1. Review each abstract to understand how {a_term} relates to the evidence for Hypothesis 1 and for Hypothesis 2 based on the available information.
-2. Analyze the presence and implications of findings in the context of each hypothesis (Hypothesis 1 and Hypothesis 2).
-3. Synthesize the findings from multiple texts. Consider how the pieces fit together to support or refute the hypotheses defined above. Remember, no single text may be conclusive.
-4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
-5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
-6. Provide a "Strength of confidence (SOC) score" about your score, that represents the strength, quality, quantity, and consistency of the evidence provided.  A SOC score of zero represents zero confidence. A SOC score of 100 represents 100% confidence.  Intermediate scores are possible and represent a nuanced degree of confidence based on the evidence.
-7. Return the number of abstracts that support Hypothesis 1 and the number of abstracts that support Hypothesis 2 and the number of abstracts that support neither hypothesis or are inconclusive.
+Continuous Scoring Guidelines (0–100):
+{sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}
 
-Format your response as:
-Score: [Number] SOC: [SOC] #Abstracts supporting hypothesis 1: [Number] #Abstracts supporting hypothesis 2: [Number] #Abstracts supporting neither hypothesis or are inconclusive: [Number] - Reasoning: [Reasoning]
-
-Scoring Guidelines:
-{sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}"""
+Output policy:
+- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- JSON schema (for reference; do not print this schema):
+{km_with_gpt_direct_comp_json_schema()}
+"""
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
-    # Extract PMID numbers for clarity
-    import re
-    pmid_pattern = r"PMID:\s*(\d+)"
-    pmids = re.findall(pmid_pattern, consolidated_abstracts)
-    pmid_list = ", ".join(pmids) if pmids else "None found"
+    pmid_list = extract_pmids(consolidated_abstracts)
 
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
@@ -198,11 +187,7 @@ Score: \[Number\] Point(s) - Reasoning: \[Reasoning\]
 
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
-    # Extract PMID numbers for clarity
-    import re
-    pmid_pattern = r"PMID:\s*(\d+)"
-    pmids = re.findall(pmid_pattern, consolidated_abstracts)
-    pmid_list = ", ".join(pmids) if pmids else "None found"
+    pmid_list = extract_pmids(consolidated_abstracts)
 
     return f"""Biomedical Abstracts for Analysis:
 {consolidated_abstracts}
@@ -397,3 +382,80 @@ Score: [Number] Point(s) - Reasoning: [Reasoning]
 **Scoring Guidelines:**
 {sg.abc_scoring_guidelines(a_term, b_term, c_term)}"""
 
+
+
+HYP_COMP_SYSTEM_INSTRUCTIONS = """\
+You compare two competing biomedical hypotheses using ONLY the provided PubMed abstracts.
+Rules:
+- Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
+- Every claim must map to at least one provided PMID from the input set.
+- Ground the output with evidence extracted from the abstracts (≤300 chars each).
+- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
+- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, and number that support neither or are inconclusive.
+- Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
+- The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+"""
+
+
+def km_with_gpt_direct_comp_json_schema():
+    return {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "per_abstract": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "label": {
+                        "type": "string",
+                        "enum": ["supports_H1","supports_H2","both","neither","inconclusive"]
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300}
+                    },
+                },
+                "required": ["pmid","label"]
+            }
+        },
+        "score_rationale": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs, e.g., 'Two RCTs report X (PMID: 123, 456)' that uses the scoring guidelines to justify the score."},
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "tallies": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "support_H1": {"type": "integer", "minimum": 0},
+                "support_H2": {"type": "integer", "minimum": 0},
+                "neither_or_inconclusive": {"type": "integer", "minimum": 0}
+            },
+            "required": ["support_H1","support_H2","neither_or_inconclusive"]
+        },
+        "score": {"type": "number", "minimum": 0, "maximum": 100},
+        "decision": {"type": "string", "enum": ["H1","H2","tie","insufficient_evidence"]},
+        "used_pmids": {"type": "array", "items": {"type": "string", "pattern": "^[0-9]+$"}}
+    },
+    "required": ["per_abstract","score_rationale","tallies","score","decision","used_pmids"]
+    }
+
+
+def km_with_gpt_direct_comp_system_instructions():
+    return """\
+You compare two competing biomedical hypotheses using ONLY the provided PubMed abstracts.
+Rules:
+- Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
+- Every claim must map to at least one provided PMID from the input set.
+- Ground the output with evidence extracted from the abstracts (≤300 chars each).
+- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
+- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, and number that support neither or are inconclusive.
+- Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
+- The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+"""

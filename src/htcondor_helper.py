@@ -40,9 +40,14 @@ class HTCondorHelper:
         htcondor.param["MAX_TRANSFER_HISTORY_SIZE"] = "0"
         abs_token_dir = os.path.abspath(self.token_dir)
         htcondor.param["SEC_TOKEN_DIRECTORY"] = abs_token_dir
-        htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "TOKEN"
-        htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "TOKEN"
+        # Use IDTOKENS (the correct method name) for token-based auth
+        # Allow fallback to other common methods if the remote requires them
+        htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "IDTOKENS, FS, PASSWORD"
+        htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "IDTOKENS, FS, PASSWORD"
         htcondor.param["SEC_TOKEN_AUTHENTICATION"] = "REQUIRED"
+        # Strengthen channel protections to avoid negotiation downgrade issues
+        htcondor.param["SEC_DEFAULT_ENCRYPTION"] = "REQUIRED"
+        htcondor.param["SEC_DEFAULT_INTEGRITY"] = "REQUIRED"
         
         self.logger.info(f"HTCondor parameters configured with token directory: {abs_token_dir}")
 

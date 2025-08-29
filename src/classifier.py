@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any
 from src.utils import Config, strip_pipe
-from src import prompt_library as prompts_module 
+from src import prompt_library as prompts_module  
 import os
 
 
@@ -107,20 +107,10 @@ def process_single_row(row, config: Config):
             result, prompt, urls = perform_analysis(
                 job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
             )
+
             if result or prompt:
-                # For display in final JSON, strip synonyms from terms
-                a_disp = strip_pipe(a_term)
-                b1_disp = strip_pipe(b_term[0])
-                b2_disp = strip_pipe(b_term[1])
-                processed_results["A_B1_B2_Relationship"] = {
-                    "a_term": a_disp,
-                    "b_term1": b1_disp,
-                    "b_term2": b2_disp,
-                    "Relationship": f"{a_disp} - {b1_disp} - {b2_disp}",
-                    "Result": result,
-                    "Prompt": prompt,
-                    "URLS": {"AB": urls.get("AB", [])},
-                }
+                processed_results = json.loads(result)
+
         else:
             # Standard km_with_gpt case
             if not all([a_term, b_term]):
@@ -239,6 +229,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
         consolidated_abstracts = ac_abstracts
     elif relationship_type == "A_B":
         consolidated_abstracts = ab_abstracts
+    logger.info(f" IN PERFORM ANALYSIS   Consolidated abstracts: {consolidated_abstracts}")
     
 
     try:
@@ -312,7 +303,11 @@ def analyze_abstract_with_frontier_LLM(
         logger.error("Failed to generate prompt.")
         return ["Score: N/A"], prompt_text
     logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
-    response = call_openai(client, prompt_text, config)
+    if config.is_dch:
+        response = call_openai_json(client, prompt_text, config)
+        logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
+    else:
+        response = call_openai(client, prompt_text, config)
     if response:
         responses.append(response)
     logger.debug(f" IN ANALYZE ABSTRACT   Responses: {responses}")
@@ -349,7 +344,6 @@ def generate_prompt(
                 hypothesis_1=h1,
                 hypothesis_2=h2,
                 a_term=a_term,
-                hypothesis_template="",
                 consolidated_abstracts=content,
             )
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
@@ -413,6 +407,39 @@ def generate_prompt(
     else:
         raise ValueError("Invalid relationship type specified.")
 
+
+def extract_json_from_markdown(s: str) -> dict:
+    # Finds ```json ... ```; falls back to first {...}
+    m = re.search(r"```json\s*(\{.*?\})\s*```", s, flags=re.S)
+    if not m:
+        m = re.search(r"(\{.*\})", s, flags=re.S)
+    if not m:
+        raise ValueError("No JSON found in model output.")
+    return json.loads(m.group(1))
+
+def call_openai_json(client, prompt, config):
+    # Build messages with system + user for all models (o1, o3, gpt-5 compatible)
+    messages = [
+        {"role": "system", "content": prompts_module.km_with_gpt_direct_comp_system_instructions()},
+        {"role": "user", "content": prompt}
+    ]
+
+    params = {
+        "messages": messages,
+        "model": ("deepseek-reasoner" if config.model == "r1" else config.model),
+    }
+
+    resp = client.chat.completions.create(**params)
+    content = resp.choices[0].message.content
+    # Parse strict JSON block
+    payload = extract_json_from_markdown(content)
+
+    # (Optional) light validation against your schema fields
+    for k in ["per_abstract","score_rationale","tallies","score","decision","used_pmids"]:
+        if k not in payload:
+            raise ValueError(f"Missing required field '{k}' in model output.")
+
+    return payload
 
 def call_openai(client, prompt, config: Config):
     logger = config.logger
