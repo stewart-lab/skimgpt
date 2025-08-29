@@ -90,6 +90,7 @@ def merge_results(parent_dir: str, logger: logging.Logger):
         fieldnames = ["A_term","B1_term","B2_term","SOC","Abstracts Supporting Hypothesis 1","Abstracts Supporting Hypothesis 2","Abstracts Supporting Neither Hypothesis or are Inconclusive","censor_year","iter_number",f"{model}_score"]
     else:
         fieldnames = ["A_term","B_term","censor_year","iter_number",f"{model}_score"]
+        
 
     output_root = os.path.join(parent_dir, "output")
     if not os.path.isdir(output_root):

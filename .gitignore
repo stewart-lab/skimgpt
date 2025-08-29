@@ -3,4 +3,7 @@ src/__pycache__
 relevance_tests
 config.json
 input_lists
+*.pyc
+secrets.json
+token_dirs/*
 

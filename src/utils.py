@@ -116,6 +116,27 @@ class RaggedTensor:
         return self.data[index]
 
 
+def strip_pipe(term: str) -> str:
+    """Return the canonical token before '|' for any job type.
+    """
+    if isinstance(term, str) and '|' in term:
+        return term.split('|')[0].strip()
+    return term
+
+
+def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
+    """Canonicalize and truncate a term for safe filename usage across all job types.
+
+    - Uses strip_pipe to canonicalize synonyms (token before '|')
+    - Truncates to max_len characters
+    - Replaces '/' with '_'
+    """
+    canonical = strip_pipe(term)
+    if isinstance(canonical, str) and len(canonical) > max_len:
+        canonical = canonical[:max_len]
+    return canonical.replace("/", "_")
+
+
 class Config:
     def __init__(self, config_path: str):
         self.job_config_path = config_path
@@ -157,7 +178,13 @@ class Config:
         self.test_leakage_type = self.filter_config["TEST_LEAKAGE_TYPE"]
         self.is_km_with_gpt = self.job_type == "km_with_gpt"
         self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
-        self.is_km_with_gpt_direct_comp = self.job_type == "km_with_gpt_direct_comp"
+        # New DCH flag under km_with_gpt job-specific settings
+        self.is_dch = False
+        try:
+            if self.job_type == "km_with_gpt":
+                self.is_dch = bool(self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False))
+        except Exception:
+            self.is_dch = False
         self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
@@ -317,9 +344,7 @@ class Config:
         """Load appropriate term lists based on job configuration"""
         if self.is_skim_with_gpt:
             self._load_skim_terms()
-        elif self.is_km_with_gpt_direct_comp:
-            self._load_km_direct_comp_terms()
-        elif not self.is_skim_with_gpt and not self.is_km_with_gpt_direct_comp:
+        elif self.job_type == "km_with_gpt":
             self._load_km_terms()
         else:
             raise ValueError(f"Unknown job type: {self.job_type}")
@@ -347,7 +372,7 @@ class Config:
             self.a_terms = [self.global_settings["A_TERM"]]
 
     def _load_km_terms(self):
-        """Load terms for km_with_gpt job type"""
+        """Load terms for km_with_gpt job type (supports DCH via is_dch flag)"""
         job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]
         self.position = job_settings["position"]
         
@@ -361,22 +386,15 @@ class Config:
         # Load B terms for KM workflow
         b_terms_file = job_settings["B_TERMS_FILE"]
         self.b_terms = self._read_terms_from_file(b_terms_file)
-
-    def _load_km_direct_comp_terms(self):
-        """Load terms for km_with_gpt_direct_comp job type"""
-        job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt_direct_comp"]
-        self.position = job_settings["position"]
         
-        # Load A terms
-        if job_settings.get("A_TERM_LIST", False):
-            a_terms_file = job_settings["A_TERMS_FILE"]
-            self.a_terms = self._read_terms_from_file(a_terms_file)
-        else:
-            self.a_terms = [self.global_settings["A_TERM"]]
+        # DCH validation: must have exactly two B terms
+        if self.is_dch:
+            if len(self.b_terms) != 2:
+                raise ValueError(
+                    f"DCH mode requires exactly 2 B terms, found {len(self.b_terms)} in {b_terms_file}"
+                )
 
-        # Load B terms for KM direct comp workflow
-        b_terms_file = job_settings["B_TERMS_FILE"]
-        self.b_terms = self._read_terms_from_file_for_km_direct_comp(b_terms_file)
+    # Removed legacy km_with_gpt_direct_comp loader
 
     def _read_terms_from_file(self, file_path: str) -> list:
         """Read terms from a text file (one term per line)"""
@@ -392,23 +410,7 @@ class Config:
             self.logger.error(f"Error reading terms file {file_path}: {str(e)}")
             raise
          
-    def _read_terms_from_file_for_km_direct_comp(self, file_path: str) -> list:
-        """Read terms from a text file (only one line allowed.)"""
-        try:
-            with open(file_path, "r") as f:
-                line = f.readline().strip()
-                if not line:
-                    self.logger.error(f"Empty file: {file_path}")
-                    raise ValueError(f"Empty file: {file_path}")
-                terms = [line]
-                self.logger.debug(f"Read {len(terms)} terms from {file_path}")
-                return terms
-        except FileNotFoundError:
-            self.logger.error(f"Terms file not found: {file_path}")
-            raise
-        except Exception as e:
-            self.logger.error(f"Error reading terms file {file_path}: {str(e)}")
-            raise
+    # Removed legacy direct-comp single-line term reader
 
     @property
     def job_specific_settings(self):
@@ -424,10 +426,6 @@ class Config:
             return {
                 "ab": self.job_specific_settings["skim"]["ab_fet_threshold"],
                 "bc": self.job_specific_settings["skim"]["bc_fet_threshold"]
-            }
-        elif self.is_km_with_gpt_direct_comp:
-            return {
-                "ab": self.job_specific_settings["km_with_gpt_direct_comp"]["ab_fet_threshold"]
             }
         else:
             return {

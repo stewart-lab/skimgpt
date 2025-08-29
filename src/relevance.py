@@ -6,13 +6,17 @@ import socket
 import subprocess
 import time
 from itertools import chain
+import openai
+from src import prompt_library as prompts_module
 import torch
-from src.utils import Config, RaggedTensor
+from src.utils import Config, RaggedTensor, strip_pipe, sanitize_term_for_filename
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
     write_to_json,
+    call_openai,
+    extract_pmids_and_generate_urls,
 )
 
 
@@ -51,36 +55,15 @@ def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
     logger = config.logger
-    if config.is_km_with_gpt:
+    # Canonicalize inputs for display/prompting
+    a_term_c = a_term
+    b_term_c = strip_pipe(b_term) if b_term is not None else None
+    c_term_c = strip_pipe(c_term) if c_term is not None else None
+
+    if config.is_km_with_gpt or config.is_dch:
         assert a_term and b_term and not c_term
         hypothesis_template = config.km_hypothesis
-        return hypothesis_template.format(a_term=a_term, b_term=b_term)
-    elif config.is_km_with_gpt_direct_comp:
-        logger.debug(f"config.is_km_with_gpt_direct_comp is: {config.is_km_with_gpt_direct_comp}")
-        assert a_term and b_term and not c_term
-        logger.debug(f"a_term: {a_term}, b_term: {b_term}")
-        logger.debug(f"b_term is a list: {isinstance(b_term, list)}")
-        if not isinstance(b_term, list):
-            # Remove brackets and split by comma
-            b_term_str = b_term.strip("[]")  # Remove brackets
-            b_term_list = [item.strip() for item in b_term_str.split(',')] # Split by comma and strip whitespaceß
-            # Filter out any empty strings that might result from the split
-            b_term = [item for item in b_term_list if item]
-            assert len(b_term) == 2
-        logger.debug(f"b_term1: {b_term[0]}, b_term2: {b_term[1]}")
-        logger.debug(f"b_term length: {len(b_term)}")
-        logger.debug(f"b_term type: {type(b_term)}")
-        hypothesis_template = config.km_direct_comp_hypothesis
-        logger.debug(f"hypothesis_template: {hypothesis_template}")
-        
-        # Check if b_term is a list and extract b_term1 and b_term2
-        if isinstance(b_term, list) and len(b_term) == 2:
-            b_term1, b_term2 = b_term[0], b_term[1]
-            return hypothesis_template.format(a_term=a_term, b_term1=b_term1, b_term2=b_term2)
-        else:
-            #   Handle the case where b_term is not a list or not of length 2 (optional error handling)
-            logger.error("Error: b_term is not a list of exactly two terms for km_with_gpt_direct_comp")
-            return "Error in hypothesis generation" # Or raise an exception
+        return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
     elif config.is_skim_with_gpt:
         assert (
             (a_term and b_term and not c_term)
@@ -90,13 +73,13 @@ def getHypothesis(
 
         if a_term and b_term and not c_term:
             hypothesis_template = config.skim_hypotheses.get("AB")
-            return hypothesis_template.format(a_term=a_term, b_term=b_term)
+            return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
         elif b_term and c_term and not a_term:
             hypothesis_template = config.skim_hypotheses.get("BC")
-            return hypothesis_template.format(b_term=b_term, c_term=c_term)
+            return hypothesis_template.format(b_term=b_term_c, c_term=c_term_c)
         elif a_term and c_term and not b_term:
             hypothesis_template = config.skim_hypotheses.get("rel_AC")
-            return hypothesis_template.format(a_term=a_term, c_term=c_term)
+            return hypothesis_template.format(a_term=a_term_c, c_term=c_term_c)
 
     return "No valid hypothesis for the provided JOB_TYPE."
 
@@ -208,6 +191,29 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
+    if config.is_dch:
+        if len(out_df) != 2:
+            logger.error("DCH mode requires exactly two rows.")
+            return
+
+        a_term = out_df.iloc[0].get("a_term", "")
+        b_term1 = out_df.iloc[0].get("b_term", "")
+        b_term2 = out_df.iloc[1].get("b_term", "")
+
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
+        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
+        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
+        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
+
+        dch_row = {
+            "a_term": a_term,
+            "b_term": [b_term1, b_term2],
+            "c_term": "",
+            "ab_pmid_intersection": consolidated_abstracts,
+        }
+        out_df = pd.DataFrame([dch_row])
+
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
         logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
@@ -223,27 +229,25 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             result_dict["num_abstracts_fetched"] = num_abstracts_fetched
             logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
 
-            # Truncate long terms for filenames
-            def safe_term(term: str) -> str:
-                if len(term) <= 80:
-                    return term
-                if "|" in term:
-                    return term.split("|")[0]
-                return term[:80]
-
             raw_a = row.get("a_term", "")
             raw_b = row.get("b_term", "")
             raw_c = row.get("c_term", "")
-            a_fname = safe_term(raw_a)
-            b_fname = safe_term(raw_b)
-            c_fname = safe_term(raw_c)
 
-            if config.is_skim_with_gpt:
+            if config.is_dch and isinstance(raw_b, list) and len(raw_b) == 2:
+                a_fname = sanitize_term_for_filename(raw_a)
+                b1_fname = sanitize_term_for_filename(raw_b[0])
+                b2_fname = sanitize_term_for_filename(raw_b[1])
+                output_json = f"{a_fname}___{b1_fname}____{b2_fname}___km_with_gpt_direct_comp.json"
+            elif config.is_skim_with_gpt:
+                a_fname = sanitize_term_for_filename(raw_a)
+                b_fname = sanitize_term_for_filename(raw_b)
+                c_fname = sanitize_term_for_filename(raw_c)
                 output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-            elif config.is_km_with_gpt_direct_comp:
-                output_json = f"{a_fname}_{b_fname}_km_with_gpt_direct_comp.json"
             else:
+                a_fname = sanitize_term_for_filename(raw_a)
+                b_fname = sanitize_term_for_filename(raw_b)
                 output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
+
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
             write_to_json([result_dict], output_json, output_base_dir, config)
@@ -342,25 +346,45 @@ def main():
     ab_pmids = []
     ab_hypotheses = []
 
-    for _, row in config.data.iterrows():
-        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
-        logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
-        b_term = row['b_term']
-        
-        # Convert string representation of list to actual list
-        pmids = eval(row['ab_pmid_intersection'])
-        ab_pmids.append(pmids)
-        
-        # Generate hypothesis for this specific pair
-        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
-        ab_hypotheses.append(hypothesis)
+    if config.is_dch:
+        # DCH expects exactly two rows (enforced upstream)
+        if len(config.data) != 2:
+            logger.error(f"DCH mode requires exactly two KM rows, found {len(config.data)}")
+            raise AssertionError("DCH requires exactly two rows")
+        a_term = config.data.iloc[0]['a_term'].split("&")[0]
+        b1 = config.data.iloc[0]['b_term']
+        b2 = config.data.iloc[1]['b_term']
+        pmids1 = eval(config.data.iloc[0]['ab_pmid_intersection'])
+        pmids2 = eval(config.data.iloc[1]['ab_pmid_intersection'])
+        ab_pmids.append(pmids1)
+        ab_pmids.append(pmids2)
+        hyp1 = getHypothesis(config=config, a_term=a_term, b_term=b1)
+        hyp2 = getHypothesis(config=config, a_term=a_term, b_term=b2)
+        ab_hypotheses.append([hyp1, hyp2])
+    else:
+        for _, row in config.data.iterrows():
+            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+            logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
+            b_term = row['b_term']
+            
+            # Convert string representation of list to actual list
+            pmids = eval(row['ab_pmid_intersection'])
+            ab_pmids.append(pmids)
+            
+            # Generate hypothesis for this specific pair
+            hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
+            ab_hypotheses.append(hypothesis)
 
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
-    ab_hypotheses = RaggedTensor(ab_hypotheses)
-
-    all_pmids = ab_pmids.flatten()
-    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
+    if config.is_dch:
+        # For DCH we don't expand hypotheses per-abstract; we build a single combined prompt later
+        all_pmids = ab_pmids.flatten()
+        all_hypotheses = None
+    else:
+        ab_hypotheses = RaggedTensor(ab_hypotheses)
+        all_pmids = ab_pmids.flatten()
+        all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
     if config.is_skim_with_gpt:
         # Process BC and AC terms row by row
@@ -404,6 +428,10 @@ def main():
     num_abstracts_fetched = len(abstract_map)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
     
+    # For DCH, reshape abstracts to match the two-row structure of ab_pmids
+    if config.is_dch:
+        abstracts.reshape(ab_pmids.shape)
+
     # Provide a safe default; updated later if GPU memory is detected
     dynamic_max_tokens = 4000
 
@@ -508,30 +536,63 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, model, sampling_config)
+    if config.is_dch:
+        # DCH path: Apply POST_N filtering first, then generate the prompt.
+        # Reshape abstracts to match the two DCH rows and populate the dataframe
+        try:
+            abstracts.reshape(ab_pmids.shape)
+        except Exception:
+            pass
+        out_df['ab_pmid_intersection'] = abstracts.data
+        # Apply the same filtering routine (POST_N, top_n rules) as other job types
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
-    # Post-processing
-    defaults = 3 * [RaggedTensor([])]
-    ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
-    ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
+        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
+        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
+        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
 
-    postProcess(
-        config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
-    )
-
-    if config.is_skim_with_gpt:
-        postProcess(
-            config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
+        a_term = config.data.iloc[0]['a_term'].split("&")[0]
+        # Build hypotheses for prompting using only the first part of each b-term (before '|')
+        b1_full = config.data.iloc[0]['b_term']
+        b2_full = config.data.iloc[1]['b_term']
+        h1 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b1_full))
+        h2 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b2_full))
+        prompt_text = prompts_module.km_with_gpt_direct_comp(
+            hypothesis_1=h1,
+            hypothesis_2=h2,
+            a_term=a_term,
+            hypothesis_template="",
+            consolidated_abstracts=consolidated_abstracts,
         )
-        if config.has_ac:
-            postProcess(
-                config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape 
-            )
+        prompts = RaggedTensor([prompt_text])
+        answers = gen(prompts, model, sampling_config)
+    else:
+        # Standard path: Generate relevance scores, then filter in postProcess.
+        prompts = getPrompts(abstracts, all_hypotheses)
+        answers = gen(prompts, model, sampling_config)
 
-    # Final processing and output
-    out_df = process_dataframe(out_df, config, pubmed_fetcher)
-    
+        # Post-processing
+        defaults = 3 * [RaggedTensor([])]
+        ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
+        ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
+        
+        postProcess(
+            config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
+        )
+
+        if config.is_skim_with_gpt:
+            postProcess(
+                config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
+            )
+            if config.has_ac:
+                postProcess(
+                    config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
+                )
+        
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
+
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
     out_df.to_csv(initial_output_file, sep="\t")

@@ -114,7 +114,7 @@ def cont_ab_scoring_guidelines(a_term, b_term):
 By following these continuous scoring guidelines, you can provide a nuanced and objective assessment of the hypothesis' support level based on the interaction between {a_term} and {b_term}.
 """
 
-def cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2):
+def cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2):
     """
     Provides continuous scoring guidelines for evaluating the support of one hypothesis
     versus another hypothesis.
@@ -138,15 +138,15 @@ def cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2):
     return f"""
 **Continuous Scoring Guidelines (0 to +100):**
 
-• **0:** Hypothesis 1 is **strongly refuted** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term1} **directly contradicts** the proposed outcome, while Hypothesis 2 is **strongly supported** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term2} **directly aligns with** the proposed outcome.
+• **0:** Hypothesis 1 is **strongly refuted** by overwhelming and consistent evidence indicating that {hypothesis_1} **directly contradicts** the proposed outcome, while Hypothesis 2 is **strongly supported** by overwhelming and consistent evidence indicating that {hypothesis_2} **directly aligns with** the proposed outcome.
   
-• **25:** Hypothesis 2 involving {a_term} and {b_term2} is three times more likely than Hypothesis 1 involving {a_term} and {b_term1}.
+• **25:** Hypothesis 2 ({hypothesis_2}) is three times more likely than Hypothesis 1 ({hypothesis_1}).
   
-• **50:** Hypothesis 1 involving {a_term} and {b_term1} is equally likely compared to Hypothesis 2 involving {a_term} and {b_term2}.
+• **50:** Hypothesis 1 ({hypothesis_1}) is equally likely compared to Hypothesis 2 ({hypothesis_2}).
   
-• **75:** Hypothesis 1 involving {a_term} and {b_term1} is three times more likely than Hypothesis 2 involving {a_term} and {b_term2}.
+• **75:** Hypothesis 1 ({hypothesis_1}) is three times more likely than Hypothesis 2 ({hypothesis_2}).
 
-• **100:** Hypothesis 1 is **strongly supported** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term1} **directly aligns with** the proposed outcome, while Hypothesis 2 is **strongly refuted** by overwhelming and consistent evidence indicating that the interaction between {a_term} and {b_term2} **directly contradicts** the proposed outcome.
+• **100:** Hypothesis 1 is **strongly supported** by overwhelming and consistent evidence indicating that {hypothesis_1} **directly aligns with** the proposed outcome, while Hypothesis 2 is **strongly refuted** by overwhelming and consistent evidence indicating that {hypothesis_2} **directly contradicts** the proposed outcome.
   
 
 **Guidelines for Intermediate Scores:**
@@ -169,7 +169,7 @@ def cont_ab_direct_comp_scoring_guidelines(a_term, b_term1, b_term2):
 
 - **Unit Consistency:** Keep the scoring consistent across different hypotheses by adhering strictly to these guidelines, avoiding subjective or arbitrary score assignments.
 
-By following these continuous scoring guidelines, you can provide a nuanced and objective assessment of the support level for Hypothesis 1 compared to Hypothesis 2 based on the interaction between {a_term} and {b_term1} or {b_term2}.
+By following these continuous scoring guidelines, you can provide a nuanced and objective assessment of the support level for Hypothesis 1 compared to Hypothesis 2 based on the hypotheses {hypothesis_1} and {hypothesis_2}.
 """
 
 def gpt_customized_scoring_system(b_term, a_term):
