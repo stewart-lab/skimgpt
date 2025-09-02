@@ -12,11 +12,6 @@ def write_to_json(data, file_path, output_directory, config: Config):
     logger = config.logger
     # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
     file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
-    
-    # Since process_results already handles the iteration directory path,
-    # we don't need to add it again here
-    
-    # Create output directory if it doesn't exist
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
         
@@ -65,7 +60,7 @@ def process_single_row(row, config: Config):
         c_term = row.get("c_term")
 
         abc_result, abc_prompt, abc_urls = perform_analysis(
-            job_type=config.job_type, row=row, config=config, relationship_type="A_B_C"
+            row=row, config=config, relationship_type="A_B_C"
         )
         if abc_result or abc_prompt:
             processed_results["A_B_C_Relationship"] = {
@@ -82,7 +77,7 @@ def process_single_row(row, config: Config):
             }
 
         ac_result, ac_prompt, ac_urls = perform_analysis(
-            job_type=config.job_type, row=row, config=config, relationship_type="A_C"
+            row=row, config=config, relationship_type="A_C"
         )
         if ac_result or ac_prompt:
             processed_results["A_C_Relationship"] = {
@@ -97,7 +92,7 @@ def process_single_row(row, config: Config):
                 },
             }
 
-    elif config.job_type == "km_with_gpt":
+    elif config.is_km_with_gpt and not config.is_dch:
         a_term = row.get("a_term")
         b_term = row.get("b_term")
 
@@ -117,18 +112,37 @@ def process_single_row(row, config: Config):
                 logger.error(f"Missing 'a_term' or 'b_term' in row.")
                 return None
 
-            ab_result, ab_prompt, ab_urls = perform_analysis(
-                job_type=config.job_type, row=row, config=config, relationship_type="A_B"
-            )
-            if ab_result or ab_prompt:
-                processed_results["A_B_Relationship"] = {
-                    "a_term": a_term,
-                    "b_term": strip_pipe(b_term),
-                    "Relationship": f"{strip_pipe(a_term)} - {strip_pipe(b_term)}",
-                    "Result": ab_result,
-                    "Prompt": ab_prompt,
-                    "URLS": {"AB": ab_urls.get("AB", [])},
-                }
+        ab_result, ab_prompt, ab_urls = perform_analysis(
+            row=row, config=config, relationship_type="A_B"
+        )
+        if ab_result or ab_prompt:
+            processed_results["A_B_Relationship"] = {
+                "a_term": a_term,
+                "b_term": strip_pipe(b_term),
+                "Relationship": f"{strip_pipe(a_term)} - {strip_pipe(b_term)}",
+                "Result": ab_result,
+                "Prompt": ab_prompt,
+                "URLS": {"AB": ab_urls.get("AB", [])},
+            }
+    elif config.is_km_with_gpt and config.is_dch:
+        hypothesis1 = row.get("hypothesis1")
+        hypothesis2 = row.get("hypothesis2")
+        hypothesis1_pmids = row.get("hypothesis1_pmids")
+        hypothesis2_pmids = row.get("hypothesis2_pmids")
+        result, prompt, urls = perform_analysis(
+            row=row, config=config, relationship_type="A_B"
+        )
+        if result or prompt:
+            processed_results["Hypothesis_Comparison"] = {
+                "hypothesis1": hypothesis1,
+                "hypothesis2": hypothesis2,
+                "Result": result,
+                "Prompt": prompt,
+                "URLS": urls,
+            }
+        if not all([hypothesis1, hypothesis2, hypothesis1_pmids, hypothesis2_pmids]):
+            logger.error(f"Missing required fields in row.")
+            return None
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
     logger.debug(f"Processed results: {processed_results}")
@@ -155,7 +169,7 @@ def extract_pmids_and_generate_urls(text: Any, config: Config) -> list:
     return pubmed_urls
 
 
-def perform_analysis(job_type: str, row: dict, config: Config, relationship_type: str) -> tuple:
+def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple:
     logger = config.logger
     if relationship_type == "A_B_C":
         b_term = row.get("b_term", "")
@@ -205,13 +219,13 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
     if relationship_type == "A_B_C":
         if not ab_abstracts or not bc_abstracts:
             logger.error(
-                f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ab_abstracts' or 'bc_abstracts'."
+                f"Early exit for job_type '{config.job_type}' and relationship_type '{relationship_type}': Missing 'ab_abstracts' or 'bc_abstracts'."
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_C":
         if not ac_abstracts:
             logger.error(
-                f"Early exit for job_type '{job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
+                f"Early exit for job_type '{config.job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_B":
@@ -234,7 +248,7 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
 
     try:
         logger.debug(f"Consolidated abstracts: {consolidated_abstracts}")
-        logger.debug(f"Job type: {job_type}")
+        logger.debug(f"Job type: {config.job_type}")
         logger.debug(f"Relationship type: {relationship_type}")
         logger.debug(f"A term: {a_term}")
         logger.debug(f"B term: {b_term}")
@@ -246,7 +260,6 @@ def perform_analysis(job_type: str, row: dict, config: Config, relationship_type
             b_term=b_term,
             c_term=c_term,
             consolidated_abstracts=consolidated_abstracts,
-            job_type=job_type,
             config=config,
             relationship_type=relationship_type,
         )
@@ -265,7 +278,6 @@ def analyze_abstract_with_frontier_LLM(
     b_term: str,
     c_term: str,
     consolidated_abstracts: str,
-    job_type: str,
     config: Config,
     relationship_type: str,
 ) -> tuple:
@@ -289,9 +301,8 @@ def analyze_abstract_with_frontier_LLM(
     responses = []
     prompt_text = ""
 
-    # Generate prompt based on relationship type and job type
+    # Generate prompt based on relationship type and current config.job_type
     prompt_text = generate_prompt(
-        job_type=job_type,
         a_term=a_term,
         b_term=b_term,
         c_term=c_term,
@@ -315,7 +326,6 @@ def analyze_abstract_with_frontier_LLM(
 
 
 def generate_prompt(
-    job_type: str,
     a_term: str,
     b_term: str,
     c_term: str,
@@ -324,9 +334,8 @@ def generate_prompt(
     relationship_type: str,
 ) -> str:
     logger = config.logger
-    job_type_lower = job_type.lower()   
   
-    if job_type == "km_with_gpt":
+    if config.is_km_with_gpt:
         # Handle DCH here based on global config flag; relationship_type is not used to branch
         if config.is_dch:
             if not (isinstance(b_term, list) and len(b_term) == 2):
@@ -347,7 +356,7 @@ def generate_prompt(
                 consolidated_abstracts=content,
             )
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
-    elif job_type == "skim_with_gpt":
+    elif config.is_skim_with_gpt:
         if relationship_type == "A_B_C":
             hypothesis_template = config.skim_hypotheses["ABC"].format(
                 a_term=a_term, b_term=b_term, c_term=c_term
@@ -366,18 +375,18 @@ def generate_prompt(
             )
             return ""
     else:
-        logger.error(f"Unknown job type: {job_type}")
+        logger.error(f"Unknown job type: {config.job_type}")
         return ""
 
     # Select the appropriate prompt function based on relationship_type
-    if job_type == "skim_with_gpt" and relationship_type == "A_C":
+    if config.is_skim_with_gpt and relationship_type == "A_C":
         prompt_function = getattr(prompts_module, "skim_with_gpt_ac", None)
     else:
-        prompt_function = getattr(prompts_module, job_type_lower, None)
+        prompt_function = getattr(prompts_module, config.job_type, None)
 
     if not prompt_function:
         raise ValueError(
-            f"Prompt function for relationship type '{relationship_type}' and job type '{job_type}' not found in the prompts module."
+            f"Prompt function for relationship type '{relationship_type}' and job type '{config.job_type}' not found in the prompts module."
         )
 
     # Prepare arguments for the prompt function

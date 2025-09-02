@@ -20,11 +20,7 @@ class HTCondorHelper:
         required_attrs = [
             'collector_host',
             'submit_host',
-            'docker_image',
-            'request_gpus',
-            'request_cpus',
-            'request_memory',
-            'request_disk'
+            'docker_image'
         ]
         
         missing = [attr for attr in required_attrs if not hasattr(self.config, attr)]
@@ -181,59 +177,6 @@ class HTCondorHelper:
             self.logger.error(f"Failed to submit jobs: {e}")
             raise
 
-    def _log_available_resources(self):
-        """Query pool to estimate how many startd slots satisfy the job requirements."""
-        try:
-            # Parse requirements using helper methods
-            req_gpus = int(self.config.request_gpus) if str(self.config.request_gpus).isdigit() else None
-            req_cpus = int(self.config.request_cpus) if str(self.config.request_cpus).isdigit() else None
-            req_mem = self._parse_memory_size(self.config.request_memory)
-            req_disk = self._parse_memory_size(self.config.request_disk)
-
-            # Build constraint parts
-            constraint_parts = ["CUDACapability >= 8.0"]
-            if req_gpus is not None:
-                constraint_parts.append(f"TotalGPUs >= {req_gpus}")
-            if req_cpus is not None:
-                constraint_parts.append(f"Cpus >= {req_cpus}")
-            if req_mem is not None:
-                constraint_parts.append(f"Memory >= {req_mem}")
-            if req_disk is not None:
-                constraint_parts.append(f"Disk >= {req_disk}")
-
-            # Parse GPU memory requirement
-            gpu_mem_raw_cfg = "10G"  # Default fallback
-            try:
-                gpu_mem_raw_cfg = self.config.htcondor_config.get("gpus_minimum_memory", "10G")
-            except (AttributeError, TypeError):
-                pass
-
-            req_gpu_mem_mb = self._parse_memory_size(gpu_mem_raw_cfg)
-            if req_gpu_mem_mb is not None:
-                constraint_parts.append(f"CUDAGlobalMemoryMb >= {req_gpu_mem_mb}")
-
-            constraint = " && ".join(constraint_parts)
-
-            # Query for available resources
-            ads = self.collector.query(
-                htcondor.AdTypes.Startd,
-                constraint=constraint,
-                projection=[
-                    "Name", "TotalGPUs", "State", "Activity",
-                    "CUDAGlobalMemoryMb", "CUDAGlobalMemory", "Disk", "Memory"
-                ]
-            )
-
-            available = len(ads)
-            free_ads = [ad for ad in ads if ad.get("State") == "Unclaimed" or ad.get("Activity") == "Idle"]
-            busy = available - len(free_ads)
-
-            self.logger.info(
-                f"Resource availability – machines meeting requirements ({constraint}): "
-                f"{available} (free {len(free_ads)}, busy {busy})"
-            )
-        except Exception as e:
-            self.logger.warning(f"Failed to query resource availability: {e}")
 
     def monitor_jobs(self, cluster_id: int, check_interval: int = 30) -> bool:
         """Monitor job progress"""
@@ -287,10 +230,6 @@ class HTCondorHelper:
                     self._retrieve_with_timeout(cluster_id, timeout=60)
                 except Exception as retrieve_err:
                     self.logger.warning(f"Failed to retrieve intermediate output files: {retrieve_err}")
-                
-                # Log resource availability only while all jobs remain idle
-                if ads and all(ad.get("JobStatus") == 1 for ad in ads):
-                    self._log_available_resources()
                 
                 self.logger.debug(f"Sleeping for {check_interval} seconds before next check")
                 time.sleep(check_interval)

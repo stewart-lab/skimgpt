@@ -5,9 +5,8 @@ import os
 import socket
 import subprocess
 import time
-import random
+import vllm
 from itertools import chain
-import openai
 from src import prompt_library as prompts_module
 import torch
 from src.utils import Config, RaggedTensor, strip_pipe, sanitize_term_for_filename
@@ -16,8 +15,6 @@ from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
     write_to_json,
-    call_openai,
-    extract_pmids_and_generate_urls,
 )
 
 
@@ -55,7 +52,6 @@ def convert_gpu_uuid_to_device_id(gpu_uuid):
 def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
-    logger = config.logger
     # Canonicalize inputs for display/prompting
     a_term_c = a_term
     b_term_c = strip_pipe(b_term) if b_term is not None else None
@@ -82,7 +78,7 @@ def getHypothesis(
             hypothesis_template = config.skim_hypotheses.get("rel_AC")
             return hypothesis_template.format(a_term=a_term_c, c_term=c_term_c)
 
-    return "No valid hypothesis for the provided JOB_TYPE."
+    return f"No valid hypothesis for the provided {config.job_type}."
 
 
 def prompt(abstract, hyp) -> str:
@@ -193,13 +189,13 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if config.is_dch:
-        if len(out_df) != 2:
-            logger.error("DCH mode requires exactly two rows.")
-            return
-
-        a_term = out_df.iloc[0].get("a_term", "")
-        b_term1 = out_df.iloc[0].get("b_term", "")
-        b_term2 = out_df.iloc[1].get("b_term", "")
+        # lets get hypotheses
+        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
+        logger.debug(f"hypotheses: {hypotheses}")
+        hyp1 = hypotheses[0]
+        hyp2 = hypotheses[1]
+        logger.debug(f"hyp1: {hyp1}")
+        logger.debug(f"hyp2: {hyp2}")
 
         v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
         v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
@@ -212,10 +208,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.info(f" IN PROCESS RESULTS   Consolidated abstracts: {consolidated_abstracts}")
 
         dch_row = {
-            "a_term": a_term,
-            "b_term": [b_term1, b_term2],
-            "c_term": "",
-            "ab_pmid_intersection": consolidated_abstracts,
+            "hypothesis1": hyp1,
+            "hypothesis2": hyp2,
+            "hypothesis1_pmids": out_df.iloc[0].get("ab_pmid_intersection", ""),
+            "hypothesis2_pmids": out_df.iloc[1].get("ab_pmid_intersection", ""),
         }
         out_df = pd.DataFrame([dch_row])
 
@@ -329,7 +325,7 @@ def main():
         # DNS resolution test in Python
         host = "eutils.ncbi.nlm.nih.gov"
         ip_address = socket.gethostbyname(host)
-        logger.info(f"Python DNS resolution test: Successfully resolved '{host}' to '{ip_address}'")
+        logger.debug(f"Python DNS resolution test: Successfully resolved '{host}' to '{ip_address}'")
     except socket.gaierror as e:
         logger.error(f"Python DNS resolution test: Failed to resolve '{host}'. Error: {e}")
         raise  # Re-raise the exception to stop script execution
@@ -347,49 +343,28 @@ def main():
     )
     logger.info("Initialized PubMedFetcher")
     
-    # Process each row individually
+    # Process each row individually (unified for DCH and non-DCH)
     ab_pmids = []
     ab_hypotheses = []
 
-    if config.is_dch:
-        # DCH expects exactly two rows (enforced upstream)
-        if len(config.data) != 2:
-            logger.error(f"DCH mode requires exactly two KM rows, found {len(config.data)}")
-            raise AssertionError("DCH requires exactly two rows")
-        a_term = config.data.iloc[0]['a_term'].split("&")[0]
-        b1 = config.data.iloc[0]['b_term']
-        b2 = config.data.iloc[1]['b_term']
-        pmids1 = eval(config.data.iloc[0]['ab_pmid_intersection'])
-        pmids2 = eval(config.data.iloc[1]['ab_pmid_intersection'])
-        ab_pmids.append(pmids1)
-        ab_pmids.append(pmids2)
-        hyp1 = getHypothesis(config=config, a_term=a_term, b_term=b1)
-        hyp2 = getHypothesis(config=config, a_term=a_term, b_term=b2)
-        ab_hypotheses.append([hyp1, hyp2])
-    else:
-        for _, row in config.data.iterrows():
-            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
-            logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
-            b_term = row['b_term']
-            
-            # Convert string representation of list to actual list
-            pmids = eval(row['ab_pmid_intersection'])
-            ab_pmids.append(pmids)
-            
-            # Generate hypothesis for this specific pair
-            hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
-            ab_hypotheses.append(hypothesis)
+    for _, row in config.data.iterrows():
+        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+        logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
+        b_term = row['b_term']
+
+        # Convert string representation of list to actual list
+        pmids = eval(row['ab_pmid_intersection'])
+        ab_pmids.append(pmids)
+
+        # Generate hypothesis for this specific pair
+        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
+        ab_hypotheses.append(hypothesis)
 
     # Convert to RaggedTensor format
     ab_pmids = RaggedTensor(ab_pmids)
-    if config.is_dch:
-        # For DCH we don't expand hypotheses per-abstract; we build a single combined prompt later
-        all_pmids = ab_pmids.flatten()
-        all_hypotheses = None
-    else:
-        ab_hypotheses = RaggedTensor(ab_hypotheses)
-        all_pmids = ab_pmids.flatten()
-        all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
+    ab_hypotheses = RaggedTensor(ab_hypotheses)
+    all_pmids = ab_pmids.flatten()
+    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
 
     if config.is_skim_with_gpt:
         # Process BC and AC terms row by row
@@ -433,31 +408,17 @@ def main():
     num_abstracts_fetched = len(abstract_map)
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
     
-    # For DCH, reshape abstracts to match the two-row structure of ab_pmids
-    if config.is_dch:
-        abstracts.reshape(ab_pmids.shape)
+    # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    # Provide a safe default; updated later if GPU memory is detected
     dynamic_max_tokens = 4000
 
     # Configure GPU environment before vLLM model initialization
     try:
-        # Disable vLLM usage statistics to avoid file-system writes (and
-        # potential permission errors) in read-only containerised or HPC
-        # environments.
         os.environ['VLLM_NO_USAGE_STATS'] = '1'
         os.environ['DO_NOT_TRACK'] = '1'
 
-        # Import vLLM only after disabling telemetry so the settings take effect.
-        import vllm
-
-        # Always assume a GPU environment – no CPU-only fallback
-        logger.info("GPU environment detected. Proceeding with vLLM initialization...")
-        
-        # Configure PyTorch environment for HTCondor/containerized execution
         logger.info("Configuring PyTorch environment for containerized execution...")
         
-        # Disable PyTorch inductor compilation to avoid cache/user issues
         os.environ['TORCH_COMPILE_DISABLE'] = '1'
         os.environ['TORCHINDUCTOR_DISABLE'] = '1'
         
@@ -541,61 +502,27 @@ def main():
         max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
     )
 
-    if config.is_dch:
-        # DCH path: Apply POST_N filtering first, then generate the prompt.
-        # Reshape abstracts to match the two DCH rows and populate the dataframe
-        try:
-            abstracts.reshape(ab_pmids.shape)
-        except Exception:
-            pass
-        out_df['ab_pmid_intersection'] = abstracts.data
-        # Apply the same filtering routine (POST_N, top_n rules) as other job types
-        out_df = process_dataframe(out_df, config, pubmed_fetcher)
+    prompts = getPrompts(abstracts, all_hypotheses)
+    answers = gen(prompts, model, sampling_config)
 
-        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
-        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
-        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
-        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
-        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
-
-        a_term = config.data.iloc[0]['a_term'].split("&")[0]
-        # Build hypotheses for prompting using only the first part of each b-term (before '|')
-        b1_full = config.data.iloc[0]['b_term']
-        b2_full = config.data.iloc[1]['b_term']
-        h1 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b1_full))
-        h2 = config.km_hypothesis.format(a_term=a_term, b_term=strip_pipe(b2_full))
-        prompt_text = prompts_module.km_with_gpt_direct_comp(
-            hypothesis_1=h1,
-            hypothesis_2=h2,
-            a_term=a_term,
-            consolidated_abstracts=consolidated_abstracts,
-        )
-        prompts = RaggedTensor([prompt_text])
-        answers = gen(prompts, model, sampling_config)
-    else:
-        # Standard path: Generate relevance scores, then filter in postProcess.
-        prompts = getPrompts(abstracts, all_hypotheses)
-        answers = gen(prompts, model, sampling_config)
-
-        # Post-processing
-        defaults = 3 * [RaggedTensor([])]
-        ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
-        ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
+    defaults = 3 * [RaggedTensor([])]
+    ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
+    ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
         
-        postProcess(
-            config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
-        )
+    postProcess(
+        config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
+     )
 
-        if config.is_skim_with_gpt:
+    if config.is_skim_with_gpt:
+        postProcess(
+            config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
+        )
+        if config.has_ac:
             postProcess(
-                config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
-            )
-            if config.has_ac:
-                postProcess(
                     config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
                 )
         
-        out_df = process_dataframe(out_df, config, pubmed_fetcher)
+    out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name

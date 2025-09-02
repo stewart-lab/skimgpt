@@ -20,7 +20,6 @@ import sys
 import time
 from pathlib import Path
 from main_wrapper import setup_logger
-import tempfile  # used for per-job token directory
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -193,7 +192,7 @@ def main():
     config._load_term_lists()
 
     # Unified term handling for both job types
-    if config.job_type == "skim_with_gpt":
+    if config.is_skim_with_gpt:
         # Use original term paths without output directory modification
         a_terms = config.a_terms
         b_terms = config.b_terms
@@ -220,7 +219,7 @@ def main():
                     "b_terms": b_terms,  # All B terms
                     "c_term": c
                 })
-    elif config.job_type == "km_with_gpt":
+    elif config.is_km_with_gpt:
         # KM workflow
         if config.position:
             # make sure the terms are the same length
@@ -372,10 +371,10 @@ def main():
                 num_years = len(range(lo, hi + 1, yinc))
 
                 # compute tokens once
-                if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
+                if config.is_km_with_gpt:
                     input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
                     base_est     = KMCostEstimator(config)
-                elif config.job_type == "skim_with_gpt":
+                elif config.is_skim_with_gpt:
                     input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
                     base_est     = SkimCostEstimator(config)
                 else:
@@ -419,9 +418,9 @@ def main():
 
             else:
                 # compute tokens and prompt as before
-                if config.job_type in ["km_with_gpt","km_with_gpt_direct_comp"]:
+                if config.is_km_with_gpt:
                     input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
-                elif config.job_type == "skim_with_gpt":
+                elif config.is_skim_with_gpt:
                     input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
                 else:
                     input_tokens = 0
