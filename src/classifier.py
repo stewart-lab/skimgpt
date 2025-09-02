@@ -113,24 +113,32 @@ def process_single_row(row, config: Config):
                 "URLS": {"AB": ab_urls.get("AB", [])},
             }
     elif config.is_km_with_gpt and config.is_dch:
+        # DCH: row contains a_term and b_term as [b1, b2], and consolidated ab_pmid_intersection
+        a_term = row.get("a_term")
+        b_terms = row.get("b_term")
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
-        hypothesis1_pmids = row.get("hypothesis1_pmids")
-        hypothesis2_pmids = row.get("hypothesis2_pmids")
+        if not (a_term and isinstance(b_terms, list) and len(b_terms) == 2):
+            logger.error("DCH row must have 'a_term' and 'b_term' as a list of two terms.")
+            return None
+
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
         if result or prompt:
-            processed_results["Hypothesis_Comparison"] = {
-                "hypothesis1": hypothesis1,
-                "hypothesis2": hypothesis2,
+            b1_disp = strip_pipe(b_terms[0])
+            b2_disp = strip_pipe(b_terms[1])
+            h1 = hypothesis1
+            h2 = hypothesis2
+            processed_results["A_B1_B2_Relationship"] = {
+                "a_term": a_term,
+                "hypothesis1": h1,
+                "hypothesis2": h2,
+                "Relationship": f"{strip_pipe(a_term)} - {b1_disp} - {b2_disp}",
                 "Result": result,
                 "Prompt": prompt,
                 "URLS": urls,
             }
-        if not all([hypothesis1, hypothesis2, hypothesis1_pmids, hypothesis2_pmids]):
-            logger.error(f"Missing required fields in row.")
-            return None
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
     logger.debug(f"Processed results: {processed_results}")

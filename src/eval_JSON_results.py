@@ -89,28 +89,17 @@ def extract_and_write_scores(directory):
 
     # 3) write results.txt, injecting the Iteration column only if needed
     out_path = os.path.join(directory, "results.txt")
-    # Determine if we have direct-comp entries (with SOC)
-    has_direct = any(r.get('Relationship_Type') == 'A_B1_B2_Relationship' for r in results)
     with open(out_path, "w", encoding="utf-8") as outf:
         # build header
         headers = ["Relationship_Type", "Relationship", "Score"]
         if has_iterations:
             headers.append("Iteration")
-        if has_direct:
-            headers.extend(["SOC", "Abstracts Supporting Hypothesis 1", "Abstracts Supporting Hypothesis 2", "Abstracts Supporting Neither Hypothesis or are Inconclusive"])
         outf.write("\t".join(headers) + "\n")
         # write rows
         for r in results:
             cols = [r.get(h, "") for h in ["Relationship_Type", "Relationship", "Score"]]
             if has_iterations:
                 cols.append(r.get("Iteration", ""))
-            if has_direct:
-                cols.extend([
-                    r.get("SOC", ""),
-                    r.get("Abstracts Supporting Hypothesis 1", ""),
-                    r.get("Abstracts Supporting Hypothesis 2", ""),
-                    r.get("Abstracts Supporting Neither Hypothesis or are Inconclusive", "")
-                ])
             outf.write("\t".join(cols) + "\n")
 
     print(f"Results written to {out_path}")
