@@ -7,7 +7,7 @@ import subprocess
 import time
 import vllm
 from itertools import chain
-from src import prompt_library as prompts_module
+import random
 import torch
 from src.utils import Config, RaggedTensor, strip_pipe, sanitize_term_for_filename
 from src.pubmed_fetcher import PubMedFetcher
@@ -189,7 +189,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if config.is_dch:
-        # lets get hypotheses
+        # Build direct comparison hypotheses and provide consolidated text content
         hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
@@ -197,21 +197,43 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.debug(f"hyp1: {hyp1}")
         logger.debug(f"hyp2: {hyp2}")
 
-        v1 = out_df.iloc[0].get("ab_pmid_intersection", "")
-        v2 = out_df.iloc[1].get("ab_pmid_intersection", "")
-        ab_text_1 = "".join(v1) if isinstance(v1, list) else str(v1)
-        ab_text_2 = "".join(v2) if isinstance(v2, list) else str(v2)
-        
-        consolidated_abstracts = f"{ab_text_1}{ab_text_2}"
-        # Randomly select 50 of the consolidated abstracts 
-        consolidated_abstracts = "".join(random.sample(consolidated_abstracts, 50))
-        logger.info(f" IN PROCESS RESULTS   Consolidated abstracts: {consolidated_abstracts}")
+        # Consolidate abstracts/text from both candidate rows (if present)
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
+
+        def ensure_list(value):
+            if isinstance(value, list):
+                return value
+            if isinstance(value, str) and value.strip():
+                return [value]
+            return []
+
+        list1 = ensure_list(v1)
+        list2 = ensure_list(v2)
+        merged_abstracts = list1 + list2
+
+        if merged_abstracts:
+            sample_size = min(50, len(merged_abstracts))
+            sampled_abstracts = random.sample(merged_abstracts, sample_size)
+            consolidated_abstracts = "\n\n".join(sampled_abstracts)
+            # Prefer the number of PMIDs detected in the consolidated text (more accurate)
+            try:
+                import re as _re
+                pmids_found = _re.findall(r"PMID:\s*(\d+)", consolidated_abstracts)
+                expected_count = len(pmids_found) if pmids_found else sample_size
+            except Exception:
+                expected_count = sample_size
+        else:
+            consolidated_abstracts = ""
+            expected_count = 0
 
         dch_row = {
             "hypothesis1": hyp1,
             "hypothesis2": hyp2,
-            "hypothesis1_pmids": out_df.iloc[0].get("ab_pmid_intersection", ""),
-            "hypothesis2_pmids": out_df.iloc[1].get("ab_pmid_intersection", ""),
+            # Pass consolidated text where A_B expects it so prompts have content
+            "ab_pmid_intersection": consolidated_abstracts,
+            # Provide expected per-abstract count for JSON enforcement downstream
+            "expected_per_abstract_count": expected_count,
         }
         out_df = pd.DataFrame([dch_row])
 
@@ -228,17 +250,19 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
                     result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
 
             result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+            if config.is_dch:
+                logger.info(f"Processed row {index + 1}/{total_rows} (DCH)")
+            else:
+                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
 
             raw_a = row.get("a_term", "")
             raw_b = row.get("b_term", "")
             raw_c = row.get("c_term", "")
 
-            if config.is_dch and isinstance(raw_b, list) and len(raw_b) == 2:
-                a_fname = sanitize_term_for_filename(raw_a)
-                b1_fname = sanitize_term_for_filename(raw_b[0])
-                b2_fname = sanitize_term_for_filename(raw_b[1])
-                output_json = f"{a_fname}___{b1_fname}____{b2_fname}___km_with_gpt_direct_comp.json"
+            if config.is_dch:
+                hyp1_name = sanitize_term_for_filename(row.get("hypothesis1", "hypothesis1"))
+                hyp2_name = sanitize_term_for_filename(row.get("hypothesis2", "hypothesis2"))
+                output_json = f"{hyp1_name}____vs____{hyp2_name}___km_with_gpt_direct_comp.json"
             elif config.is_skim_with_gpt:
                 a_fname = sanitize_term_for_filename(raw_a)
                 b_fname = sanitize_term_for_filename(raw_b)

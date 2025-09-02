@@ -38,7 +38,7 @@ Score: [Number] - Reasoning: [Reasoning]
 Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}"""
 
-def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, a_term, consolidated_abstracts):
+def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, consolidated_abstracts):
     pmid_list = extract_pmids(consolidated_abstracts)
 
     return f"""
@@ -49,7 +49,7 @@ Biomedical Abstracts (verbatim):
 Available PMIDs for citation: {pmid_list}
 
 Task:
-Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above that mention {a_term} and terms relevant to either hypothesis. 
+Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above that mention terms relevant to either hypothesis. 
 Classify each abstract, produce tallies, assign a continuous 0–100 score, choose a decision, and list the PMIDs you used.
 
 Hypothesis 1:

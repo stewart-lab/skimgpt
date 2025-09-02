@@ -140,8 +140,9 @@ def process_single_row(row, config: Config):
                 "Prompt": prompt,
                 "URLS": urls,
             }
-        if not all([hypothesis1, hypothesis2, hypothesis1_pmids, hypothesis2_pmids]):
-            logger.error(f"Missing required fields in row.")
+        # For DCH we only require the two hypotheses; PMIDs are optional
+        if not all([hypothesis1, hypothesis2]):
+            logger.error(f"Missing hypotheses for DCH row.")
             return None
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
@@ -187,17 +188,42 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         bc_abstracts = ""  # Not used for A-C relationship
         ac_abstracts = row.get("ac_pmid_intersection", "")
     elif relationship_type == "A_B":
-        a_term = row.get("a_term", "")
-        b_term = row.get("b_term", "")
-        c_term = ""  # Not used for A-B relationship
+        if config.is_dch:
+            # DCH: direct comparison, use consolidated text from row if provided
+            a_term = ""
+            b_term = ""
+            c_term = ""
+            ab_abstracts = row.get("ab_pmid_intersection", "")
+            bc_abstracts = ""
+            ac_abstracts = ""
+        else:
+            a_term = row.get("a_term", "")
+            b_term = row.get("b_term", "")
+            c_term = ""  # Not used for A-B relationship
 
-        ab_abstracts = row.get("ab_pmid_intersection", "")
-        bc_abstracts = ""  # Not used
-        ac_abstracts = ""  # Not used
+            ab_abstracts = row.get("ab_pmid_intersection", "")
+            bc_abstracts = ""  # Not used
+            ac_abstracts = ""  # Not used
     
     else:
         logger.error(f"Unknown relationship type: {relationship_type}")
         return ["Score: N/A"], "", {}
+
+    # Compute expected per-abstract count based on available abstracts
+    if relationship_type == "A_B_C":
+        expected_count = (
+            (len(ab_abstracts) if isinstance(ab_abstracts, list) else 0) +
+            (len(bc_abstracts) if isinstance(bc_abstracts, list) else 0)
+        )
+    elif relationship_type == "A_C":
+        expected_count = (len(ac_abstracts) if isinstance(ac_abstracts, list) else 0)
+    elif relationship_type == "A_B":
+        if config.is_dch:
+            expected_count = row.get("expected_per_abstract_count")
+        else:
+            expected_count = (len(ab_abstracts) if isinstance(ab_abstracts, list) else 0)
+    else:
+        expected_count = None
 
     # Define URLs based on relationship type
     if relationship_type == "A_B_C":
@@ -229,7 +255,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             )
             return ["Score: N/A"], "", urls
     elif relationship_type == "A_B":
-        if not ab_abstracts:
+        if not config.is_dch and not ab_abstracts:
             logger.error(
                 f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
             )
@@ -262,6 +288,9 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             consolidated_abstracts=consolidated_abstracts,
             config=config,
             relationship_type=relationship_type,
+            hypothesis1=row.get("hypothesis1"),
+            hypothesis2=row.get("hypothesis2"),
+            expected_per_abstract_count=expected_count,
         )
         logger.debug(f" IN ANALYZE ABSTRACT   Result: {result}")
         logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
@@ -280,9 +309,12 @@ def analyze_abstract_with_frontier_LLM(
     consolidated_abstracts: str,
     config: Config,
     relationship_type: str,
+    hypothesis1: str | None = None,
+    hypothesis2: str | None = None,
+    expected_per_abstract_count: int | None = None,
 ) -> tuple:
     logger = config.logger
-    if not a_term:
+    if not a_term and not config.is_dch:
         logger.error("A term is empty.")
         return [], ""
 
@@ -309,13 +341,35 @@ def analyze_abstract_with_frontier_LLM(
         content=consolidated_abstracts,
         config=config,
         relationship_type=relationship_type,
+        hypothesis1=hypothesis1,
+        hypothesis2=hypothesis2,
     )
     if not prompt_text:
         logger.error("Failed to generate prompt.")
         return ["Score: N/A"], prompt_text
     logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
+
+    # Derive expected per-abstract count from the prompt when in DCH; prefer this over any provided value
+    final_expected_count = expected_per_abstract_count
     if config.is_dch:
-        response = call_openai_json(client, prompt_text, config)
+        try:
+            import re as _re
+            m = _re.search(r"Available PMIDs for citation:\s*([0-9,\s]+)", prompt_text)
+            if m:
+                numbers = [n for n in _re.findall(r"\d+", m.group(1))]
+                if numbers:
+                    final_expected_count = len(numbers)
+                    logger.info(f"Derived expected_per_abstract_count from prompt: {final_expected_count}")
+        except Exception as _e:
+            logger.debug(f"Could not derive expected count from prompt: {_e}")
+
+    if config.is_dch:
+        response = call_openai_json(
+            client,
+            prompt_text,
+            config,
+            expected_per_abstract_count=final_expected_count,
+        )
         logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
     else:
         response = call_openai(client, prompt_text, config)
@@ -332,19 +386,20 @@ def generate_prompt(
     content: str,
     config: Config,
     relationship_type: str,
+    hypothesis1: str | None = None,
+    hypothesis2: str | None = None,
 ) -> str:
     logger = config.logger
   
     if config.is_km_with_gpt:
         # Handle DCH here based on global config flag; relationship_type is not used to branch
         if config.is_dch:
-            if not (isinstance(b_term, list) and len(b_term) == 2):
-                logger.error("DCH requires b_term to be a list of two strings.")
+            # Require direct hypotheses for DCH
+            if not (hypothesis1 and hypothesis2):
+                logger.error("DCH requires hypothesis1 and hypothesis2.")
                 return ""
-            b1_disp = strip_pipe(b_term[0])
-            b2_disp = strip_pipe(b_term[1])
-            h1 = config.km_hypothesis.format(a_term=a_term, b_term=b1_disp)
-            h2 = config.km_hypothesis.format(a_term=a_term, b_term=b2_disp)
+            h1 = hypothesis1
+            h2 = hypothesis2
             prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
             if not prompt_function:
                 logger.error("Prompt function for DCH not found.")
@@ -352,7 +407,6 @@ def generate_prompt(
             return prompt_function(
                 hypothesis_1=h1,
                 hypothesis_2=h2,
-                a_term=a_term,
                 consolidated_abstracts=content,
             )
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
@@ -426,12 +480,22 @@ def extract_json_from_markdown(s: str) -> dict:
         raise ValueError("No JSON found in model output.")
     return json.loads(m.group(1))
 
-def call_openai_json(client, prompt, config):
+def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None):
     # Build messages with system + user for all models (o1, o3, gpt-5 compatible)
     messages = [
         {"role": "system", "content": prompts_module.km_with_gpt_direct_comp_system_instructions()},
-        {"role": "user", "content": prompt}
     ]
+    if expected_per_abstract_count is not None:
+        messages.append({
+            "role": "system",
+            "content": (
+                "You MUST return exactly "
+                f"{expected_per_abstract_count} items in the per_abstract array. "
+                "Include one entry per PMID listed. If an abstract is irrelevant, "
+                "label it 'neither' but still include it. Do not omit any."
+            )
+        })
+    messages.append({"role": "user", "content": prompt})
 
     params = {
         "messages": messages,
@@ -447,6 +511,15 @@ def call_openai_json(client, prompt, config):
     for k in ["per_abstract","score_rationale","tallies","score","decision","used_pmids"]:
         if k not in payload:
             raise ValueError(f"Missing required field '{k}' in model output.")
+
+    # Enforce the number of per_abstract labels to match expected count when provided
+    if expected_per_abstract_count is not None:
+        per_abstract = payload.get("per_abstract", [])
+        if not isinstance(per_abstract, list) or len(per_abstract) != expected_per_abstract_count:
+            raise ValueError(
+                f"per_abstract length {len(per_abstract) if isinstance(per_abstract, list) else 'N/A'} "
+                f"does not match expected {expected_per_abstract_count}."
+            )
 
     return payload
 

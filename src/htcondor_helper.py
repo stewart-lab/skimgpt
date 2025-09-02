@@ -30,22 +30,32 @@ class HTCondorHelper:
     def _configure_htcondor_params(self):
         """Configure all HTCondor parameters in one place"""
 
+        # Moderate client-side debug
         htcondor.param["TOOL_DEBUG"] = "D_COMMAND"
         htcondor.param["TOOL_LOG"] = "/dev/null"
         htcondor.param["FILETRANSFER_DEBUG"] = "FALSE"
         htcondor.param["MAX_TRANSFER_HISTORY_SIZE"] = "0"
         abs_token_dir = os.path.abspath(self.token_dir)
         htcondor.param["SEC_TOKEN_DIRECTORY"] = abs_token_dir
-        # Use IDTOKENS (the correct method name) for token-based auth
-        # Allow fallback to other common methods if the remote requires them
-        htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "IDTOKENS, FS, PASSWORD"
-        htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "IDTOKENS, FS, PASSWORD"
+        # Enforce token-only (IDTOKENS) authentication for all client ops
+        htcondor.param["SEC_CLIENT_AUTHENTICATION_METHODS"] = "IDTOKENS"
+        htcondor.param["SEC_DEFAULT_AUTHENTICATION_METHODS"] = "IDTOKENS"
+        htcondor.param["SEC_CLIENT_AUTHENTICATION"] = "REQUIRED"
         htcondor.param["SEC_TOKEN_AUTHENTICATION"] = "REQUIRED"
         # Strengthen channel protections to avoid negotiation downgrade issues
+        htcondor.param["SEC_CLIENT_ENCRYPTION"] = "REQUIRED"
+        htcondor.param["SEC_CLIENT_INTEGRITY"] = "REQUIRED"
         htcondor.param["SEC_DEFAULT_ENCRYPTION"] = "REQUIRED"
         htcondor.param["SEC_DEFAULT_INTEGRITY"] = "REQUIRED"
-        
-        self.logger.info(f"HTCondor parameters configured with token directory: {abs_token_dir}")
+
+        self.logger.info(
+            f"HTCondor parameters configured with token directory: {abs_token_dir}; "
+            f"AUTH_METHODS={htcondor.param.get('SEC_CLIENT_AUTHENTICATION_METHODS')}; "
+            f"ENCRYPTION={htcondor.param.get('SEC_DEFAULT_ENCRYPTION')}; "
+            f"INTEGRITY={htcondor.param.get('SEC_DEFAULT_INTEGRITY')}"
+        )
+
+    
 
     def _parse_memory_size(self, size_str: str) -> int:
         """Parse memory/disk size string like '16G' or '16384' into MB"""
@@ -86,17 +96,39 @@ class HTCondorHelper:
             
             # Query scheduler daemon
             self.logger.debug(f"Querying for schedd on {self.config.submit_host}")
-            schedd_ads = self.collector.query(
-                htcondor.AdTypes.Schedd,
-                constraint=f"Name=?={submit_host}",
-                projection=["Name", "MyAddress", "DaemonCoreDutyCycle", "CondorVersion"]
-            )
+            try:
+                # Some collectors permit anonymous READ; temporarily relax client-side to discover the schedd
+                prev_auth = htcondor.param.get("SEC_CLIENT_AUTHENTICATION", "REQUIRED")
+                prev_enc  = htcondor.param.get("SEC_CLIENT_ENCRYPTION", "REQUIRED")
+                prev_int  = htcondor.param.get("SEC_CLIENT_INTEGRITY", "REQUIRED")
+                htcondor.param["SEC_CLIENT_AUTHENTICATION"] = "OPTIONAL"
+                htcondor.param["SEC_CLIENT_ENCRYPTION"] = "OPTIONAL"
+                htcondor.param["SEC_CLIENT_INTEGRITY"] = "OPTIONAL"
+                try:
+                    schedd_ads = self.collector.query(
+                        htcondor.AdTypes.Schedd,
+                        constraint=f"Name=?={submit_host}",
+                        projection=["Name", "MyAddress", "DaemonCoreDutyCycle", "CondorVersion"]
+                    )
+                finally:
+                    # Restore strong settings before contacting schedd
+                    htcondor.param["SEC_CLIENT_AUTHENTICATION"] = prev_auth
+                    htcondor.param["SEC_CLIENT_ENCRYPTION"] = prev_enc
+                    htcondor.param["SEC_CLIENT_INTEGRITY"] = prev_int
+            except Exception as ce:
+                self.logger.error(f"Failed communication with collector: {ce}")
+                raise
             
             if not schedd_ads:
                 raise ValueError(f"No scheduler found for {self.config.submit_host}")
                 
             schedd_ad = schedd_ads[0]
-            self.logger.debug(f"Found scheduler: {schedd_ad.get('Name', 'Unknown')}")
+            self.logger.debug(
+                "Found scheduler: %s (Address=%s, Version=%s)",
+                schedd_ad.get('Name', 'Unknown'),
+                schedd_ad.get('MyAddress', 'Unknown'),
+                schedd_ad.get('CondorVersion', 'Unknown'),
+            )
             self.schedd = htcondor.Schedd(schedd_ad)
             
             # Test connection to schedd
