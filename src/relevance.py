@@ -210,19 +210,95 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
         list1 = ensure_list(v1)
         list2 = ensure_list(v2)
-        merged_abstracts = list1 + list2
 
-        if merged_abstracts:
-            sample_size = min(50, len(merged_abstracts))
-            sampled_abstracts = random.sample(merged_abstracts, sample_size)
+        total1 = len(list1)
+        total2 = len(list2)
+        total = total1 + total2
+
+        # Configurable parameters
+        min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
+        max_ratio = float(config.global_settings.get("DCH_MAX_RATIO", 20.0))
+        target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
+
+        n1 = 0
+        n2 = 0
+        if total > 0:
+            s1 = (total1 / total) if total > 0 else 0.0
+            s2 = (total2 / total) if total > 0 else 0.0
+
+            # Apply minimum floor only to non-empty sets
+            if total1 > 0:
+                s1 = max(s1, min_floor)
+            if total2 > 0:
+                s2 = max(s2, min_floor)
+
+            # Normalize shares
+            if s1 == 0 and s2 > 0:
+                s2 = 1.0
+            elif s2 == 0 and s1 > 0:
+                s1 = 1.0
+            else:
+                sum_s = s1 + s2
+                s1 = s1 / sum_s if sum_s > 0 else 0.0
+                s2 = s2 / sum_s if sum_s > 0 else 0.0
+
+            # Enforce max ratio cap (1:20)
+            if s1 > 0 and s2 > 0:
+                if s1 >= s2 and s1 / s2 > max_ratio:
+                    s2 = s1 / max_ratio
+                elif s2 > s1 and s2 / s1 > max_ratio:
+                    s1 = s2 / max_ratio
+                # Renormalize
+                sum_s = s1 + s2
+                s1 /= sum_s
+                s2 /= sum_s
+
+            # Initial allocation with rounding
+            n1 = int(round(s1 * target_total)) if total1 > 0 else 0
+            n2 = int(round(s2 * target_total)) if total2 > 0 else 0
+
+            # Adjust to hit target_total
+            diff = target_total - (n1 + n2)
+            if diff != 0:
+                if diff > 0:
+                    # Allocate remaining to the side with larger fractional share and capacity
+                    for _ in range(diff):
+                        cap1 = total1 - n1
+                        cap2 = total2 - n2
+                        if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
+                            n1 += 1 if cap1 > 0 else 0
+                        else:
+                            n2 += 1 if cap2 > 0 else 0
+                else:
+                    # Remove extras from the side with larger current allocation
+                    for _ in range(-diff):
+                        if n1 >= n2 and n1 > 0:
+                            n1 -= 1
+                        elif n2 > 0:
+                            n2 -= 1
+
+            # Cap by availability
+            n1 = min(n1, total1)
+            n2 = min(n2, total2)
+
+            # If still under target due to limited availability, top up from the other side
+            remaining = target_total - (n1 + n2)
+            if remaining > 0:
+                add1 = min(remaining, total1 - n1)
+                n1 += add1
+                remaining -= add1
+                if remaining > 0:
+                    add2 = min(remaining, total2 - n2)
+                    n2 += add2
+
+        # Perform sampling
+        sampled1 = random.sample(list1, n1) if n1 > 0 else []
+        sampled2 = random.sample(list2, n2) if n2 > 0 else []
+        sampled_abstracts = sampled1 + sampled2
+
+        if sampled_abstracts:
             consolidated_abstracts = "\n\n".join(sampled_abstracts)
-            # Prefer the number of PMIDs detected in the consolidated text (more accurate)
-            try:
-                import re as _re
-                pmids_found = _re.findall(r"PMID:\s*(\d+)", consolidated_abstracts)
-                expected_count = len(pmids_found) if pmids_found else sample_size
-            except Exception:
-                expected_count = sample_size
+            expected_count = len(sampled_abstracts)
         else:
             consolidated_abstracts = ""
             expected_count = 0
