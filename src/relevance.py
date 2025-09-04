@@ -9,7 +9,7 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, strip_pipe, sanitize_term_for_filename
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -52,15 +52,12 @@ def convert_gpu_uuid_to_device_id(gpu_uuid):
 def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
-    # Canonicalize inputs for display/prompting
-    a_term_c = a_term
-    b_term_c = strip_pipe(b_term) if b_term is not None else None
-    c_term_c = strip_pipe(c_term) if c_term is not None else None
 
-    if config.is_km_with_gpt or config.is_dch:
+
+    if config.is_km_with_gpt:
         assert a_term and b_term and not c_term
         hypothesis_template = config.km_hypothesis
-        return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
+        return hypothesis_template.format(a_term=a_term, b_term=b_term)
     elif config.is_skim_with_gpt:
         assert (
             (a_term and b_term and not c_term)
@@ -70,13 +67,13 @@ def getHypothesis(
 
         if a_term and b_term and not c_term:
             hypothesis_template = config.skim_hypotheses.get("AB")
-            return hypothesis_template.format(a_term=a_term_c, b_term=b_term_c)
+            return hypothesis_template.format(a_term=a_term, b_term=b_term)
         elif b_term and c_term and not a_term:
             hypothesis_template = config.skim_hypotheses.get("BC")
-            return hypothesis_template.format(b_term=b_term_c, c_term=c_term_c)
+            return hypothesis_template.format(b_term=b_term, c_term=c_term)
         elif a_term and c_term and not b_term:
             hypothesis_template = config.skim_hypotheses.get("rel_AC")
-            return hypothesis_template.format(a_term=a_term_c, c_term=c_term_c)
+            return hypothesis_template.format(a_term=a_term, c_term=c_term)
 
     return f"No valid hypothesis for the provided {config.job_type}."
 
@@ -169,6 +166,146 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
+def sample_consolidated_abstracts(v1, v2, config: Config):
+    """Sample from two abstract collections and return consolidated text and count.
+
+    Args:
+        v1: First collection of abstracts (list or single string or empty).
+        v2: Second collection of abstracts (list or single string or empty).
+        config: Global configuration providing sampling parameters.
+
+    Returns:
+        A tuple of (consolidated_abstracts: str, expected_count: int)
+    """
+    logger = config.logger
+    def normalize_entries(value):
+        """Return a flat list of individual abstracts.
+
+        Handles cases where input is a single concatenated string containing
+        multiple abstracts separated by the '===END OF ABSTRACT===' sentinel.
+        """
+        segments = []
+        # Normalize to list for iteration
+        if isinstance(value, list):
+            iterable = value
+        elif isinstance(value, str):
+            iterable = [value]
+        else:
+            iterable = []
+
+        for item in iterable:
+            if not isinstance(item, str):
+                # Coerce non-strings defensively
+                segments.append(str(item))
+                continue
+
+            text = item.strip()
+            if not text:
+                continue
+
+            if '===END OF ABSTRACT===' in text:
+                parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
+                # Re-append sentinel to each piece to preserve downstream expectations
+                segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
+            else:
+                # Fallback: treat as a single abstract entry
+                segments.append(text)
+        return segments
+
+    list1 = normalize_entries(v1)
+    list2 = normalize_entries(v2)
+
+    total1 = len(list1)
+    total2 = len(list2)
+    logger.debug(f"entities_in_candidate1: {total1}")
+    logger.debug(f"entities_in_candidate2: {total2}")
+    total = total1 + total2
+    logger.debug(f"entities_total: {total}")
+
+    # Configurable parameters (cap removed, floor fixed at 0.06)
+    min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
+    target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
+
+    n1 = 0
+    n2 = 0
+    if total > 0:
+        s1 = (total1 / total) if total > 0 else 0.0
+        s2 = (total2 / total) if total > 0 else 0.0
+
+        # Apply minimum floor only to non-empty sets
+        if total1 > 0:
+            s1 = max(s1, min_floor)
+        if total2 > 0:
+            s2 = max(s2, min_floor)
+
+        # Normalize shares
+        if s1 == 0 and s2 > 0:
+            s2 = 1.0
+        elif s2 == 0 and s1 > 0:
+            s1 = 1.0
+        else:
+            sum_s = s1 + s2
+            s1 = s1 / sum_s if sum_s > 0 else 0.0
+            s2 = s2 / sum_s if sum_s > 0 else 0.0
+
+        # No max ratio cap; proceed directly to allocation
+
+        # Initial allocation with rounding
+        n1 = int(round(s1 * target_total)) if total1 > 0 else 0
+        n2 = int(round(s2 * target_total)) if total2 > 0 else 0
+
+        # Adjust to hit target_total
+        diff = target_total - (n1 + n2)
+        if diff != 0:
+            if diff > 0:
+                # Allocate remaining to the side with larger fractional share and capacity
+                for _ in range(diff):
+                    cap1 = total1 - n1
+                    cap2 = total2 - n2
+                    if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
+                        n1 += 1 if cap1 > 0 else 0
+                    else:
+                        n2 += 1 if cap2 > 0 else 0
+            else:
+                # Remove extras from the side with larger current allocation
+                for _ in range(-diff):
+                    if n1 >= n2 and n1 > 0:
+                        n1 -= 1
+                    elif n2 > 0:
+                        n2 -= 1
+
+        # Cap by availability
+        n1 = min(n1, total1)
+        n2 = min(n2, total2)
+
+        # If still under target due to limited availability, top up from the other side
+        remaining = target_total - (n1 + n2)
+        if remaining > 0:
+            add1 = min(remaining, total1 - n1)
+            n1 += add1
+            remaining -= add1
+            if remaining > 0:
+                add2 = min(remaining, total2 - n2)
+                n2 += add2
+
+    # Perform sampling
+    sampled1 = random.sample(list1, n1) if n1 > 0 else []
+    sampled2 = random.sample(list2, n2) if n2 > 0 else []
+    logger.debug(f"sampled1: len {len(sampled1)} {sampled1}")
+    logger.debug(f"sampled2: len {len(sampled2)} {sampled2}")
+    sampled_abstracts = sampled1 + sampled2
+    logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
+
+    if sampled_abstracts:
+        consolidated_abstracts = "\n\n".join(sampled_abstracts)
+        expected_count = len(sampled_abstracts)
+    else:
+        consolidated_abstracts = ""
+        expected_count = 0
+
+    return consolidated_abstracts, expected_count
+
+
 def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
     logger = config.logger
     """Process results and write to JSON files."""
@@ -201,107 +338,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
         v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
 
-        def ensure_list(value):
-            if isinstance(value, list):
-                return value
-            if isinstance(value, str) and value.strip():
-                return [value]
-            return []
-
-        list1 = ensure_list(v1)
-        list2 = ensure_list(v2)
-
-        total1 = len(list1)
-        total2 = len(list2)
-        total = total1 + total2
-
-        # Configurable parameters
-        min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
-        max_ratio = float(config.global_settings.get("DCH_MAX_RATIO", 20.0))
-        target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
-
-        n1 = 0
-        n2 = 0
-        if total > 0:
-            s1 = (total1 / total) if total > 0 else 0.0
-            s2 = (total2 / total) if total > 0 else 0.0
-
-            # Apply minimum floor only to non-empty sets
-            if total1 > 0:
-                s1 = max(s1, min_floor)
-            if total2 > 0:
-                s2 = max(s2, min_floor)
-
-            # Normalize shares
-            if s1 == 0 and s2 > 0:
-                s2 = 1.0
-            elif s2 == 0 and s1 > 0:
-                s1 = 1.0
-            else:
-                sum_s = s1 + s2
-                s1 = s1 / sum_s if sum_s > 0 else 0.0
-                s2 = s2 / sum_s if sum_s > 0 else 0.0
-
-            # Enforce max ratio cap (1:20)
-            if s1 > 0 and s2 > 0:
-                if s1 >= s2 and s1 / s2 > max_ratio:
-                    s2 = s1 / max_ratio
-                elif s2 > s1 and s2 / s1 > max_ratio:
-                    s1 = s2 / max_ratio
-                # Renormalize
-                sum_s = s1 + s2
-                s1 /= sum_s
-                s2 /= sum_s
-
-            # Initial allocation with rounding
-            n1 = int(round(s1 * target_total)) if total1 > 0 else 0
-            n2 = int(round(s2 * target_total)) if total2 > 0 else 0
-
-            # Adjust to hit target_total
-            diff = target_total - (n1 + n2)
-            if diff != 0:
-                if diff > 0:
-                    # Allocate remaining to the side with larger fractional share and capacity
-                    for _ in range(diff):
-                        cap1 = total1 - n1
-                        cap2 = total2 - n2
-                        if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
-                            n1 += 1 if cap1 > 0 else 0
-                        else:
-                            n2 += 1 if cap2 > 0 else 0
-                else:
-                    # Remove extras from the side with larger current allocation
-                    for _ in range(-diff):
-                        if n1 >= n2 and n1 > 0:
-                            n1 -= 1
-                        elif n2 > 0:
-                            n2 -= 1
-
-            # Cap by availability
-            n1 = min(n1, total1)
-            n2 = min(n2, total2)
-
-            # If still under target due to limited availability, top up from the other side
-            remaining = target_total - (n1 + n2)
-            if remaining > 0:
-                add1 = min(remaining, total1 - n1)
-                n1 += add1
-                remaining -= add1
-                if remaining > 0:
-                    add2 = min(remaining, total2 - n2)
-                    n2 += add2
-
-        # Perform sampling
-        sampled1 = random.sample(list1, n1) if n1 > 0 else []
-        sampled2 = random.sample(list2, n2) if n2 > 0 else []
-        sampled_abstracts = sampled1 + sampled2
-
-        if sampled_abstracts:
-            consolidated_abstracts = "\n\n".join(sampled_abstracts)
-            expected_count = len(sampled_abstracts)
-        else:
-            consolidated_abstracts = ""
-            expected_count = 0
+        consolidated_abstracts, expected_count = sample_consolidated_abstracts(v1, v2, config)
 
         dch_row = {
             "hypothesis1": hyp1,
@@ -315,7 +352,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
-        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+        logger.debug(f" Result dict: {result_dict}")
         if result_dict:
             for ratio_type in ["ab", "bc", "ac"]:
                 ratio_col = f"{ratio_type}_relevance_ratio"
@@ -338,7 +375,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             if config.is_dch:
                 hyp1_name = sanitize_term_for_filename(row.get("hypothesis1", "hypothesis1"))
                 hyp2_name = sanitize_term_for_filename(row.get("hypothesis2", "hypothesis2"))
-                output_json = f"{hyp1_name}____vs____{hyp2_name}___km_with_gpt_direct_comp.json"
+                output_json = f"{hyp1_name}_vs_{hyp2_name}_km_with_gpt_direct_comp.json"
             elif config.is_skim_with_gpt:
                 a_fname = sanitize_term_for_filename(raw_a)
                 b_fname = sanitize_term_for_filename(raw_b)
@@ -389,11 +426,9 @@ def estimate_max_batched_tokens(seq_len: int = 4000,
 
 
 def main():
-    # Configure HuggingFace cache directory early to avoid TRANSFORMERS_CACHE deprecation warnings
+
     if 'TRANSFORMERS_CACHE' in os.environ:
-        # If HF_HOME is not already set, reuse the TRANSFORMERS_CACHE path for HF_HOME
         os.environ.setdefault('HF_HOME', os.environ['TRANSFORMERS_CACHE'])
-        # Remove TRANSFORMERS_CACHE to prevent FutureWarning from 🤗 Transformers
         os.environ.pop('TRANSFORMERS_CACHE', None)
     
     # Parse arguments FIRST

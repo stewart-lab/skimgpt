@@ -111,7 +111,6 @@ def run_and_save_query(
 
 
 def filter_term_columns(df, config: Config):
-    logger = config.logger
     for column in ["a_term", "b_term", "c_term"]:
         if column in df.columns:
             # Use .loc to explicitly set the values
@@ -242,7 +241,6 @@ def save_filtered_results(
 
     return filtered_file_path
 
-# Removed legacy km_with_gpt_direct_comp workflow
 
 def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     """Process one A term with ALL B terms in a single API call"""
@@ -293,31 +291,10 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
         filter_condition=lambda df: df["ab_pmid_intersection"].apply(len) > 0,
     )
 
-    # DCH: enforce exactly two KM rows corresponding to the configured B terms
+    # DCH: only warn if fewer than two valid results remain (terms already pipe-stripped)
     if config.is_dch:
-        # Normalize desired B terms to match post-filter normalization (first synonym only)
-        desired_b_terms = [strip_pipe(t) for t in list(config.b_terms)]
-        logger.debug(f"DCH mode enabled. Desired B terms: {desired_b_terms}")
-        # Keep only rows for the two configured B terms
-        if "b_term" not in valid_rows.columns:
-            logger.error("Missing 'b_term' column in KM results for DCH mode")
-            return None
-        pruned_rows = valid_rows[valid_rows["b_term"].isin(desired_b_terms)].copy()
-        # If multiple rows per term appear, keep the top-ranked by sort column
-        if not pruned_rows.empty:
-            sort_col = config.sort_column
-            if sort_col in pruned_rows.columns:
-                pruned_rows = pruned_rows.sort_values(by=sort_col, ascending=False)
-            pruned_rows = pruned_rows.drop_duplicates(subset=["b_term"], keep="first")
-
-        # Validation checks (warn-only; config enforces two B-terms)
-        missing = [t for t in desired_b_terms if t not in set(pruned_rows.get("b_term", []))]
-        if missing:
-            logger.warning(f"DCH: missing KM rows for B terms: {missing}")
-        # Order rows to match the order of desired_b_terms
-        pruned_rows["_b_cat"] = pd.Categorical(pruned_rows["b_term"], categories=desired_b_terms, ordered=True)
-        pruned_rows = pruned_rows.sort_values("_b_cat").drop(columns=["_b_cat"])
-        valid_rows = pruned_rows
+        if len(valid_rows) < 2:
+            logger.warning("DCH: fewer than two valid KM results after filtering")
 
     # Save filtered results and handle no_results.txt
     filtered_file_path = save_filtered_results(
