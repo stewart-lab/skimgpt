@@ -521,6 +521,12 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 f"does not match expected {expected_per_abstract_count}."
             )
 
+    # Validate tallies include 'both' key
+    tallies = payload.get("tallies", {})
+    for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
+        if tk not in tallies:
+            raise ValueError(f"Missing required tally '{tk}' in model output.")
+
     return payload
 
 def call_openai(client, prompt, config: Config):

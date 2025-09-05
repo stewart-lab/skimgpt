@@ -392,7 +392,7 @@ Rules:
 - Ground the output with evidence extracted from the abstracts (≤300 chars each).
 - Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
 - Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
-- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, and number that support neither or are inconclusive.
+- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, number supporting both, and number that support neither or are inconclusive.
 - Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
 - The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
@@ -434,9 +434,10 @@ def km_with_gpt_direct_comp_json_schema():
             "properties": {
                 "support_H1": {"type": "integer", "minimum": 0},
                 "support_H2": {"type": "integer", "minimum": 0},
+                "both": {"type": "integer", "minimum": 0},
                 "neither_or_inconclusive": {"type": "integer", "minimum": 0}
             },
-            "required": ["support_H1","support_H2","neither_or_inconclusive"]
+            "required": ["support_H1","support_H2","both","neither_or_inconclusive"]
         },
         "score": {"type": "number", "minimum": 0, "maximum": 100},
         "decision": {"type": "string", "enum": ["H1","H2","tie","insufficient_evidence"]},
@@ -455,7 +456,7 @@ Rules:
 - Ground the output with evidence extracted from the abstracts (≤300 chars each).
 - Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
 - Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
-- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, and number that support neither or are inconclusive.
+- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, number supporting both, and number that support neither or are inconclusive.
 - Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
 - The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
