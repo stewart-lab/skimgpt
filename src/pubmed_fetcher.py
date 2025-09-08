@@ -88,6 +88,7 @@ class PubMedFetcher:
                 returned_pmids = []
                 returned_contents = []
                 delimiter = "\n\n===END OF ABSTRACT===\n\n"
+                skipped_min_wc_pmids = []
 
                 for paper in output.get("PubmedArticle", []):
                     pmid = str(paper["MedlineCitation"]["PMID"])
@@ -104,6 +105,15 @@ class PubMedFetcher:
                         self.pmid_years[pmid] = int(pub_year)  # Store year in instance
                         content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
                         returned_contents.append(content)
+                    else:
+                        skipped_min_wc_pmids.append(pmid)
+
+                # Summary log for MIN_WORD_COUNT exclusions
+                if skipped_min_wc_pmids:
+                    self.logger.debug(
+                        f"Excluded {len(skipped_min_wc_pmids)} PMIDs due to MIN_WORD_COUNT="
+                        f"{self.config.min_word_count}. Example: {skipped_min_wc_pmids[:5]}"
+                    )
 
                 return {
                     "pmids": returned_pmids,
@@ -308,7 +318,7 @@ class PubMedFetcher:
         
         return final_text
 
-    def optimize_text_length(self, text: str | list, max_tokens: int = 110000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
+    def optimize_text_length(self, text: str | list, max_tokens: int = 110000000, encoding_name: str = "cl100k_base", num_intersections: int = 1) -> str:
 
       # Handle list input
         if isinstance(text, list):

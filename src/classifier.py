@@ -291,6 +291,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             hypothesis1=row.get("hypothesis1"),
             hypothesis2=row.get("hypothesis2"),
             expected_per_abstract_count=expected_count,
+            total_relevant_abstracts=row.get("total_relevant_abstracts"),
         )
         logger.debug(f" IN ANALYZE ABSTRACT   Result: {result}")
         logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
@@ -312,6 +313,7 @@ def analyze_abstract_with_frontier_LLM(
     hypothesis1: str | None = None,
     hypothesis2: str | None = None,
     expected_per_abstract_count: int | None = None,
+    total_relevant_abstracts: int | None = None,
 ) -> tuple:
     logger = config.logger
     if not a_term and not config.is_dch:
@@ -343,6 +345,7 @@ def analyze_abstract_with_frontier_LLM(
         relationship_type=relationship_type,
         hypothesis1=hypothesis1,
         hypothesis2=hypothesis2,
+        total_relevant_abstracts=total_relevant_abstracts,
     )
     if not prompt_text:
         logger.error("Failed to generate prompt.")
@@ -388,6 +391,7 @@ def generate_prompt(
     relationship_type: str,
     hypothesis1: str | None = None,
     hypothesis2: str | None = None,
+    total_relevant_abstracts: int | None = None,
 ) -> str:
     logger = config.logger
   
@@ -508,7 +512,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     payload = extract_json_from_markdown(content)
 
     # (Optional) light validation against your schema fields
-    for k in ["per_abstract","score_rationale","tallies","score","decision","used_pmids"]:
+    for k in ["per_abstract","score_rationale","tallies","score","decision"]:
         if k not in payload:
             raise ValueError(f"Missing required field '{k}' in model output.")
 

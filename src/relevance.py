@@ -152,7 +152,7 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
         out_df[column] = out_df[column].apply(
             lambda x: pubmed_fetcher.optimize_text_length(
                 x, 
-                max_tokens=110000,  # Total tokens across all intersections
+                max_tokens=110000000,  # Total tokens across all intersections
                 num_intersections=num_intersections
             )
         )
@@ -167,7 +167,7 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
 
 
 def sample_consolidated_abstracts(v1, v2, config: Config):
-    """Sample from two abstract collections and return consolidated text and count.
+    """Sample from two abstract collections; return consolidated text, sampled count, total deduped count.
 
     Args:
         v1: First collection of abstracts (list or single string or empty).
@@ -175,7 +175,7 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
         config: Global configuration providing sampling parameters.
 
     Returns:
-        A tuple of (consolidated_abstracts: str, expected_count: int)
+        A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
     """
     logger = config.logger
     def normalize_entries(value):
@@ -214,6 +214,42 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
+
+    # Deduplicate across rows: prefer PMID if present; else hash normalized text
+    def make_key(text: str) -> str:
+        try:
+            import re as _re
+            m = _re.search(r"PMID:\s*(\d+)", text)
+            if m:
+                return f"pmid:{m.group(1)}"
+        except Exception:
+            pass
+        try:
+            import hashlib as _hashlib
+            norm = " ".join(text.split()).lower()
+            return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
+        except Exception:
+            return "hash:" + text[:64]
+
+    seen_keys = set()
+    dedup1 = []
+    for t in list1:
+        k = make_key(t)
+        if k in seen_keys:
+            continue
+        seen_keys.add(k)
+        dedup1.append(t)
+
+    dedup2 = []
+    for t in list2:
+        k = make_key(t)
+        if k in seen_keys:
+            continue
+        seen_keys.add(k)
+        dedup2.append(t)
+
+    list1 = dedup1
+    list2 = dedup2
 
     total1 = len(list1)
     total2 = len(list2)
@@ -303,7 +339,9 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
         consolidated_abstracts = ""
         expected_count = 0
 
-    return consolidated_abstracts, expected_count
+    total_relevant_abstracts = total1 + total2
+
+    return consolidated_abstracts, expected_count, total_relevant_abstracts
 
 
 def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
@@ -338,15 +376,15 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
         v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
 
-        consolidated_abstracts, expected_count = sample_consolidated_abstracts(v1, v2, config)
+        # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
+        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
 
         dch_row = {
             "hypothesis1": hyp1,
             "hypothesis2": hyp2,
-            # Pass consolidated text where A_B expects it so prompts have content
             "ab_pmid_intersection": consolidated_abstracts,
-            # Provide expected per-abstract count for JSON enforcement downstream
             "expected_per_abstract_count": expected_count,
+            "total_relevant_abstracts": total_relevant_abstracts,
         }
         out_df = pd.DataFrame([dch_row])
 
@@ -363,6 +401,12 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
                     result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
 
             result_dict["num_abstracts_fetched"] = num_abstracts_fetched
+            # Append authoritative total relevant count from relevance filter for DCH outputs
+            if config.is_dch:
+                try:
+                    result_dict["total_relevant_abstracts"] = int(row.get("total_relevant_abstracts", 0))
+                except Exception:
+                    result_dict["total_relevant_abstracts"] = 0
             if config.is_dch:
                 logger.info(f"Processed row {index + 1}/{total_rows} (DCH)")
             else:
