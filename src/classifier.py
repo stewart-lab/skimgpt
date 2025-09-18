@@ -112,21 +112,25 @@ def process_single_row(row, config: Config):
                 logger.error(f"Missing 'a_term' or 'b_term' in row.")
                 return None
 
+        # Do not strip pipes here; preserve synonyms for relevance filtering
         ab_result, ab_prompt, ab_urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
         if ab_result or ab_prompt:
             processed_results["A_B_Relationship"] = {
                 "a_term": a_term,
-                "b_term": strip_pipe(b_term),
-                "Relationship": f"{strip_pipe(a_term)} - {strip_pipe(b_term)}",
+                "b_term": b_term,
+                "Relationship": f"{a_term} - {b_term}",
                 "Result": ab_result,
                 "Prompt": ab_prompt,
                 "URLS": {"AB": ab_urls.get("AB", [])},
             }
     elif config.is_km_with_gpt and config.is_dch:
+        # Use canonical (pipe-stripped) hypotheses for final JSON and prompting
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
+        canonical_h1 = strip_pipe(hypothesis1) if isinstance(hypothesis1, str) else hypothesis1
+        canonical_h2 = strip_pipe(hypothesis2) if isinstance(hypothesis2, str) else hypothesis2
         hypothesis1_pmids = row.get("hypothesis1_pmids")
         hypothesis2_pmids = row.get("hypothesis2_pmids")
         result, prompt, urls = perform_analysis(
@@ -134,8 +138,8 @@ def process_single_row(row, config: Config):
         )
         if result or prompt:
             processed_results["Hypothesis_Comparison"] = {
-                "hypothesis1": hypothesis1,
-                "hypothesis2": hypothesis2,
+                "hypothesis1": canonical_h1,
+                "hypothesis2": canonical_h2,
                 "Result": result,
                 "Prompt": prompt,
                 "URLS": urls,
@@ -197,6 +201,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             bc_abstracts = ""
             ac_abstracts = ""
         else:
+            # Preserve pipes through relevance; strip only just before LLM call
             a_term = row.get("a_term", "")
             b_term = row.get("b_term", "")
             c_term = ""  # Not used for A-B relationship
@@ -280,7 +285,12 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         logger.debug(f"B term: {b_term}")
         
         logger.debug(f"C term: {c_term}")
-        b_term = row.get("b_term", "")
+        # Strip pipes right before LLM calling
+        if not config.is_dch:
+            a_term = strip_pipe(a_term) if isinstance(a_term, str) else a_term
+            b_term = strip_pipe(row.get("b_term", ""))
+        else:
+            b_term = row.get("b_term", "")
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=b_term,
