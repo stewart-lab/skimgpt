@@ -17,15 +17,51 @@ def _extract_and_write_dch_results(directory):
     - hypothesis1
     - hypothesis2
     """
-    HEADERS = [
-        "Score", "Decision", "H1", "H2", "Neither", "Both",
-        "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2",
-    ]
+    # Discover whether iterations are present under results/
+    results_root = os.path.join(directory, "results")
+    has_iterations = False
+    iteration_dirs = []
+    if os.path.isdir(results_root):
+        for name in os.listdir(results_root):
+            sub = os.path.join(results_root, name)
+            if name.startswith("iteration_") and os.path.isdir(sub):
+                has_iterations = True
+                iteration_dirs.append((name.split("_", 1)[1], sub))
 
-    # Discover structured result under results/
-    data = None
-    results_dir = os.path.join(directory, "results")
-    if os.path.isdir(results_dir):
+    # Compute headers based on whether iterations are present
+    HEADERS = ["Score", "Decision"]
+    if has_iterations:
+        HEADERS.append("Iteration")
+    HEADERS.extend([
+        "H1", "H2", "Neither", "Both",
+        "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2",
+    ])
+
+    # Build list of (iteration_value, results_dir) to scan
+    targets = []
+    if has_iterations:
+        for iter_num, iter_path in iteration_dirs:
+            # iteration path is already results/iteration_X
+            targets.append((iter_num, iter_path))
+    else:
+        if os.path.isdir(results_root):
+            targets.append(("", results_root))
+
+    out_path = os.path.join(directory, "results.tsv")
+    if not targets:
+        # Nothing to write except header
+        with open(out_path, "w", encoding="utf-8") as outf:
+            outf.write("\t".join(HEADERS) + "\n")
+        return
+
+    out_rows = []
+
+    def to_int(value, default=0):
+        try:
+            return int(value)
+        except Exception:
+            return default
+    for iter_value, results_dir in targets:
         json_files = [
             os.path.join(results_dir, f)
             for f in os.listdir(results_dir)
@@ -36,81 +72,57 @@ def _extract_and_write_dch_results(directory):
                 candidate = json.load(open(jf, encoding="utf-8"))
             except Exception:
                 continue
-            # Accept if it looks like the expected structured output
-            to_check = candidate if isinstance(candidate, list) else [candidate]
-            ok = any(isinstance(it, dict) and ("Hypothesis_Comparison" in it) for it in to_check)
-            if ok:
-                data = candidate
-                break
+            records = candidate if isinstance(candidate, list) else [candidate]
+            for rec in records:
+                hc = rec.get("Hypothesis_Comparison") if isinstance(rec, dict) else None
+                if hc is None and isinstance(rec, dict):
+                    hc = rec
+                if not isinstance(hc, dict):
+                    continue
 
-    out_path = os.path.join(directory, "results.tsv")
-    if not data:
-        # Nothing to write except header
-        with open(out_path, "w", encoding="utf-8") as outf:
-            outf.write("\t".join(HEADERS) + "\n")
-        return
+                hypothesis1 = hc.get("hypothesis1", "")
+                hypothesis2 = hc.get("hypothesis2", "")
 
-    # Normalize to a list of records
-    records = data if isinstance(data, list) else [data]
+                results_list = hc.get("Result") or []
+                if not isinstance(results_list, list):
+                    results_list = [results_list]
 
-    out_rows = []
+                for result_entry in results_list:
+                    if not isinstance(result_entry, dict):
+                        continue
+                    score = result_entry.get("score", "")
+                    decision = result_entry.get("decision", "")
+                    tallies = result_entry.get("tallies", {}) or {}
+                    count_h1 = to_int(tallies.get("support_H1", 0))
+                    count_h2 = to_int(tallies.get("support_H2", 0))
+                    count_neither = to_int(tallies.get("neither_or_inconclusive", 0))
+                    per_abs = result_entry.get("per_abstract", []) or []
+                    if not isinstance(per_abs, list):
+                        per_abs = []
+                    if "both" in tallies and tallies.get("both") is not None:
+                        count_both = to_int(tallies.get("both"), 0)
+                    else:
+                        try:
+                            count_both = sum(1 for it in per_abs if isinstance(it, dict) and it.get("label") == "both")
+                        except Exception:
+                            count_both = 0
+                    total_relevant = rec.get("total_relevant_abstracts")
+                    if not isinstance(total_relevant, int):
+                        total_relevant = len(per_abs)
 
-    def to_int(value, default=0):
-        try:
-            return int(value)
-        except Exception:
-            return default
-    for rec in records:
-        # Handle shape where the object is wrapped inside "Hypothesis_Comparison"
-        hc = rec.get("Hypothesis_Comparison") if isinstance(rec, dict) else None
-        if hc is None and isinstance(rec, dict):
-            hc = rec  # try treating the dict directly
-        if not isinstance(hc, dict):
-            continue
-
-        hypothesis1 = hc.get("hypothesis1", "")
-        hypothesis2 = hc.get("hypothesis2", "")
-
-        results_list = hc.get("Result") or []
-        if not isinstance(results_list, list):
-            results_list = [results_list]
-
-        for result_entry in results_list:
-            if not isinstance(result_entry, dict):
-                continue
-            score = result_entry.get("score", "")
-            decision = result_entry.get("decision", "")
-            tallies = result_entry.get("tallies", {}) or {}
-            count_h1 = to_int(tallies.get("support_H1", 0))
-            count_h2 = to_int(tallies.get("support_H2", 0))
-            count_neither = to_int(tallies.get("neither_or_inconclusive", 0))
-            per_abs = result_entry.get("per_abstract", []) or []
-            if not isinstance(per_abs, list):
-                per_abs = []
-            # Prefer explicit tallies for 'both' if present, else compute from per_abstract
-            if "both" in tallies and tallies.get("both") is not None:
-                count_both = to_int(tallies.get("both"), 0)
-            else:
-                try:
-                    count_both = sum(1 for it in per_abs if isinstance(it, dict) and it.get("label") == "both")
-                except Exception:
-                    count_both = 0
-            # Prefer top-level total_relevant_abstracts if provided
-            total_relevant = rec.get("total_relevant_abstracts")
-            if not isinstance(total_relevant, int):
-                total_relevant = len(per_abs)
-
-            out_rows.append([
-                str(score),
-                str(decision),
-                str(count_h1),
-                str(count_h2),
-                str(count_neither),
-                str(count_both),
-                str(total_relevant),
-                str(hypothesis1),
-                str(hypothesis2),
-            ])
+                    row = [str(score), str(decision)]
+                    if has_iterations:
+                        row.append(str(iter_value))
+                    row.extend([
+                        str(count_h1),
+                        str(count_h2),
+                        str(count_neither),
+                        str(count_both),
+                        str(total_relevant),
+                        str(hypothesis1),
+                        str(hypothesis2),
+                    ])
+                    out_rows.append(row)
 
     with open(out_path, "w", encoding="utf-8") as outf:
         outf.write("\t".join(HEADERS) + "\n")
