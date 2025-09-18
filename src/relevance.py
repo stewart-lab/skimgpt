@@ -9,7 +9,7 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -365,6 +365,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     if config.is_dch:
         # Build direct comparison hypotheses and provide consolidated text content
+        # Preserve pipes in terms for relevance; canonicalization happens later
         hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
@@ -379,9 +380,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
 
+        # Store canonical (pipe-stripped) hypotheses in final JSON for DCH
         dch_row = {
-            "hypothesis1": hyp1,
-            "hypothesis2": hyp2,
+            "hypothesis1": strip_pipe(hyp1) if isinstance(hyp1, str) else hyp1,
+            "hypothesis2": strip_pipe(hyp2) if isinstance(hyp2, str) else hyp2,
             "ab_pmid_intersection": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
@@ -536,6 +538,7 @@ def main():
         ab_pmids.append(pmids)
 
         # Generate hypothesis for this specific pair
+        # Preserve pipes here; do not strip before relevance
         hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
         ab_hypotheses.append(hypothesis)
 
