@@ -9,7 +9,7 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, make_key
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -178,58 +178,11 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
         A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
     """
     logger = config.logger
-    def normalize_entries(value):
-        """Return a flat list of individual abstracts.
-
-        Handles cases where input is a single concatenated string containing
-        multiple abstracts separated by the '===END OF ABSTRACT===' sentinel.
-        """
-        segments = []
-        # Normalize to list for iteration
-        if isinstance(value, list):
-            iterable = value
-        elif isinstance(value, str):
-            iterable = [value]
-        else:
-            iterable = []
-
-        for item in iterable:
-            if not isinstance(item, str):
-                # Coerce non-strings defensively
-                segments.append(str(item))
-                continue
-
-            text = item.strip()
-            if not text:
-                continue
-
-            if '===END OF ABSTRACT===' in text:
-                parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
-                # Re-append sentinel to each piece to preserve downstream expectations
-                segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
-            else:
-                # Fallback: treat as a single abstract entry
-                segments.append(text)
-        return segments
 
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
 
     # Deduplicate across rows: prefer PMID if present; else hash normalized text
-    def make_key(text: str) -> str:
-        try:
-            import re as _re
-            m = _re.search(r"PMID:\s*(\d+)", text)
-            if m:
-                return f"pmid:{m.group(1)}"
-        except Exception:
-            pass
-        try:
-            import hashlib as _hashlib
-            norm = " ".join(text.split()).lower()
-            return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
-        except Exception:
-            return "hash:" + text[:64]
 
     seen_keys = set()
     dedup1 = []
