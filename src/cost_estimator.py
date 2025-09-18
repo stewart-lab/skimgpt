@@ -88,7 +88,9 @@ class KMCostEstimator(CostEstimator):
         self.logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
-            abstract_tokens = min(row['ab_count'], self.post_n) * 300
+            # Use numeric len(a_b_intersect) only
+            ab_count = int(row.get("len(a_b_intersect)", 0) or 0)
+            abstract_tokens = min(ab_count, self.post_n) * 300
             
             # Standard KM prompt size estimate; DCH uses a combined prompt built in relevance.py
             if True:
@@ -149,8 +151,11 @@ class SkimCostEstimator(CostEstimator):
         self.logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
-            ab_tokens = min(row['ab_count'], self.post_n) * 300
-            bc_tokens = min(row['bc_count'], self.post_n) * 300
+            # Use numeric lengths only
+            ab_count = int(row.get("len(a_b_intersect)", 0) or 0)
+            bc_count = int(row.get("len(b_c_intersect)", 0) or 0)
+            ab_tokens = min(ab_count, self.post_n) * 300
+            bc_tokens = min(bc_count, self.post_n) * 300
             
             hypothesis_template = self.config.skim_hypotheses["ABC"].format(
                 a_term=row['a_term'],
@@ -163,8 +168,9 @@ class SkimCostEstimator(CostEstimator):
             
             row_total_tokens = ab_tokens + bc_tokens + base_prompt_tokens
             
-            if 'ac_count' in row and row['ac_count'] > 0:
-                ac_tokens = min(row['ac_count'], self.post_n) * 300
+            ac_count = int(row.get("len(a_c_intersect)", 0) or 0)
+            if ac_count > 0:
+                ac_tokens = min(ac_count, self.post_n) * 300
                 ac_prompt_text = skim_with_gpt_ac(row['a_term'], hypothesis_template, "", row['c_term'])
                 ac_prompt_tokens = int(len(ac_prompt_text.replace("{consolidated_abstracts}", "").split()) * 4/3)
                 row_total_tokens += ac_tokens + ac_prompt_tokens
