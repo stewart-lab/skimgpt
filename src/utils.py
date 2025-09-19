@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import os
 import logging  
+import re
 
 class RaggedTensor:
     def __init__(self, data, break_point=[]):
@@ -117,11 +118,90 @@ class RaggedTensor:
 
 
 def strip_pipe(term: str) -> str:
-    """Return the canonical token before '|' for any job type.
+    """Collapse pipe-separated synonyms to the first option without eating surrounding text.
+
+    Strategy:
+    - Process pipe-separated groups iteratively, replacing each group with its first option
+    - Handle both single words and multi-word phrases as alternatives
+    - Collapse adjacent duplicate words (case-insensitive): "ulcer ulcer" -> "ulcer".
+    - Also collapse duplicate bigrams to be safe (e.g., "peptic ulcer peptic ulcer").
     """
-    if isinstance(term, str) and '|' in term:
-        return term.split('|')[0].strip()
-    return term
+    if not isinstance(term, str) or '|' not in term:
+        return term
+
+    import re
+    
+    # 1) Process pipe-separated alternatives using word boundary detection
+    # Strategy: Look for common connecting words that separate concepts
+    text = term
+    
+    # Define common connecting/linking words that typically separate concepts
+    connecting_words = [' is ', ' are ', ' was ', ' were ', ' by ', ' with ', ' in ', ' on ', ' at ', ' to ', ' from ', ' of ']
+    
+    # Find potential split points based on connecting words
+    split_points = []
+    for word in connecting_words:
+        pos = text.find(word)
+        if pos != -1:
+            split_points.append(pos)
+    
+    if split_points:
+        # Sort split points and use the first one as the boundary
+        split_points.sort()
+        split_point = split_points[0]
+        
+        # Split into two parts: before and after the connecting word
+        part1 = text[:split_point]
+        connecting_part = text[split_point:].split(' ', 2)  # Get connecting word and what follows
+        connecting_word = ' ' + connecting_part[1] + ' '
+        part2 = connecting_part[2] if len(connecting_part) > 2 else ''
+        
+        # Process each part separately for pipes
+        def process_pipes_in_part(part_text):
+            if '|' not in part_text:
+                return part_text
+            # Take everything before the first pipe as the result for this part
+            first_part = part_text.split('|')[0]
+            
+            # Check if the original text ended with punctuation and preserve it
+            if re.search(r'[.!?;:,]$', part_text):
+                # Find the punctuation at the very end
+                last_char = part_text[-1]
+                if not re.search(r'[.!?;:,]$', first_part):
+                    first_part += last_char
+            
+            return first_part
+        
+        processed_part1 = process_pipes_in_part(part1)
+        processed_part2 = process_pipes_in_part(part2)
+        
+        # Recombine
+        if part2:
+            text = processed_part1 + connecting_word + processed_part2
+        else:
+            text = processed_part1 + connecting_word.rstrip()
+    else:
+        # No connecting words found, treat as single pipe-separated group
+        if '|' in text:
+            text = text.split('|')[0]
+
+    # 2) Collapse adjacent duplicate words (preserve punctuation attached to word)
+    # Handle cases like "ulcer ulcer" or "infection infection." -> "infection."
+    def _collapse_adjacent_words(s: str) -> str:
+        s = re.sub(r'\b(\w+)(\s+\1\b)+', r'\1', s, flags=re.IGNORECASE)
+        # If a word repeats right before punctuation (e.g., "word word."), collapse it
+        s = re.sub(r'\b(\w+)\s+\1([\.,;:!?])(\s|$)', r'\1\2\3', s, flags=re.IGNORECASE)
+        return s
+
+    text = _collapse_adjacent_words(text)
+
+    # 3) Collapse duplicate bigrams like "peptic ulcer peptic ulcer"
+    text = re.sub(r'\b(\w+\s+\w+)(\s+\1\b)+', r'\1', text, flags=re.IGNORECASE)
+
+    # 4) Normalize multiple spaces
+    text = re.sub(r'\s{2,}', ' ', text).strip()
+
+    return text
 
 
 def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:

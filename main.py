@@ -381,12 +381,15 @@ def main():
                     input_tokens = 0
                     base_est     = None
 
+                # Non-interactive: compute estimate and proceed without prompting
                 wrapper_est = WrapperCostEstimator(config)
-                if not wrapper_est.prompt_total_cost(input_tokens, num_years):
-                    logger.info("User aborted wrapper cost prompt")
-                    sys.exit(1)
 
-                # user said 'yes' → sentinel is written
+                # Create sentinel to indicate consent and allow wrapper to launch children
+                try:
+                    with open(sentinel, "w") as _f:
+                        _f.write("ok\n")
+                except Exception:
+                    pass
 
                 # Re-instantiate your wrapper logger
                 wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
@@ -417,17 +420,12 @@ def main():
                 logger.info("Wrapper run detected; skipping per-run cost estimation")
 
             else:
-                # compute tokens and prompt as before
+                # Non-interactive mode: compute tokens (for logs) and continue without prompt
                 if config.is_km_with_gpt:
-                    input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
+                    _ = KMCostEstimator(config).estimate_input_costs(combined_df)
                 elif config.is_skim_with_gpt:
-                    input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
-                else:
-                    input_tokens = 0
-
-                if not calculate_total_cost_and_prompt(config, input_tokens):
-                    logger.info("Job aborted by user")
-                    sys.exit(1)
+                    _ = SkimCostEstimator(config).estimate_input_costs(combined_df)
+                logger.info("Skipping interactive cost prompt (non-interactive mode)")
             
         except Exception as e:
             logger.error(f"Error processing TSV files: {str(e)}", exc_info=True)
