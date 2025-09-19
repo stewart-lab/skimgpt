@@ -127,6 +127,8 @@ def process_single_row(row, config: Config):
     elif config.is_km_with_gpt and config.is_dch:
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
+        hypothesis1 = strip_pipe(hypothesis1)
+        hypothesis2 = strip_pipe(hypothesis2)
         hypothesis1_pmids = row.get("hypothesis1_pmids")
         hypothesis2_pmids = row.get("hypothesis2_pmids")
         result, prompt, urls = perform_analysis(
@@ -335,7 +337,9 @@ def analyze_abstract_with_frontier_LLM(
     responses = []
     prompt_text = ""
 
-    # Generate prompt based on relationship type and current config.job_type
+    #strip pipe from hypothesis1 and hypothesis2
+    hypothesis1 = strip_pipe(hypothesis1)
+    hypothesis2 = strip_pipe(hypothesis2)
     prompt_text = generate_prompt(
         a_term=a_term,
         b_term=b_term,

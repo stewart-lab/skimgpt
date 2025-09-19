@@ -156,20 +156,28 @@ def process_query_results(
     sort_column_default: str,
     intersection_columns: list,
     filter_condition: callable,
+    b_terms: list[str] = None,
 ) -> pd.DataFrame:
 
-    # Access config properties through object attributes
-    sort_column = config.job_specific_settings.get(
-        "SORT_COLUMN", sort_column_default
-    )
-    config.logger.debug(f"Using sort column: {sort_column}")
-    if sort_column not in df.columns:
-        raise KeyError(f"Sort column '{sort_column}' not found in {job_type} results.")
+    # Skip sorting for DCH jobs
+    if config.is_dch:
+        config.logger.debug("DCH job detected: skipping sorting")
+        df_sorted = df
+        if df_sorted.empty:
+            raise ValueError(f"{job_type} results are empty.")
+    else:
+        # Access config properties through object attributes
+        sort_column = config.job_specific_settings.get(
+            "SORT_COLUMN", sort_column_default
+        )
+        config.logger.debug(f"Using sort column: {sort_column}")
+        if sort_column not in df.columns:
+            raise KeyError(f"Sort column '{sort_column}' not found in {job_type} results.")
 
-    # Sort the DataFrame
-    df_sorted = df.sort_values(by=sort_column, ascending=False)
-    if df_sorted.empty:
-        raise ValueError(f"{job_type} results are empty after sorting.")
+        # Sort the DataFrame
+        df_sorted = df.sort_values(by=sort_column, ascending=False)
+        if df_sorted.empty:
+            raise ValueError(f"{job_type} results are empty after sorting.")
 
     # Parse intersection columns
     for col in intersection_columns:
@@ -191,6 +199,40 @@ def process_query_results(
 
     # Apply additional term column filtering
     valid_rows = filter_term_columns(valid_rows, config)
+    
+    # Re-sort by b_term based on input list order if b_terms provided
+    if b_terms and len(b_terms) > 1 and 'b_term' in valid_rows.columns:
+        config.logger.debug(f"Re-sorting results by b_term input order: {b_terms}")
+        
+        # Create a mapping of b_term to its position in the input list
+        b_term_order = {term: idx for idx, term in enumerate(b_terms)}
+        
+        # Apply strip_pipe to b_terms for comparison (since DataFrame b_terms are already processed)
+        from src.utils import strip_pipe
+        processed_b_terms = [strip_pipe(term) for term in b_terms]
+        processed_b_term_order = {term: idx for idx, term in enumerate(processed_b_terms)}
+        
+        # Add a sort key column based on b_term position
+        def get_sort_key(b_term_value):
+            # Try both original and processed versions
+            if b_term_value in b_term_order:
+                return b_term_order[b_term_value]
+            elif b_term_value in processed_b_term_order:
+                return processed_b_term_order[b_term_value]
+            else:
+                # If b_term not found in original list, put it at the end
+                return len(b_terms)
+        
+        valid_rows = valid_rows.copy()
+        valid_rows['_b_term_sort_key'] = valid_rows['b_term'].apply(get_sort_key)
+        
+        # Sort by the sort key
+        valid_rows = valid_rows.sort_values('_b_term_sort_key')
+        
+        # Remove the temporary sort key column
+        valid_rows = valid_rows.drop('_b_term_sort_key', axis=1)
+        
+        config.logger.debug(f"Re-sorted results by b_term order. Final b_term sequence: {valid_rows['b_term'].tolist()}")
     
     return valid_rows
 
@@ -281,14 +323,28 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     # Read the KM results
     km_df = pd.read_csv(full_km_file_path, sep="\t")
 
-    # Process the DataFrame
+    # Process the DataFrame with DCH-specific filter logic
+    if config.is_dch:
+        # For DCH jobs, allow empty rows but check if ALL rows are empty
+        all_empty = km_df["ab_pmid_intersection"].apply(len).sum() == 0
+        if all_empty:
+            logger.warning("DCH: All rows have empty literature. Exiting early.")
+            return None
+        
+        # For DCH, don't filter out empty rows - keep all rows
+        filter_condition = lambda df: pd.Series([True] * len(df), index=df.index)
+    else:
+        # For non-DCH jobs, filter out empty literature as before
+        filter_condition = lambda df: df["ab_pmid_intersection"].apply(len) > 0
+
     valid_rows = process_query_results(
         job_type=config.job_type,
         df=km_df,
         config=config,
         sort_column_default="ab_sort_ratio",
         intersection_columns=["ab_pmid_intersection"],
-        filter_condition=lambda df: df["ab_pmid_intersection"].apply(len) > 0,
+        filter_condition=filter_condition,
+        b_terms=b_terms,
     )
 
     # DCH: only warn if fewer than two valid results remain (terms already pipe-stripped)
@@ -364,6 +420,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
             (df["ab_pmid_intersection"].apply(len) > 0)
             | (df["bc_pmid_intersection"].apply(len) > 0)
         ),
+        b_terms=b_terms,
     )
 
     # Save filtered results and handle no_results.txt
