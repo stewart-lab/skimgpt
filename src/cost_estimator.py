@@ -30,6 +30,9 @@ class CostEstimator:
         elif self.model == "o3-mini":
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40
+        elif self.model == "gpt-5":
+            self.input_cost_per_million = 1.25
+            self.output_cost_per_million = 10.00
         elif self.model == "r1":
             self.input_cost_per_million = 0.55
             self.output_cost_per_million = 2.19
@@ -80,6 +83,12 @@ class KMCostEstimator(CostEstimator):
         (150, 175, 1067500), (175, 200, 1220000)
     ]
     
+    GPT5_KM_INTERVALS = [
+        (0, 25, 800), (25, 50, 900), (50, 75, 1000),
+        (75, 100, 1100), (100, 125, 1200), (125, 150, 1300),
+        (150, 175, 1400), (175, 200, 1500)
+    ]
+    
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
         """Calculate input token costs for KM jobs."""
         total_tokens = 0
@@ -119,6 +128,8 @@ class KMCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_KM_INTERVALS, "KM")
+        elif self.model == "gpt-5":
+            return self._get_output_tokens(self.GPT5_KM_INTERVALS, "KM")
         elif self.model in ("o3", "o3-mini"):
             return self._get_output_tokens(self.O3_KM_INTERVALS, "KM")
         else:
@@ -141,6 +152,12 @@ class SkimCostEstimator(CostEstimator):
         (0, 25, 152500), (25, 50, 305000), (50, 75, 457500),
         (75, 100, 610000), (100, 125, 762500), (125, 150, 915000),
         (150, 175, 1067500), (175, 200, 1220000)
+    ]
+    
+    GPT5_SKIM_INTERVALS = [
+        (0, 25, 1500), (25, 50, 1800), (50, 75, 2100),
+        (75, 100, 2400), (100, 125, 2700), (125, 150, 3000),
+        (150, 175, 3300), (175, 200, 3600)
     ]
     
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
@@ -190,6 +207,8 @@ class SkimCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_SKIM_INTERVALS, "SKIM")
+        elif self.model == "gpt-5":
+            return self._get_output_tokens(self.GPT5_SKIM_INTERVALS, "SKIM")
         elif self.model in ("o3", "o3-mini"):
             return self._get_output_tokens(self.O3_SKIM_INTERVALS, "SKIM")
         else:
