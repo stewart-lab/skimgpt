@@ -444,3 +444,65 @@ Rules:
 - Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
 - The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
+
+
+def km_with_gpt_json_schema():
+    return {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "per_abstract": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "label": {
+                        "type": "string",
+                        "enum": ["supports","refutes","inconclusive"]
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300}
+                    },
+                },
+                "required": ["pmid","label"]
+            }
+        },
+        "score_rationale": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score."},
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "tallies": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "support": {"type": "integer", "minimum": 0},
+                "refute": {"type": "integer", "minimum": 0},
+                "inconclusive": {"type": "integer", "minimum": 0}
+            },
+            "required": ["support","refute","inconclusive"]
+        },
+        "score": {"type": "number", "minimum": -2, "maximum": 2},
+        "decision": {"type": "string", "enum": ["supports","refutes","insufficient_evidence"]}
+    },
+    "required": ["per_abstract","score_rationale","tallies","score","decision"]
+    }
+
+
+def km_with_gpt_system_instructions():
+    return """\
+You evaluate a single biomedical hypothesis using ONLY the provided PubMed abstracts.
+Rules:
+- Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
+- Every claim must map to at least one provided PMID from the input set.
+- Ground the output with evidence extracted from the abstracts (≤300 chars each).
+- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Follow the provided discrete scoring guidelines verbatim (-2..+2). Do not derive or use any explicit scoring formula.
+- Tally counts as requested: number supporting, number refuting, and number that are inconclusive.
+- Labels per abstract: supports, refutes, inconclusive.
+- The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+"""
