@@ -9,12 +9,11 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, make_key
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, make_key, write_to_json
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
-    write_to_json,
 )
 
 
