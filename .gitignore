@@ -6,4 +6,5 @@ input_lists
 *.pyc
 secrets.json
 token_dirs/*
+run_*
 
