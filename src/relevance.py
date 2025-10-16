@@ -82,6 +82,32 @@ def prompt(abstract, hyp) -> str:
     return f"Abstract: {abstract}\nHypothesis: {hyp}\nInstructions: Classify this abstract as either 0 (Not Relevant) or 1 (Relevant) for evaluating the provided hypothesis.\nScore: "
 
 
+def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = "", default: int = 0, logger = None) -> int:
+    """Safely evaluate model output, handling empty or invalid responses."""
+    text = text.strip()
+    if not text:
+        if logger:
+            logger.warning(f"Empty model output at index {idx}, using default value {default}")
+            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.warning(f"  Hypothesis: {hypothesis}")
+        return default
+    try:
+        result = eval(text)
+        if result not in [0, 1]:
+            if logger:
+                logger.warning(f"Invalid model output '{text}' at index {idx} (expected 0 or 1), using default {default}")
+                logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+                logger.warning(f"  Hypothesis: {hypothesis}")
+            return default
+        return result
+    except (SyntaxError, NameError, ValueError) as e:
+        if logger:
+            logger.warning(f"Failed to evaluate model output '{text}' at index {idx}: {e}, using default {default}")
+            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.warning(f"  Hypothesis: {hypothesis}")
+        return default
+
+
 def gen(
     prompts: RaggedTensor, model: any, sampling_config: any
 ) -> RaggedTensor:
@@ -109,17 +135,30 @@ def postProcess(
     terms: str,
     shape: list,
 ):
+    # Save flat references before reshaping for logging context
+    flat_abstracts = abstracts.data.copy() if abstracts.data else []
+    flat_hypotheses = hypotheses.data.copy() if hypotheses.data else []
 
     abstracts.reshape(shape)
 
     if not config.debug:
-        answer_masks = outputs.map(eval)
+        answer_masks = RaggedTensor(
+            [safe_eval(output, idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "", 
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger) 
+             for idx, output in enumerate(outputs.data)], 
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
         abstracts.applyFilter(answer_masks)
     else:
-        answer_masks = RaggedTensor([eval(answer[0]) for answer in outputs])
+        answer_masks = RaggedTensor(
+            [safe_eval(answer[0], idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger)
+             for idx, answer in enumerate(outputs.data)],
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
-        cot = RaggedTensor([answer[1:] for answer in outputs])
+        cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
 
         if terms == "ac":
