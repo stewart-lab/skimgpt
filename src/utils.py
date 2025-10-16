@@ -1,4 +1,3 @@
-from __future__ import annotations
 import numpy as np
 import pandas as pd
 import json
@@ -56,7 +55,7 @@ class RaggedTensor:
         self.getShape()
 
     # Splits the data depending on the index
-    def split(self) -> list[RaggedTensor]:
+    def split(self):
         if len(self.break_point) == 0:
             print("Warning: No breakpoint was specified.")
             return self, RaggedTensor([])
@@ -118,90 +117,76 @@ class RaggedTensor:
 
 
 def strip_pipe(term: str) -> str:
-    """Collapse pipe-separated synonyms to the first option without eating surrounding text.
-
-    Strategy:
-    - Process pipe-separated groups iteratively, replacing each group with its first option
-    - Handle both single words and multi-word phrases as alternatives
-    - Collapse adjacent duplicate words (case-insensitive): "ulcer ulcer" -> "ulcer".
-    - Also collapse duplicate bigrams to be safe (e.g., "peptic ulcer peptic ulcer").
+    """Collapse pipe-separated synonyms to the first option with robust handling.
+    
+    This function takes pipe-separated alternatives and returns only the first option,
+    while preserving the overall structure and context of the text.
+    
+    Examples:
+        "cancer|tumor" -> "cancer"
+        "lung cancer|lung tumor|pulmonary cancer" -> "lung cancer"
+        "HPV|human papillomavirus infection" -> "HPV"
+        "chronic|persistent inflammation" -> "chronic"
+        "diabetes|diabetes mellitus|diabetic" -> "diabetes"
+        None -> ""
+        "" -> ""
+        "  " -> ""
+        "term1||term2" -> "term1"
+        "|term1|term2" -> "term1"
+    
+    Args:
+        term: String that may contain pipe-separated alternatives, or None
+        
+    Returns:
+        String with only the first option from each pipe-separated group,
+        with normalized whitespace. Returns empty string for None or empty inputs.
     """
-    if not isinstance(term, str) or '|' not in term:
-        return term
-
-    import re
+    if term is None:
+        return ""
     
-    # 1) Process pipe-separated alternatives using word boundary detection
-    # Strategy: Look for common connecting words that separate concepts
-    text = term
+    if not isinstance(term, str):
+        try:
+            term = str(term)
+        except Exception:
+            return ""
     
-    # Define common connecting/linking words that typically separate concepts
-    connecting_words = [' is ', ' are ', ' was ', ' were ', ' by ', ' with ', ' in ', ' on ', ' at ', ' to ', ' from ', ' of ']
+    term = term.strip()
+    if not term:
+        return ""
     
-    # Find potential split points based on connecting words
-    split_points = []
-    for word in connecting_words:
-        pos = text.find(word)
-        if pos != -1:
-            split_points.append(pos)
+    if '|' not in term:
+        return ' '.join(term.split())
     
-    if split_points:
-        # Sort split points and use the first one as the boundary
-        split_points.sort()
-        split_point = split_points[0]
+    try:
+        parts = []
+        for part in term.split('|'):
+            cleaned_part = part.strip()
+            if cleaned_part:
+                parts.append(cleaned_part)
         
-        # Split into two parts: before and after the connecting word
-        part1 = text[:split_point]
-        connecting_part = text[split_point:].split(' ', 2)  # Get connecting word and what follows
-        connecting_word = ' ' + connecting_part[1] + ' '
-        part2 = connecting_part[2] if len(connecting_part) > 2 else ''
+        if not parts:
+            return ""
         
-        # Process each part separately for pipes
-        def process_pipes_in_part(part_text):
-            if '|' not in part_text:
-                return part_text
-            # Take everything before the first pipe as the result for this part
-            first_part = part_text.split('|')[0]
+        first_option = parts[0]
+        
+        result = ' '.join(first_option.split())
+        
+        if result and term:
+            original_ends_with_punct = re.search(r'[.!?;:,]$', term)
+            result_ends_with_punct = re.search(r'[.!?;:,]$', result)
             
-            # Check if the original text ended with punctuation and preserve it
-            if re.search(r'[.!?;:,]$', part_text):
-                # Find the punctuation at the very end
-                last_char = part_text[-1]
-                if not re.search(r'[.!?;:,]$', first_part):
-                    first_part += last_char
-            
-            return first_part
+            if original_ends_with_punct and not result_ends_with_punct:
+                punct = original_ends_with_punct.group()
+                if not result.endswith(punct):
+                    result += punct
         
-        processed_part1 = process_pipes_in_part(part1)
-        processed_part2 = process_pipes_in_part(part2)
+        return result
         
-        # Recombine
-        if part2:
-            text = processed_part1 + connecting_word + processed_part2
-        else:
-            text = processed_part1 + connecting_word.rstrip()
-    else:
-        # No connecting words found, treat as single pipe-separated group
-        if '|' in text:
-            text = text.split('|')[0]
-
-    # 2) Collapse adjacent duplicate words (preserve punctuation attached to word)
-    # Handle cases like "ulcer ulcer" or "infection infection." -> "infection."
-    def _collapse_adjacent_words(s: str) -> str:
-        s = re.sub(r'\b(\w+)(\s+\1\b)+', r'\1', s, flags=re.IGNORECASE)
-        # If a word repeats right before punctuation (e.g., "word word."), collapse it
-        s = re.sub(r'\b(\w+)\s+\1([\.,;:!?])(\s|$)', r'\1\2\3', s, flags=re.IGNORECASE)
-        return s
-
-    text = _collapse_adjacent_words(text)
-
-    # 3) Collapse duplicate bigrams like "peptic ulcer peptic ulcer"
-    text = re.sub(r'\b(\w+\s+\w+)(\s+\1\b)+', r'\1', text, flags=re.IGNORECASE)
-
-    # 4) Normalize multiple spaces
-    text = re.sub(r'\s{2,}', ' ', text).strip()
-
-    return text
+    except Exception as e:
+        try:
+            return ' '.join(term.split())
+        except Exception:
+            return ""
 
 
 def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
@@ -215,6 +200,92 @@ def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
     if isinstance(canonical, str) and len(canonical) > max_len:
         canonical = canonical[:max_len]
     return canonical.replace("/", "_")
+
+
+def normalize_entries(value):
+    """Return a flat list of individual abstracts.
+
+    Handles cases where input is a single concatenated string containing
+    multiple abstracts separated by the '===END OF ABSTRACT===' sentinel.
+    """
+    segments = []
+    # Normalize to list for iteration
+    if isinstance(value, list):
+        iterable = value
+    elif isinstance(value, str):
+        iterable = [value]
+    else:
+        iterable = []
+
+    for item in iterable:
+        if not isinstance(item, str):
+            # Coerce non-strings defensively
+            segments.append(str(item))
+            continue
+
+        text = item.strip()
+        if not text:
+            continue
+
+        if '===END OF ABSTRACT===' in text:
+            parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
+            # Re-append sentinel to each piece to preserve downstream expectations
+            segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
+        else:
+            # Fallback: treat as a single abstract entry
+            segments.append(text)
+    return segments
+
+
+def make_key(text: str) -> str:
+    try:
+        import re as _re
+        m = _re.search(r"PMID:\s*(\d+)", text)
+        if m:
+            return f"pmid:{m.group(1)}"
+    except Exception:
+        pass
+    try:
+        import hashlib as _hashlib
+        norm = " ".join(text.split()).lower()
+        return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
+    except Exception:
+        return "hash:" + text[:64]
+
+
+def extract_json_from_markdown(s: str) -> dict:
+    """Extract JSON from markdown formatted text.
+    
+    Finds ```json ... ```; falls back to first {...}
+    """
+    import re
+    m = re.search(r"```json\s*(\{.*?\})\s*```", s, flags=re.S)
+    if not m:
+        m = re.search(r"(\{.*\})", s, flags=re.S)
+    if not m:
+        raise ValueError("No JSON found in model output.")
+    return json.loads(m.group(1))
+
+
+def write_to_json(data, file_path, output_directory, config):
+    """Write data to JSON file with sanitized filename.
+    
+    Args:
+        data: Data to write to JSON
+        file_path: Base filename for the JSON file
+        output_directory: Directory to write the file to
+        config: Config object with logger
+    """
+    logger = config.logger
+    # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
+    file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+        
+    file_path = os.path.join(output_directory, file_path)
+    logger.debug(f" IN WRITE TO JSON   File path: {file_path}")
+    with open(file_path, "w") as outfile:
+        json.dump(data, outfile, indent=4)
 
 
 class Config:
