@@ -6,4 +6,7 @@ input_lists
 *.pyc
 secrets.json
 token_dirs/*
-
+parse_jsons.py
+parse_jsons_dch.py
+nohup.out
+skimgpt_visualizer.py
