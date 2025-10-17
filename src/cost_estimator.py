@@ -30,6 +30,9 @@ class CostEstimator:
         elif self.model == "o3-mini":
             self.input_cost_per_million = 1.10
             self.output_cost_per_million = 4.40
+        elif self.model == "gpt-5":
+            self.input_cost_per_million = 1.25
+            self.output_cost_per_million = 10.00
         elif self.model == "r1":
             self.input_cost_per_million = 0.55
             self.output_cost_per_million = 2.19
@@ -80,6 +83,12 @@ class KMCostEstimator(CostEstimator):
         (150, 175, 1067500), (175, 200, 1220000)
     ]
     
+    GPT5_KM_INTERVALS = [
+        (0, 25, 800), (25, 50, 900), (50, 75, 1000),
+        (75, 100, 1100), (100, 125, 1200), (125, 150, 1300),
+        (150, 175, 1400), (175, 200, 1500)
+    ]
+    
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
         """Calculate input token costs for KM jobs."""
         total_tokens = 0
@@ -88,7 +97,9 @@ class KMCostEstimator(CostEstimator):
         self.logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
-            abstract_tokens = min(row['ab_count'], self.post_n) * 300
+            # Use numeric len(a_b_intersect) only
+            ab_count = int(row.get("len(a_b_intersect)", 0) or 0)
+            abstract_tokens = min(ab_count, self.post_n) * 300
             
             # Standard KM prompt size estimate; DCH uses a combined prompt built in relevance.py
             if True:
@@ -117,6 +128,8 @@ class KMCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_KM_INTERVALS, "KM")
+        elif self.model == "gpt-5":
+            return self._get_output_tokens(self.GPT5_KM_INTERVALS, "KM")
         elif self.model in ("o3", "o3-mini"):
             return self._get_output_tokens(self.O3_KM_INTERVALS, "KM")
         else:
@@ -141,6 +154,12 @@ class SkimCostEstimator(CostEstimator):
         (150, 175, 1067500), (175, 200, 1220000)
     ]
     
+    GPT5_SKIM_INTERVALS = [
+        (0, 25, 1500), (25, 50, 1800), (50, 75, 2100),
+        (75, 100, 2400), (100, 125, 2700), (125, 150, 3000),
+        (150, 175, 3300), (175, 200, 3600)
+    ]
+    
     def estimate_input_costs(self, combined_df: pd.DataFrame) -> int:
         """Calculate input token costs for SKIM jobs."""
         total_tokens = 0
@@ -149,8 +168,11 @@ class SkimCostEstimator(CostEstimator):
         self.logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
-            ab_tokens = min(row['ab_count'], self.post_n) * 300
-            bc_tokens = min(row['bc_count'], self.post_n) * 300
+            # Use numeric lengths only
+            ab_count = int(row.get("len(a_b_intersect)", 0) or 0)
+            bc_count = int(row.get("len(b_c_intersect)", 0) or 0)
+            ab_tokens = min(ab_count, self.post_n) * 300
+            bc_tokens = min(bc_count, self.post_n) * 300
             
             hypothesis_template = self.config.skim_hypotheses["ABC"].format(
                 a_term=row['a_term'],
@@ -163,8 +185,9 @@ class SkimCostEstimator(CostEstimator):
             
             row_total_tokens = ab_tokens + bc_tokens + base_prompt_tokens
             
-            if 'ac_count' in row and row['ac_count'] > 0:
-                ac_tokens = min(row['ac_count'], self.post_n) * 300
+            ac_count = int(row.get("len(a_c_intersect)", 0) or 0)
+            if ac_count > 0:
+                ac_tokens = min(ac_count, self.post_n) * 300
                 ac_prompt_text = skim_with_gpt_ac(row['a_term'], hypothesis_template, "", row['c_term'])
                 ac_prompt_tokens = int(len(ac_prompt_text.replace("{consolidated_abstracts}", "").split()) * 4/3)
                 row_total_tokens += ac_tokens + ac_prompt_tokens
@@ -184,6 +207,8 @@ class SkimCostEstimator(CostEstimator):
         # Use appropriate intervals based on model
         if self.model == "r1":
             return self._get_output_tokens(self.DEEPSEEK_SKIM_INTERVALS, "SKIM")
+        elif self.model == "gpt-5":
+            return self._get_output_tokens(self.GPT5_SKIM_INTERVALS, "SKIM")
         elif self.model in ("o3", "o3-mini"):
             return self._get_output_tokens(self.O3_SKIM_INTERVALS, "SKIM")
         else:

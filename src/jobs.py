@@ -8,12 +8,6 @@ def main_workflow(combination, output_dir, config):
                 config=config,
                 output_directory=output_dir
             )
-        elif config.job_type == "km_with_gpt_direct_comp":
-            return fastkm.km_with_gpt_direct_comp_workflow(
-                term=combination,
-                config=config,
-                output_directory=output_dir
-            )
         else:
             return fastkm.km_with_gpt_workflow(
                 term=combination,

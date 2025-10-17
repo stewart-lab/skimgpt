@@ -10,3 +10,5 @@ parse_jsons.py
 parse_jsons_dch.py
 nohup.out
 skimgpt_visualizer.py
+run_*
+

@@ -9,12 +9,11 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, make_key, write_to_json
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
-    write_to_json,
 )
 
 
@@ -82,6 +81,32 @@ def prompt(abstract, hyp) -> str:
     return f"Abstract: {abstract}\nHypothesis: {hyp}\nInstructions: Classify this abstract as either 0 (Not Relevant) or 1 (Relevant) for evaluating the provided hypothesis.\nScore: "
 
 
+def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = "", default: int = 0, logger = None) -> int:
+    """Safely evaluate model output, handling empty or invalid responses."""
+    text = text.strip()
+    if not text:
+        if logger:
+            logger.warning(f"Empty model output at index {idx}, using default value {default}")
+            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.warning(f"  Hypothesis: {hypothesis}")
+        return default
+    try:
+        result = eval(text)
+        if result not in [0, 1]:
+            if logger:
+                logger.warning(f"Invalid model output '{text}' at index {idx} (expected 0 or 1), using default {default}")
+                logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+                logger.warning(f"  Hypothesis: {hypothesis}")
+            return default
+        return result
+    except (SyntaxError, NameError, ValueError) as e:
+        if logger:
+            logger.warning(f"Failed to evaluate model output '{text}' at index {idx}: {e}, using default {default}")
+            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.warning(f"  Hypothesis: {hypothesis}")
+        return default
+
+
 def gen(
     prompts: RaggedTensor, model: any, sampling_config: any
 ) -> RaggedTensor:
@@ -109,17 +134,30 @@ def postProcess(
     terms: str,
     shape: list,
 ):
+    # Save flat references before reshaping for logging context
+    flat_abstracts = abstracts.data.copy() if abstracts.data else []
+    flat_hypotheses = hypotheses.data.copy() if hypotheses.data else []
 
     abstracts.reshape(shape)
 
     if not config.debug:
-        answer_masks = outputs.map(eval)
+        answer_masks = RaggedTensor(
+            [safe_eval(output, idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "", 
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger) 
+             for idx, output in enumerate(outputs.data)], 
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
         abstracts.applyFilter(answer_masks)
     else:
-        answer_masks = RaggedTensor([eval(answer[0]) for answer in outputs])
+        answer_masks = RaggedTensor(
+            [safe_eval(answer[0], idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger)
+             for idx, answer in enumerate(outputs.data)],
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
-        cot = RaggedTensor([answer[1:] for answer in outputs])
+        cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
 
         if terms == "ac":
@@ -178,58 +216,11 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
         A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
     """
     logger = config.logger
-    def normalize_entries(value):
-        """Return a flat list of individual abstracts.
-
-        Handles cases where input is a single concatenated string containing
-        multiple abstracts separated by the '===END OF ABSTRACT===' sentinel.
-        """
-        segments = []
-        # Normalize to list for iteration
-        if isinstance(value, list):
-            iterable = value
-        elif isinstance(value, str):
-            iterable = [value]
-        else:
-            iterable = []
-
-        for item in iterable:
-            if not isinstance(item, str):
-                # Coerce non-strings defensively
-                segments.append(str(item))
-                continue
-
-            text = item.strip()
-            if not text:
-                continue
-
-            if '===END OF ABSTRACT===' in text:
-                parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
-                # Re-append sentinel to each piece to preserve downstream expectations
-                segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
-            else:
-                # Fallback: treat as a single abstract entry
-                segments.append(text)
-        return segments
 
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
 
     # Deduplicate across rows: prefer PMID if present; else hash normalized text
-    def make_key(text: str) -> str:
-        try:
-            import re as _re
-            m = _re.search(r"PMID:\s*(\d+)", text)
-            if m:
-                return f"pmid:{m.group(1)}"
-        except Exception:
-            pass
-        try:
-            import hashlib as _hashlib
-            norm = " ".join(text.split()).lower()
-            return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
-        except Exception:
-            return "hash:" + text[:64]
 
     seen_keys = set()
     dedup1 = []
@@ -365,6 +356,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     if config.is_dch:
         # Build direct comparison hypotheses and provide consolidated text content
+        # Preserve pipes in terms for relevance; canonicalization happens later
         hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
@@ -379,9 +371,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
 
+        # Store canonical (pipe-stripped) hypotheses in final JSON for DCH
         dch_row = {
-            "hypothesis1": hyp1,
-            "hypothesis2": hyp2,
+            "hypothesis1": strip_pipe(hyp1) if isinstance(hyp1, str) else hyp1,
+            "hypothesis2": strip_pipe(hyp2) if isinstance(hyp2, str) else hyp2,
             "ab_pmid_intersection": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
@@ -536,6 +529,7 @@ def main():
         ab_pmids.append(pmids)
 
         # Generate hypothesis for this specific pair
+        # Preserve pipes here; do not strip before relevance
         hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
         ab_hypotheses.append(hypothesis)
 
