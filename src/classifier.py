@@ -364,12 +364,12 @@ def analyze_abstract_with_frontier_LLM(
         except Exception as _e:
             logger.debug(f"Could not derive expected count from prompt: {_e}")
 
-    if config.is_dch:
+    if config.is_dch or (config.is_km_with_gpt and not config.is_dch):
         response = call_openai_json(
             client,
             prompt_text,
             config,
-            expected_per_abstract_count=final_expected_count,
+            expected_per_abstract_count=final_expected_count if config.is_dch else expected_per_abstract_count,
         )
         logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
     else:
@@ -475,8 +475,19 @@ def generate_prompt(
 
 def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None):
     # Build messages with system + user for all models (o1, o3, gpt-5 compatible)
+    if config.is_dch:
+        system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
+        irrelevant_label = "neither"
+    elif getattr(config, "is_km_with_gpt", False):
+        system_instructions = prompts_module.km_with_gpt_system_instructions()
+        irrelevant_label = "inconclusive"
+    else:
+        # Fallback to direct comp instructions if job type is unexpected
+        system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
+        irrelevant_label = "neither"
+
     messages = [
-        {"role": "system", "content": prompts_module.km_with_gpt_direct_comp_system_instructions()},
+        {"role": "system", "content": system_instructions},
     ]
     if expected_per_abstract_count is not None:
         messages.append({
@@ -485,7 +496,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 "You MUST return exactly "
                 f"{expected_per_abstract_count} items in the per_abstract array. "
                 "Include one entry per PMID listed. If an abstract is irrelevant, "
-                "label it 'neither' but still include it. Do not omit any."
+                f"label it '{irrelevant_label}' but still include it. Do not omit any."
             )
         })
     messages.append({"role": "user", "content": prompt})
@@ -514,11 +525,16 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 f"does not match expected {expected_per_abstract_count}."
             )
 
-    # Validate tallies include 'both' key
+    # Validate tallies depending on mode
     tallies = payload.get("tallies", {})
-    for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
-        if tk not in tallies:
-            raise ValueError(f"Missing required tally '{tk}' in model output.")
+    if config.is_dch:
+        for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
+            if tk not in tallies:
+                raise ValueError(f"Missing required tally '{tk}' in model output.")
+    elif getattr(config, "is_km_with_gpt", False):
+        for tk in ["support","refute","inconclusive"]:
+            if tk not in tallies:
+                raise ValueError(f"Missing required tally '{tk}' in model output.")
 
     return payload
 
