@@ -32,11 +32,14 @@ Instructions:
 4. Provide a justification for your scoring decision based on the analysis. Explain your reasoning step-by-step in terms understandable to an undergraduate biochemist. Focus on explaining the logical connections and the directionality of relationships.
 5. Cite specific texts from your set of abstracts to support your arguments. Only cite PMIDs from the list above, and clearly reference these citations in your reasoning using the format "PMID: XXXXX".
 
-Format your response as:
-Score: [Number] - Reasoning: [Reasoning]
-
 Scoring Guidelines:
-{sg.ab_scoring_guidelines(a_term, b_term)}"""
+{sg.ab_scoring_guidelines(a_term, b_term)}
+
+Output policy:
+- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- JSON schema (for reference; do not print this schema):
+{km_with_gpt_json_schema()}
+"""
 
 def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, consolidated_abstracts):
     pmid_list = extract_pmids(consolidated_abstracts)
