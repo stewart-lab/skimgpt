@@ -351,25 +351,24 @@ def analyze_abstract_with_frontier_LLM(
         return ["Score: N/A"], prompt_text
     logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
 
-    # Derive expected per-abstract count from the prompt when in DCH; prefer this over any provided value
+    # Derive expected per-abstract count from the prompt; prefer this over any provided value
     final_expected_count = expected_per_abstract_count
-    if config.is_dch:
-        try:
-            m = re.search(r"Available PMIDs for citation:\s*([0-9,\s]+)", prompt_text)
-            if m:
-                numbers = [n for n in re.findall(r"\d+", m.group(1))]
-                if numbers:
-                    final_expected_count = len(numbers)
-                    logger.info(f"Derived expected_per_abstract_count from prompt: {final_expected_count}")
-        except Exception as _e:
-            logger.debug(f"Could not derive expected count from prompt: {_e}")
+    try:
+        m = re.search(r"Available PMIDs for (?:[Cc]itation|[Cc]itation):\s*([0-9,\s]+)", prompt_text)
+        if m:
+            numbers = [n for n in re.findall(r"\d+", m.group(1))]
+            if numbers:
+                final_expected_count = len(numbers)
+                logger.info(f"Derived expected_per_abstract_count from prompt: {final_expected_count}")
+    except Exception as _e:
+        logger.debug(f"Could not derive expected count from prompt: {_e}")
 
     if config.is_dch or (config.is_km_with_gpt and not config.is_dch):
         response = call_openai_json(
             client,
             prompt_text,
             config,
-            expected_per_abstract_count=final_expected_count if config.is_dch else expected_per_abstract_count,
+            expected_per_abstract_count=final_expected_count,
         )
         logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
     else:
