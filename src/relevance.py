@@ -385,6 +385,16 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         result_dict = process_single_row(row, config)
         logger.debug(f" Result dict: {result_dict}")
         if result_dict:
+            # Ensure Hypothesis is present for KM outputs
+            if not config.is_dch and not config.is_skim_with_gpt:
+                try:
+                    a_term_val = row.get("a_term", "")
+                    b_term_val = row.get("b_term", "")
+                    hyp_str = getHypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
+                    if isinstance(result_dict, dict) and "A_B_Relationship" in result_dict and isinstance(result_dict["A_B_Relationship"], dict):
+                        result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
+                except Exception:
+                    pass
             for ratio_type in ["ab", "bc", "ac"]:
                 ratio_col = f"{ratio_type}_relevance_ratio"
                 fraction_col = f"{ratio_type}_relevance_fraction"

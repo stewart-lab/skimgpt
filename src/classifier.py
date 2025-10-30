@@ -108,6 +108,8 @@ def process_single_row(row, config: Config):
                 "a_term": a_term,
                 "b_term": b_term,
                 "Relationship": f"{a_term} - {b_term}",
+                "Hypothesis": (config.km_hypothesis.format(a_term=a_term, b_term=b_term)
+                                if hasattr(config, "km_hypothesis") else ""),
                 "Result": ab_result,
                 "Prompt": ab_prompt,
                 "URLS": {"AB": ab_urls.get("AB", [])},
