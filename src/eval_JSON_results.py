@@ -195,7 +195,21 @@ def extract_and_write_scores(directory):
                     Relationship   = relationship_data.get("Relationship", "").strip()
                     score_details  = relationship_data.get("Result", [])
                     for detail in score_details:
-                        # Extract score
+                        # Handle new structured KM results (detail is a dict)
+                        if isinstance(detail, dict):
+                            score = str(detail.get("score", ""))
+                            row = {
+                                "Relationship_Type": outer_key,
+                                "Relationship":     Relationship,
+                                "Score":            score,
+                                "Iteration":        iter_number,
+                            }
+                            results.append(row)
+                            continue
+
+                        # Legacy string-based results
+                        if not isinstance(detail, str):
+                            continue
                         score_match = re.search(
                             r"Score:\s*([-+]?\d+|N/A)",
                             detail,
