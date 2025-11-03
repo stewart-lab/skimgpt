@@ -181,15 +181,9 @@ Your goal is to determine the degree of support for the hypothesis:
 • Have you **explicitly cited the scoring guideline** that matches your conclusion?
 • Have you **explained why the evidence meets the criteria** for the assigned score?
 
-**Format your response as:**
-
-Score: \[Number\] Point(s) - Reasoning: \[Reasoning\]
-
 **Scoring Guidelines:**
-{sg.ac_scoring_guidelines(a_term, c_term)}"""
+{sg.ac_scoring_guidelines(a_term, c_term)}
 
-    
-    """
 Output policy:
 - Return ONLY a single JSON object matching the schema below, inside a ```json code block.
 - JSON schema (for reference; do not print this schema):
@@ -386,15 +380,9 @@ Your goal is to determine the degree of support for the hypothesis:
 
 - Have you **explained why the evidence meets the criteria** for the assigned score?
 
-**Format your response as:**
-
-Score: [Number] Point(s) - Reasoning: [Reasoning]
-
 **Scoring Guidelines:**
-{sg.abc_scoring_guidelines(a_term, b_term, c_term)}"""
+{sg.abc_scoring_guidelines(a_term, b_term, c_term)}
 
-    
-    """
 Output policy:
 - Return ONLY a single JSON object matching the schema below, inside a ```json code block.
 - JSON schema (for reference; do not print this schema):
