@@ -188,6 +188,14 @@ Score: \[Number\] Point(s) - Reasoning: \[Reasoning\]
 **Scoring Guidelines:**
 {sg.ac_scoring_guidelines(a_term, c_term)}"""
 
+    
+    """
+Output policy:
+- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- JSON schema (for reference; do not print this schema):
+{skim_with_gpt_json_schema()}
+"""
+
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
     pmid_list = extract_pmids(consolidated_abstracts)
@@ -385,6 +393,14 @@ Score: [Number] Point(s) - Reasoning: [Reasoning]
 **Scoring Guidelines:**
 {sg.abc_scoring_guidelines(a_term, b_term, c_term)}"""
 
+    
+    """
+Output policy:
+- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- JSON schema (for reference; do not print this schema):
+{skim_with_gpt_json_schema()}
+"""
+
 
 def km_with_gpt_direct_comp_json_schema():
     return {
@@ -499,6 +515,68 @@ def km_with_gpt_json_schema():
 def km_with_gpt_system_instructions():
     return """\
 You evaluate a single biomedical hypothesis using ONLY the provided PubMed abstracts.
+Rules:
+- Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
+- Every claim must map to at least one provided PMID from the input set.
+- Ground the output with evidence extracted from the abstracts (≤300 chars each).
+- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Follow the provided discrete scoring guidelines verbatim (-2..+2). Do not derive or use any explicit scoring formula.
+- Tally counts as requested: number supporting, number refuting, and number that are inconclusive.
+- Labels per abstract: supports, refutes, inconclusive.
+- The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+"""
+
+
+def skim_with_gpt_json_schema():
+    return {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "per_abstract": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "label": {
+                        "type": "string",
+                        "enum": ["supports","refutes","inconclusive"]
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300}
+                    },
+                },
+                "required": ["pmid","label"]
+            }
+        },
+        "score_rationale": {
+            "type": "array",
+            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score."},
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "tallies": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "support": {"type": "integer", "minimum": 0},
+                "refute": {"type": "integer", "minimum": 0},
+                "inconclusive": {"type": "integer", "minimum": 0}
+            },
+            "required": ["support","refute","inconclusive"]
+        },
+        "score": {"type": "number", "minimum": -2, "maximum": 2},
+        "decision": {"type": "string", "enum": ["supports","refutes","insufficient_evidence"]}
+    },
+    "required": ["per_abstract","score_rationale","tallies","score","decision"]
+    }
+
+
+def skim_with_gpt_system_instructions():
+    return """\
+You evaluate a single mediated biomedical hypothesis (AB/BC/AC as applicable) using ONLY the provided PubMed abstracts.
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
