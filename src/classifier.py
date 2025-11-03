@@ -365,16 +365,13 @@ def analyze_abstract_with_frontier_LLM(
     except Exception as _e:
         logger.debug(f"Could not derive expected count from prompt: {_e}")
 
-    if config.is_dch or (config.is_km_with_gpt and not config.is_dch):
-        response = call_openai_json(
-            client,
-            prompt_text,
-            config,
-            expected_per_abstract_count=final_expected_count,
-        )
-        logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
-    else:
-        response = call_openai(client, prompt_text, config)
+    response = call_openai_json(
+        client,
+        prompt_text,
+        config,
+        expected_per_abstract_count=final_expected_count,
+    )
+    logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
     if response:
         responses.append(response)
     logger.debug(f" IN ANALYZE ABSTRACT   Responses: {responses}")
@@ -482,6 +479,9 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     elif getattr(config, "is_km_with_gpt", False):
         system_instructions = prompts_module.km_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
+    elif getattr(config, "is_skim_with_gpt", False):
+        system_instructions = prompts_module.skim_with_gpt_system_instructions()
+        irrelevant_label = "inconclusive"
     else:
         # Fallback to direct comp instructions if job type is unexpected
         system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
@@ -532,7 +532,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
             if tk not in tallies:
                 raise ValueError(f"Missing required tally '{tk}' in model output.")
-    elif getattr(config, "is_km_with_gpt", False):
+    elif getattr(config, "is_km_with_gpt", False) or getattr(config, "is_skim_with_gpt", False):
         for tk in ["support","refute","inconclusive"]:
             if tk not in tallies:
                 raise ValueError(f"Missing required tally '{tk}' in model output.")
