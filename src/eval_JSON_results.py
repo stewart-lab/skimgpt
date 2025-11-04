@@ -22,8 +22,9 @@ def _extract_and_write_structured_output_results(directory):
                 has_iterations = True
                 iteration_dirs.append((name.split("_", 1)[1], sub))
 
-    # Determine job type (KM vs DCH) from config.json
+    # Determine job type (KM vs DCH vs SKIM) from config.json
     km_mode = False
+    skim_mode = False
     try:
         cfg = json.load(open(os.path.join(directory, "config.json")))
         job_type = cfg.get("JOB_TYPE")
@@ -31,11 +32,13 @@ def _extract_and_write_structured_output_results(directory):
         job_cfg = jss.get(job_type, {}) if isinstance(jss, dict) and job_type else {}
         is_dch = bool(job_cfg.get("is_dch") or cfg.get("is_dch") or cfg.get("GLOBAL_SETTINGS", {}).get("is_dch"))
         km_mode = (job_type == "km_with_gpt") and not is_dch
+        skim_mode = (job_type == "skim_with_gpt") and not is_dch
     except Exception:
         km_mode = False
+        skim_mode = False
 
     # Compute headers based on mode
-    if km_mode:
+    if km_mode or skim_mode:
         HEADERS = ["Hypothesis", "Score", "support", "refute", "inconclusive"]
         if has_iterations:
             HEADERS.append("Iteration")
@@ -161,6 +164,36 @@ def _extract_and_write_structured_output_results(directory):
                             if has_iterations:
                                 row.append(str(iter_value))
                             out_rows.append(row)
+
+                # SKIM structured (A_B_C_Relationship and A_C_Relationship) - only when SKIM mode
+                if skim_mode:
+                    for key in ["A_B_C_Relationship", "A_C_Relationship"]:
+                        section = rec.get(key)
+                        if isinstance(section, dict):
+                            hypothesis = section.get("Hypothesis", "")
+                            results_list = section.get("Result") or []
+                            if not isinstance(results_list, list):
+                                results_list = [results_list]
+                            for result_entry in results_list:
+                                if not isinstance(result_entry, dict):
+                                    continue
+                                score = result_entry.get("score", "")
+                                tallies = result_entry.get("tallies", {}) or {}
+                                support = to_int(tallies.get("support", 0))
+                                refute = to_int(tallies.get("refute", 0))
+                                inconclusive = to_int(tallies.get("inconclusive", 0))
+
+                                # SKIM row: Hypothesis, Score, support, refute, inconclusive, Iteration
+                                row = [
+                                    str(hypothesis),
+                                    str(score),
+                                    str(support),
+                                    str(refute),
+                                    str(inconclusive),
+                                ]
+                                if has_iterations:
+                                    row.append(str(iter_value))
+                                out_rows.append(row)
 
     with open(out_path, "w", encoding="utf-8") as outf:
         outf.write("\t".join(HEADERS) + "\n")
