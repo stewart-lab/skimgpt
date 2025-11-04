@@ -1,16 +1,9 @@
 import os
 import json
-import re
 import sys
 
-def _extract_and_write_structured_output_results(directory):
-    """Read structured results (DCH and KM) and emit a compact results.tsv.
-
-    Columns written (some may be blank depending on job type):
-    - Score, Decision, Iteration (optional)
-    - For DCH: H1, H2, Neither, Both, Total Relevant Abstracts, Hypothesis1, Hypothesis2
-    - For KM: Support, Refute, Inconclusive, Hypothesis, Relationship
-    """
+def extract_and_write_scores(directory):
+    """Read structured results and emit a compact results.tsv for all job types."""
     # Discover whether iterations are present under results/
     results_root = os.path.join(directory, "results")
     has_iterations = False
@@ -25,6 +18,7 @@ def _extract_and_write_structured_output_results(directory):
     # Determine job type (KM vs DCH vs SKIM) from config.json
     km_mode = False
     skim_mode = False
+    is_dch = False
     try:
         cfg = json.load(open(os.path.join(directory, "config.json")))
         job_type = cfg.get("JOB_TYPE")
@@ -36,6 +30,7 @@ def _extract_and_write_structured_output_results(directory):
     except Exception:
         km_mode = False
         skim_mode = False
+        is_dch = False
 
     # Compute headers based on mode
     if km_mode or skim_mode:
@@ -46,14 +41,12 @@ def _extract_and_write_structured_output_results(directory):
         HEADERS = ["Score", "Decision"]
         if has_iterations:
             HEADERS.append("Iteration")
-        # DCH-specific fields
         HEADERS.extend(["H1", "H2", "Neither", "Both", "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2"])
 
     # Build list of (iteration_value, results_dir) to scan
     targets = []
     if has_iterations:
         for iter_num, iter_path in iteration_dirs:
-            # iteration path is already results/iteration_X
             targets.append((iter_num, iter_path))
     else:
         if os.path.isdir(results_root):
@@ -61,7 +54,6 @@ def _extract_and_write_structured_output_results(directory):
 
     out_path = os.path.join(directory, "results.tsv")
     if not targets:
-        # Nothing to write except header
         with open(out_path, "w", encoding="utf-8") as outf:
             outf.write("\t".join(HEADERS) + "\n")
         return
@@ -85,8 +77,8 @@ def _extract_and_write_structured_output_results(directory):
                 if not isinstance(rec, dict):
                     continue
 
-                # DCH structured (Hypothesis_Comparison) - only when not KM mode
-                if (not km_mode) and "Hypothesis_Comparison" in rec:
+                # DCH structured (Hypothesis_Comparison)
+                if is_dch and "Hypothesis_Comparison" in rec:
                     hc = rec["Hypothesis_Comparison"]
                     if not isinstance(hc, dict):
                         continue
@@ -121,7 +113,6 @@ def _extract_and_write_structured_output_results(directory):
                         row = [str(score), str(decision)]
                         if has_iterations:
                             row.append(str(iter_value))
-                        # DCH fields
                         row.extend([
                             str(count_h1),
                             str(count_h2),
@@ -131,8 +122,6 @@ def _extract_and_write_structured_output_results(directory):
                             str(hypothesis1),
                             str(hypothesis2),
                         ])
-                        # KM fields (blank)
-                        row.extend(["", "", "", "", ""]) 
                         out_rows.append(row)
                     continue
 
@@ -153,7 +142,6 @@ def _extract_and_write_structured_output_results(directory):
                             refute = to_int(tallies.get("refute", 0))
                             inconclusive = to_int(tallies.get("inconclusive", 0))
 
-                            # KM row in requested order: Hypothesis, Score, support, refute, inconclusive, Iteration
                             row = [
                                 str(hypothesis),
                                 str(score),
@@ -183,7 +171,6 @@ def _extract_and_write_structured_output_results(directory):
                                 refute = to_int(tallies.get("refute", 0))
                                 inconclusive = to_int(tallies.get("inconclusive", 0))
 
-                                # SKIM row: Hypothesis, Score, support, refute, inconclusive, Iteration
                                 row = [
                                     str(hypothesis),
                                     str(score),
@@ -199,43 +186,6 @@ def _extract_and_write_structured_output_results(directory):
         outf.write("\t".join(HEADERS) + "\n")
         for row in out_rows:
             outf.write("\t".join(row) + "\n")
-
-def extract_and_write_scores(directory):
-    results = []
-    # Define the outer keys to look for
-    outer_keys = ["A_B_C_Relationship", "A_C_Relationship", "A_B_Relationship", "A_B1_B2_Relationship"]
-
-    # 1) detect whether iterations were enabled
-    cfg_path      = os.path.join(directory, "config.json")
-    has_iterations = False
-    is_dch = False
-    if os.path.isfile(cfg_path):
-        try:
-            cfg        = json.load(open(cfg_path))
-            iterations = cfg.get("GLOBAL_SETTINGS", {}).get("iterations", None)
-            if isinstance(iterations, int) and iterations > 1:
-                has_iterations = True
-            # detect DCH mode: prefer nested under JOB_SPECIFIC_SETTINGS for current JOB_TYPE
-            job_type = cfg.get("JOB_TYPE")
-            jss = cfg.get("JOB_SPECIFIC_SETTINGS", {}) if isinstance(cfg, dict) else {}
-            job_cfg = jss.get(job_type, {}) if isinstance(jss, dict) and job_type else {}
-            is_dch = bool(job_cfg.get("is_dch")
-                          or cfg.get("is_dch")
-                          or cfg.get("GLOBAL_SETTINGS", {}).get("is_dch"))
-        except Exception:
-            pass
-    # fallback: look for iteration_N subdirectories
-    if not has_iterations:
-        for name in os.listdir(directory):
-            if name.startswith("iteration_") and os.path.isdir(os.path.join(directory, name)):
-                has_iterations = True
-                break
-
-    # Always prefer structured output writer (handles DCH and KM)
-    _extract_and_write_structured_output_results(directory)
-    return
-
-    # Old results.txt writer removed in favor of structured results.tsv
 
 
 def main():
