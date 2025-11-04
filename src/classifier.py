@@ -55,6 +55,11 @@ def process_single_row(row, config: Config):
                 "b_term": b_term,
                 "c_term": c_term,
                 "Relationship": f"{a_term} - {b_term} - {c_term}",
+                "Hypothesis": (
+                    config.skim_hypotheses["ABC"].format(a_term=a_term, b_term=b_term, c_term=c_term)
+                    if hasattr(config, "skim_hypotheses") and "ABC" in config.skim_hypotheses
+                    else ""
+                ),
                 "Result": abc_result,
                 "Prompt": abc_prompt,
                 "URLS": {
@@ -72,6 +77,11 @@ def process_single_row(row, config: Config):
                 "b_term": b_term,
                 "c_term": c_term,
                 "Relationship": f"{a_term} - {c_term}",
+                "Hypothesis": (
+                    config.skim_hypotheses["AC"].format(a_term=a_term, c_term=c_term)
+                    if hasattr(config, "skim_hypotheses") and "AC" in config.skim_hypotheses
+                    else ""
+                ),
                 "Result": ac_result,
                 "Prompt": ac_prompt,
                 "URLS": {
