@@ -132,7 +132,7 @@ def configure_job(config: Config, job_type, a_term, c_terms, b_terms=None):
     }
 
     # Get job-specific settings dynamically based on job_type
-    job_specific_settings = config.job_config["JOB_SPECIFIC_SETTINGS"].get(job_type)
+    job_specific_settings = config.job_specific_settings.get(job_type)
     if not job_specific_settings:
         raise ValueError(f"Missing JOB_SPECIFIC_SETTINGS for {job_type} in config")
 
