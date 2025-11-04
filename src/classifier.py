@@ -3,9 +3,8 @@ import time
 import json
 import re
 from typing import Any
-from src.utils import Config, strip_pipe, extract_json_from_markdown, write_to_json
+from src.utils import Config, strip_pipe, extract_json_from_markdown
 from src import prompt_library as prompts_module  
-import os
 
 
 def calculate_relevance_ratios(out_df, config: Config):
@@ -130,8 +129,6 @@ def process_single_row(row, config: Config):
         hypothesis2 = row.get("hypothesis2")
         canonical_h1 = strip_pipe(hypothesis1) if isinstance(hypothesis1, str) else hypothesis1
         canonical_h2 = strip_pipe(hypothesis2) if isinstance(hypothesis2, str) else hypothesis2
-        hypothesis1_pmids = row.get("hypothesis1_pmids")
-        hypothesis2_pmids = row.get("hypothesis2_pmids")
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
@@ -300,7 +297,6 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             hypothesis1=row.get("hypothesis1"),
             hypothesis2=row.get("hypothesis2"),
             expected_per_abstract_count=expected_count,
-            total_relevant_abstracts=row.get("total_relevant_abstracts"),
         )
         logger.debug(f" IN ANALYZE ABSTRACT   Result: {result}")
         logger.debug(f" IN ANALYZE ABSTRACT   Prompt text: {prompt_text}")
@@ -322,7 +318,6 @@ def analyze_abstract_with_frontier_LLM(
     hypothesis1: str | None = None,
     hypothesis2: str | None = None,
     expected_per_abstract_count: int | None = None,
-    total_relevant_abstracts: int | None = None,
 ) -> tuple:
     logger = config.logger
     if not a_term and not config.is_dch:
@@ -356,7 +351,6 @@ def analyze_abstract_with_frontier_LLM(
         relationship_type=relationship_type,
         hypothesis1=hypothesis1,
         hypothesis2=hypothesis2,
-        total_relevant_abstracts=total_relevant_abstracts,
     )
     if not prompt_text:
         logger.error("Failed to generate prompt.")
@@ -397,7 +391,6 @@ def generate_prompt(
     relationship_type: str,
     hypothesis1: str | None = None,
     hypothesis2: str | None = None,
-    total_relevant_abstracts: int | None = None,
 ) -> str:
     logger = config.logger
   
@@ -482,7 +475,7 @@ def generate_prompt(
 
 
 def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None):
-    # Build messages with system + user for all models (o1, o3, gpt-5 compatible)
+    # Build messages with system + user for all models
     if config.is_dch:
         system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
         irrelevant_label = "neither"
@@ -493,7 +486,6 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         system_instructions = prompts_module.skim_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
     else:
-        # Fallback to direct comp instructions if job type is unexpected
         system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
         irrelevant_label = "neither"
 
@@ -517,199 +509,124 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         "model": ("deepseek-reasoner" if config.model == "r1" else config.model),
     }
 
-    resp = client.chat.completions.create(**params)
-    content = resp.choices[0].message.content
-    # Parse strict JSON block
-    payload = extract_json_from_markdown(content)
-
-    # (Optional) light validation against your schema fields
-    for k in ["per_abstract","score_rationale","tallies","score","decision"]:
-        if k not in payload:
-            raise ValueError(f"Missing required field '{k}' in model output.")
-
-    # Enforce the number of per_abstract labels to match expected count when provided
-    if expected_per_abstract_count is not None:
-        per_abstract = payload.get("per_abstract", [])
-        if not isinstance(per_abstract, list) or len(per_abstract) != expected_per_abstract_count:
-            raise ValueError(
-                f"per_abstract length {len(per_abstract) if isinstance(per_abstract, list) else 'N/A'} "
-                f"does not match expected {expected_per_abstract_count}."
-            )
-
-    # Validate tallies depending on mode
-    tallies = payload.get("tallies", {})
-    if config.is_dch:
-        for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
-            if tk not in tallies:
-                raise ValueError(f"Missing required tally '{tk}' in model output.")
-    elif getattr(config, "is_km_with_gpt", False) or getattr(config, "is_skim_with_gpt", False):
-        for tk in ["support","refute","inconclusive"]:
-            if tk not in tallies:
-                raise ValueError(f"Missing required tally '{tk}' in model output.")
-
-    return payload
-
-def call_openai(client, prompt, config: Config):
-    logger = config.logger
+    # Retry and error handling (migrated from call_openai)
     retry_delay = config.global_settings["RETRY_DELAY"]
     max_retries = config.global_settings["MAX_RETRIES"]
 
-    for attempt in range(1, max_retries + 1):
+    for _ in range(1, max_retries + 1):
         try:
-            # Create parameters dictionary
-            params = {
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
-            }
-            
-            # Set the correct model name based on config.model
-            if config.model == "r1":
-                # Use the proper DeepSeek model name instead of "r1"
-                params["model"] = "deepseek-reasoner"
-            else:
-                params["model"] = config.model
-            
-            # Make the API call with the parameters
-            response = client.chat.completions.create(**params)
+            resp = client.chat.completions.create(**params)
+            content = resp.choices[0].message.content
+            if not content:
+                raise ValueError("Empty response content from API.")
 
-            content = response.choices[0].message.content
-            usage = response.usage
-            logger.info(
-                f"prompt_tokens={usage.prompt_tokens}, "
-                f"completion_tokens={usage.completion_tokens}, "
-                f"total_tokens={usage.total_tokens}"
-            )
+            payload = extract_json_from_markdown(content)
 
-            if content:
-                return content
-            logger.warning("Empty response received from OpenAI API.")
-            time.sleep(retry_delay)
+            # Validate required fields
+            for k in ["per_abstract","score_rationale","tallies","score","decision"]:
+                if k not in payload:
+                    raise ValueError(f"Missing required field '{k}' in model output.")
 
-        # Specific Exceptions First
+            # Enforce per_abstract length when provided
+            if expected_per_abstract_count is not None:
+                per_abstract = payload.get("per_abstract", [])
+                if not isinstance(per_abstract, list) or len(per_abstract) != expected_per_abstract_count:
+                    raise ValueError(
+                        f"per_abstract length {len(per_abstract) if isinstance(per_abstract, list) else 'N/A'} "
+                        f"does not match expected {expected_per_abstract_count}."
+                    )
+
+            # Validate tallies depending on mode
+            tallies = payload.get("tallies", {})
+            if config.is_dch:
+                for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
+                    if tk not in tallies:
+                        raise ValueError(f"Missing required tally '{tk}' in model output.")
+            elif getattr(config, "is_km_with_gpt", False) or getattr(config, "is_skim_with_gpt", False):
+                for tk in ["support","refute","inconclusive"]:
+                    if tk not in tallies:
+                        raise ValueError(f"Missing required tally '{tk}' in model output.")
+
+            return payload
+
         except openai.AuthenticationError as e:
-            logger.error(
-                "AuthenticationError: Your API key or token was invalid, expired, or revoked.\n"
-                "Solution: Check your API key or token and make sure it is correct and active. "
-                "You may need to generate a new one from your account dashboard."
+            config.logger.error(
+                "AuthenticationError: Your API key or token was invalid, expired, or revoked."
             )
-            logger.debug(str(e))
-            break  # Authentication issues won't resolve with retries
-
+            config.logger.debug(str(e))
+            break
         except openai.BadRequestError as e:
-            logger.warning("BadRequestError: request malformed – retrying after delay …")
-            logger.debug(str(e))
+            config.logger.warning("BadRequestError: request malformed – retrying after delay …")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-            continue  # simple retry without altering prompt
-
+            continue
         except openai.PermissionDeniedError as e:
-            logger.error(
-                "PermissionDeniedError: You don't have access to the requested resource.\n"
-                "Solution: Ensure you are using the correct API key, organization ID, and resource ID."
-            )
-            logger.debug(str(e))
-            break  # Permission issues won't resolve with retries
-
+            config.logger.error("PermissionDeniedError: Access denied for the requested resource.")
+            config.logger.debug(str(e))
+            break
         except openai.NotFoundError as e:
-            logger.error(
-                "NotFoundError: The requested resource does not exist.\n"
-                "Solution: Ensure you are using the correct resource identifier."
-            )
-            logger.debug(str(e))
-            break  # Not found errors won't resolve with retries
-
-        # Catch conflict before generic APIError
+            config.logger.error("NotFoundError: The requested resource does not exist.")
+            config.logger.debug(str(e))
+            break
         except openai.ConflictError as e:
-            logger.error(
-                "ConflictError: The resource was updated by another request.\n"
-                "Solution: Try to update the resource again and ensure no other requests "
-                "are attempting to update it simultaneously."
-            )
-            logger.debug(str(e))
+            config.logger.error("ConflictError: Resource updated by another request; retrying …")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-
-        # The following must also come before openai.APIError or they'll remain unreachable
+            continue
         except openai.UnprocessableEntityError as e:
-            # This handles both OpenAI and Deepseek 422 errors
             if config.model == "r1":
-                logger.error(
-                    "UnprocessableEntityError: Your request contains invalid parameters.\n"
-                    "Solution: Please modify your request parameters according to the DeepSeek API format."
-                )
+                config.logger.error("UnprocessableEntityError: Invalid parameters for DeepSeek API.")
             else:
-                logger.error(
-                    "UnprocessableEntityError: Unable to process the request despite the format being correct.\n"
-                    "Solution: Please try the request again."
-                )
-            logger.debug(str(e))
+                config.logger.error("UnprocessableEntityError: Unable to process the request.")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-
+            continue
         except openai.RateLimitError as e:
-            # This handles both OpenAI and Deepseek 429 errors
             if config.model == "r1":
-                logger.warning(
-                    "Rate Limit Reached: You are sending requests too quickly.\n"
-                    "Solution: Please pace your requests reasonably. Consider switching to alternative providers temporarily."
-                )
+                config.logger.warning("Rate Limit Reached: Please slow down requests.")
             else:
-                logger.warning("A 429 status code was received; we should back off a bit.")
-            logger.debug(str(e))
+                config.logger.warning("429 received; backing off …")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-
+            continue
         except openai.APITimeoutError as e:
-            logger.error(
-                "APITimeoutError: The request timed out.\n"
-                "Solution: Retry your request after a brief wait and contact OpenAI if the issue persists."
-            )
-            logger.debug(str(e))
+            config.logger.error("APITimeoutError: Request timed out; retrying …")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-
+            continue
         except openai.APIConnectionError as e:
-            logger.error(
-                "APIConnectionError: Issue connecting to OpenAI services.\n"
-                "Solution: Check your network settings, proxy configuration, SSL certificates, or firewall rules."
-            )
-            logger.debug(str(e))
+            config.logger.error("APIConnectionError: Issue connecting to OpenAI services.")
+            config.logger.debug(str(e))
             time.sleep(retry_delay)
-
+            continue
         except openai.APIStatusError as e:
-            # Handle both OpenAI and Deepseek general status errors
             if config.model == "r1" and e.status_code == 500:
-                logger.error(
-                    "Server Error: The DeepSeek server encountered an issue.\n"
-                    "Solution: Please retry your request after a brief wait and contact support if the issue persists."
-                )
+                config.logger.error("Server Error: DeepSeek server issue; retrying later …")
             else:
-                logger.error(
-                    f"APIStatusError: Another non-200-range status code was received.\n"
-                    f"Status Code: {e.status_code}\n"
-                    f"Response: {e.response}\n"
-                    f"Cause: {e.__cause__}"
+                config.logger.error(
+                    f"APIStatusError: Non-200 status. Status Code: {e.status_code}, Response: {e.response}"
                 )
             time.sleep(retry_delay)
-
-        # Finally, catch other API errors not covered by the above
+            continue
         except openai.APIError as e:
             if config.model == "r1":
                 status_code = getattr(e, 'status_code', None)
                 if status_code == 402:
-                    logger.error(
-                        "Insufficient Balance: You have run out of balance.\n"
-                        "Solution: Please check your account's balance and add funds if necessary."
-                    )
-                    break  # Balance issues won't resolve with retries
+                    config.logger.error("Insufficient Balance: Please add funds.")
+                    break
                 elif status_code == 503:
-                    logger.error(
-                        "Server Overloaded: The server is experiencing high traffic.\n"
-                        "Solution: Please retry your request after a brief wait."
-                    )
+                    config.logger.error("Server Overloaded: Retrying after delay …")
                     time.sleep(retry_delay)
-                    continue  # Continue to next retry attempt
-            raise  # Re-raise so it's handled by outer layers if needed
-
+                    continue
+            raise
         except Exception as e:
-            logger.error("An unexpected error occurred.")
-            logger.info(str(e))
+            config.logger.error("Unexpected error during API call.")
+            config.logger.info(str(e))
             time.sleep(retry_delay)
+            continue
 
+    return None
+
+def call_openai(client, prompt, config: Config):
+    # Deprecated: unified into call_openai_json; kept for backward compatibility if referenced elsewhere
     return None
