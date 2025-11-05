@@ -1,9 +1,8 @@
 import src.scoring_guidelines as sg
-import re
+from src.utils import extract_pmids as _extract_pmids
 
 def extract_pmids(consolidated_abstracts):
-    pmid_pattern = r"PMID:\s*(\d+)"
-    pmids = re.findall(pmid_pattern, consolidated_abstracts)
+    pmids = _extract_pmids(consolidated_abstracts)
     pmid_list = ", ".join(pmids) if pmids else "None found"
     return pmid_list
 

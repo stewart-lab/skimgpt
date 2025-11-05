@@ -201,7 +201,7 @@ class HTCondorHelper:
             # Submit jobs for each file using itemdata
             self.logger.debug("Submitting job batch to HTCondor")
             result = self.schedd.submit(submit_desc, spool=True)
-            self.schedd.spool(result)  
+            # Note: spool=True in submit() already spools the job, no need to call spool() again
             self.logger.info(f"Successfully submitted {len(files)} jobs in cluster {result.cluster()}")
             return result.cluster()
 

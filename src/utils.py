@@ -7,6 +7,35 @@ import os
 import logging  
 import re
 
+# Compiled PMID pattern for reuse across modules
+PMID_PATTERN = re.compile(r"PMID:\s*(\d+)")
+
+
+def extract_pmid(text: str) -> str:
+    """Extract the first PMID from text.
+    
+    Args:
+        text: String containing PMID reference
+        
+    Returns:
+        First PMID number as string, or empty string if not found
+    """
+    match = PMID_PATTERN.search(text)
+    return match.group(1) if match else ""
+
+
+def extract_pmids(text: str) -> list:
+    """Extract all PMIDs from text.
+    
+    Args:
+        text: String containing PMID references
+        
+    Returns:
+        List of PMID numbers as strings
+    """
+    return PMID_PATTERN.findall(text)
+
+
 class RaggedTensor:
     def __init__(self, data, break_point=[]):
         self.data = data
@@ -143,52 +172,46 @@ def strip_pipe(term: str) -> str:
         String with only the first option from each pipe-separated group,
         with normalized whitespace. Returns empty string for None or empty inputs.
     """
+    # Handle None and non-string inputs
     if term is None:
         return ""
     
     if not isinstance(term, str):
-        try:
-            term = str(term)
-        except Exception:
-            return ""
+        term = str(term)
     
+    # Normalize whitespace and check if empty
     term = term.strip()
     if not term:
         return ""
     
+    # Simple case: no pipe separator
     if '|' not in term:
         return ' '.join(term.split())
     
-    try:
-        parts = []
-        for part in term.split('|'):
-            cleaned_part = part.strip()
-            if cleaned_part:
-                parts.append(cleaned_part)
+    # Extract first non-empty option from pipe-separated list
+    for part in term.split('|'):
+        cleaned_part = part.strip()
+        if cleaned_part:
+            # Normalize internal whitespace and return
+            return ' '.join(cleaned_part.split())
+    
+    # All parts were empty
+    return ""
+
+
+def apply_a_term_suffix(a_term: str, config: Config) -> str:
+    """Apply configured A_TERM_SUFFIX to the given term if configured.
+    
+    Args:
+        a_term: The A term to potentially modify
+        config: Config object containing global_settings
         
-        if not parts:
-            return ""
-        
-        first_option = parts[0]
-        
-        result = ' '.join(first_option.split())
-        
-        if result and term:
-            original_ends_with_punct = re.search(r'[.!?;:,]$', term)
-            result_ends_with_punct = re.search(r'[.!?;:,]$', result)
-            
-            if original_ends_with_punct and not result_ends_with_punct:
-                punct = original_ends_with_punct.group()
-                if not result.endswith(punct):
-                    result += punct
-        
-        return result
-        
-    except Exception as e:
-        try:
-            return ' '.join(term.split())
-        except Exception:
-            return ""
+    Returns:
+        The a_term with suffix appended if configured, otherwise unchanged
+    """
+    if config.global_settings.get("A_TERM_SUFFIX"):
+        return a_term + config.global_settings["A_TERM_SUFFIX"]
+    return a_term
 
 
 def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
@@ -237,22 +260,6 @@ def normalize_entries(value):
             # Fallback: treat as a single abstract entry
             segments.append(text)
     return segments
-
-
-def make_key(text: str) -> str:
-    try:
-        import re as _re
-        m = _re.search(r"PMID:\s*(\d+)", text)
-        if m:
-            return f"pmid:{m.group(1)}"
-    except Exception:
-        pass
-    try:
-        import hashlib as _hashlib
-        norm = " ".join(text.split()).lower()
-        return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
-    except Exception:
-        return "hash:" + text[:64]
 
 
 def extract_json_from_markdown(s: str) -> dict:
@@ -338,11 +345,6 @@ class Config:
         self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         self.km_api_url = self.global_settings["API_URL"]
-        self.model = self.global_settings["MODEL"]
-        self.rate_limit = self.global_settings["RATE_LIMIT"]
-        self.delay = self.global_settings["DELAY"]
-        self.max_retries = self.global_settings["MAX_RETRIES"]
-        self.retry_delay = self.global_settings["RETRY_DELAY"]
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
         self.htcondor_config = self.job_config.get("HTCONDOR", {})

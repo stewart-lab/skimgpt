@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import time
 import ast
-from src.utils import Config, sanitize_term_for_filename, strip_pipe
+from src.utils import Config, sanitize_term_for_filename, strip_pipe, apply_a_term_suffix
 
 def save_to_tsv(data, filename, output_directory, config: Config):
     """Save the data into a TSV (Tab Separated Values) file."""
@@ -292,8 +292,7 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     logger.debug(f"km_with_gpt_workflow: term = {term}, type(b_terms) = {type(b_terms)}, b_terms = {b_terms}")
     
     # Add suffix if configured
-    if config.global_settings.get("A_TERM_SUFFIX"):
-        a_term += config.global_settings["A_TERM_SUFFIX"]
+    a_term = apply_a_term_suffix(a_term, config)
 
     logger.info(f"Processing A term: {a_term} with {len(b_terms)} B terms")
     
@@ -380,8 +379,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     b_terms = term["b_terms"]  # Could be single or multiple based on position
 
     # Add suffix if configured
-    if config.global_settings.get("A_TERM_SUFFIX"):
-        a_term += config.global_settings["A_TERM_SUFFIX"]
+    a_term = apply_a_term_suffix(a_term, config)
 
     logger.info(f"Processing Skim combination: {a_term} with {len(b_terms)} B terms and {c_term}")
 

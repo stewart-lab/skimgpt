@@ -1,4 +1,5 @@
 from __future__ import annotations
+import ast
 import pandas as pd
 import argparse
 import os
@@ -9,7 +10,7 @@ import vllm
 from itertools import chain
 import random
 import torch
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, make_key, write_to_json
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
@@ -91,7 +92,7 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
             logger.warning(f"  Hypothesis: {hypothesis}")
         return default
     try:
-        result = eval(text)
+        result = ast.literal_eval(text)
         if result not in [0, 1]:
             if logger:
                 logger.warning(f"Invalid model output '{text}' at index {idx} (expected 0 or 1), using default {default}")
@@ -220,23 +221,24 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
 
-    # Deduplicate across rows: prefer PMID if present; else hash normalized text
-
-    seen_keys = set()
+    # Deduplicate across rows using PMID
+    seen_pmids = set()
     dedup1 = []
     for t in list1:
-        k = make_key(t)
-        if k in seen_keys:
-            continue
-        seen_keys.add(k)
+        pmid = extract_pmid(t)
+        if pmid:
+            if pmid in seen_pmids:
+                continue
+            seen_pmids.add(pmid)
         dedup1.append(t)
 
     dedup2 = []
     for t in list2:
-        k = make_key(t)
-        if k in seen_keys:
-            continue
-        seen_keys.add(k)
+        pmid = extract_pmid(t)
+        if pmid:
+            if pmid in seen_pmids:
+                continue
+            seen_pmids.add(pmid)
         dedup2.append(t)
 
     list1 = dedup1
@@ -345,7 +347,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     output_base_dir = "output"
     
     # If we're in an iteration, use the iteration subdirectory
-    if config.iterations and hasattr(config, 'current_iteration') and config.current_iteration > 0:
+    if config.iterations and config.current_iteration > 0:
         iteration_dir = f"iteration_{config.current_iteration}"
         output_base_dir = os.path.join(output_base_dir, iteration_dir)
         # Make sure the directory exists
@@ -373,8 +375,8 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
         # Store canonical (pipe-stripped) hypotheses in final JSON for DCH
         dch_row = {
-            "hypothesis1": strip_pipe(hyp1) if isinstance(hyp1, str) else hyp1,
-            "hypothesis2": strip_pipe(hyp2) if isinstance(hyp2, str) else hyp2,
+            "hypothesis1": strip_pipe(hyp1),
+            "hypothesis2": strip_pipe(hyp2),
             "ab_pmid_intersection": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
@@ -535,7 +537,7 @@ def main():
         b_term = row['b_term']
 
         # Convert string representation of list to actual list
-        pmids = eval(row['ab_pmid_intersection'])
+        pmids = ast.literal_eval(row['ab_pmid_intersection'])
         ab_pmids.append(pmids)
 
         # Generate hypothesis for this specific pair
@@ -562,14 +564,14 @@ def main():
             a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
             
             # Process BC terms
-            bc_pmid_list = eval(row['bc_pmid_intersection'])
+            bc_pmid_list = ast.literal_eval(row['bc_pmid_intersection'])
             bc_pmids.append(bc_pmid_list)
             bc_hypothesis = getHypothesis(config=config, c_term=c_term, b_term=b_term)
             bc_hypotheses.append(bc_hypothesis)
             
             # Process AC terms if available
             if config.has_ac and 'ac_pmid_intersection' in row:
-                ac_pmid_list = eval(row['ac_pmid_intersection'])
+                ac_pmid_list = ast.literal_eval(row['ac_pmid_intersection'])
                 ac_pmids.append(ac_pmid_list)
                 ac_hypothesis = getHypothesis(config=config, a_term=a_term, c_term=c_term)
                 ac_hypotheses.append(ac_hypothesis)

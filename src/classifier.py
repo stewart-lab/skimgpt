@@ -3,7 +3,7 @@ import time
 import json
 import re
 from typing import Any
-from src.utils import Config, strip_pipe, extract_json_from_markdown
+from src.utils import Config, strip_pipe, extract_json_from_markdown, extract_pmids
 from src import prompt_library as prompts_module  
 
 
@@ -56,7 +56,7 @@ def process_single_row(row, config: Config):
                 "Relationship": f"{a_term} - {b_term} - {c_term}",
                 "Hypothesis": (
                     config.skim_hypotheses["ABC"].format(a_term=a_term, b_term=b_term, c_term=c_term)
-                    if hasattr(config, "skim_hypotheses") and "ABC" in config.skim_hypotheses
+                    if "ABC" in config.skim_hypotheses
                     else ""
                 ),
                 "Result": abc_result,
@@ -78,7 +78,7 @@ def process_single_row(row, config: Config):
                 "Relationship": f"{a_term} - {c_term}",
                 "Hypothesis": (
                     config.skim_hypotheses["AC"].format(a_term=a_term, c_term=c_term)
-                    if hasattr(config, "skim_hypotheses") and "AC" in config.skim_hypotheses
+                    if "AC" in config.skim_hypotheses
                     else ""
                 ),
                 "Result": ac_result,
@@ -92,21 +92,10 @@ def process_single_row(row, config: Config):
         a_term = row.get("a_term")
         b_term = row.get("b_term")
 
-        if config.is_dch and isinstance(b_term, list):
-            # DCH case where b_term is a list of two; defer branching to prompt-building using config.is_dch
-            relationship_type = "A_B"
-            result, prompt, urls = perform_analysis(
-                job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
-            )
-
-            if result or prompt:
-                processed_results = json.loads(result)
-
-        else:
-            # Standard km_with_gpt case
-            if not all([a_term, b_term]):
-                logger.error(f"Missing 'a_term' or 'b_term' in row.")
-                return None
+        # Standard km_with_gpt case
+        if not all([a_term, b_term]):
+            logger.error(f"Missing 'a_term' or 'b_term' in row.")
+            return None
 
         # Do not strip pipes here; preserve synonyms for relevance filtering
         ab_result, ab_prompt, ab_urls = perform_analysis(
@@ -117,8 +106,7 @@ def process_single_row(row, config: Config):
                 "a_term": a_term,
                 "b_term": b_term,
                 "Relationship": f"{a_term} - {b_term}",
-                "Hypothesis": (config.km_hypothesis.format(a_term=a_term, b_term=b_term)
-                                if hasattr(config, "km_hypothesis") else ""),
+                "Hypothesis": config.km_hypothesis.format(a_term=a_term, b_term=b_term),
                 "Result": ab_result,
                 "Prompt": ab_prompt,
                 "URLS": {"AB": ab_urls.get("AB", [])},
@@ -127,8 +115,8 @@ def process_single_row(row, config: Config):
         # Use canonical (pipe-stripped) hypotheses for final JSON and prompting
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
-        canonical_h1 = strip_pipe(hypothesis1) if isinstance(hypothesis1, str) else hypothesis1
-        canonical_h2 = strip_pipe(hypothesis2) if isinstance(hypothesis2, str) else hypothesis2
+        canonical_h1 = strip_pipe(hypothesis1)
+        canonical_h2 = strip_pipe(hypothesis2)
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
@@ -158,11 +146,8 @@ def extract_pmids_and_generate_urls(text: Any, config: Config) -> list:
         )
         text = str(text)
 
-    # Regular expression to find PMIDs
-    pmid_pattern = r"PMID:\s*(\d+)"
-
     # Find all PMIDs in the text
-    pmids = re.findall(pmid_pattern, text)
+    pmids = extract_pmids(text)
 
     # Generate PubMed URLs
     pubmed_urls = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in pmids]
@@ -283,10 +268,9 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         logger.debug(f"C term: {c_term}")
         # Strip pipes right before LLM calling
         if not config.is_dch:
-            a_term = strip_pipe(a_term) if isinstance(a_term, str) else a_term
-            b_term = strip_pipe(row.get("b_term", ""))
-        else:
-            b_term = row.get("b_term", "")
+            a_term = strip_pipe(a_term)
+            b_term = strip_pipe(b_term)
+        # else: b_term already set from row.get() above, no need to fetch again
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=b_term,
@@ -479,10 +463,10 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     if config.is_dch:
         system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
         irrelevant_label = "neither"
-    elif getattr(config, "is_km_with_gpt", False):
+    elif config.is_km_with_gpt:
         system_instructions = prompts_module.km_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
-    elif getattr(config, "is_skim_with_gpt", False):
+    elif config.is_skim_with_gpt:
         system_instructions = prompts_module.skim_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
     else:
@@ -542,7 +526,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
-            elif getattr(config, "is_km_with_gpt", False) or getattr(config, "is_skim_with_gpt", False):
+            elif config.is_km_with_gpt or config.is_skim_with_gpt:
                 for tk in ["support","refute","inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
@@ -625,8 +609,4 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
 
-    return None
-
-def call_openai(client, prompt, config: Config):
-    # Deprecated: unified into call_openai_json; kept for backward compatibility if referenced elsewhere
     return None
