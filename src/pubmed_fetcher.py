@@ -1,5 +1,5 @@
 from Bio import Entrez
-from src.utils import Config
+from src.utils import Config, extract_pmid
 import time
 import re
 from typing import List, Dict, Any
@@ -187,18 +187,16 @@ class PubMedFetcher:
 
         self.logger.debug("Original order (most cited):")
         for entry in original_entries[:3]:  # Show first 3 for brevity
-            pmid_match = re.search(r"PMID: (\d+)", entry)
-            if pmid_match:
-                pmid = pmid_match.group(1)
+            pmid = extract_pmid(entry)
+            if pmid:
                 year = self.pmid_years.get(pmid, 0)
                 self.logger.debug(f"PMID: {pmid}, Year: {year}")
 
         # Create year-sorted version
         entries_with_years = []
         for entry in entries:
-            pmid_match = re.search(r"PMID: (\d+)", entry)
-            if pmid_match:
-                pmid = pmid_match.group(1)
+            pmid = extract_pmid(entry)
+            if pmid:
                 year = self.pmid_years.get(pmid, 0)
                 entries_with_years.append((year, entry))
 
@@ -208,17 +206,21 @@ class PubMedFetcher:
         self.logger.debug("\nYear-sorted order (most recent):")
         pmids_logged = []
         for entry in year_sorted_entries[:15]:  # Show first 3 for brevity
-            pmid_match = re.search(r"PMID: (\d+)", entry)
-            if pmid_match:
-                pmid = pmid_match.group(1)
+            pmid = extract_pmid(entry)
+            if pmid:
                 year = self.pmid_years.get(pmid, 0)
                 if pmid not in pmids_logged:
                     self.logger.debug(f"PMID: {pmid}, Year: {year}")
                 pmids_logged.append(pmid)
 
-        # Calculate interleaving ratio
-        ratio = top_n_most_cited / top_n_most_recent if top_n_most_recent > 0 else float(top_n_most_cited)
-        self.logger.debug(f"Interleaving ratio (cited:recent) = {ratio:.2f}")
+        # Calculate interleaving ratio with proper zero handling
+        if top_n_most_recent > 0:
+            ratio = top_n_most_cited / top_n_most_recent
+        elif top_n_most_cited > 0:
+            ratio = float('inf')  # All cited, no recent
+        else:
+            ratio = 1.0  # Default to equal if both are 0
+        self.logger.debug(f"Interleaving ratio (cited:recent) = {ratio if ratio != float('inf') else 'inf'}")
 
         # Interleave based on ratio
         result = []
@@ -227,8 +229,7 @@ class PubMedFetcher:
         
         def get_pmid(entry):
             """Helper function to extract PMID from an entry"""
-            pmid_match = re.search(r"PMID: (\d+)", entry)
-            return pmid_match.group(1) if pmid_match else None
+            return extract_pmid(entry) or None
         
         def add_entry(entry):
             """Helper function to add entry if not already present"""
@@ -267,7 +268,12 @@ class PubMedFetcher:
             
             # Handle ratio < 1 (more recent than cited)
             elif ratio < 1 and recent_idx < len(year_sorted_entries):
-                expected_recent = round(cited_idx / ratio) if ratio > 0 else len(year_sorted_entries) # or maybe inf
+                # Calculate expected_recent properly, handling edge cases
+                if ratio > 0:
+                    expected_recent = round(cited_idx / ratio)
+                else:
+                    # If ratio is 0, use all available recent entries
+                    expected_recent = len(year_sorted_entries)
                 while recent_idx < min(expected_recent, len(year_sorted_entries)):
                     if add_entry(year_sorted_entries[recent_idx]):
                         made_progress = True

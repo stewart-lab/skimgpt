@@ -3,23 +3,26 @@ import time
 import json
 import re
 from typing import Any
-from src.utils import Config, strip_pipe, extract_json_from_markdown
+from src.utils import Config, strip_pipe, extract_json_from_markdown, extract_pmids
 from src import prompt_library as prompts_module  
+
+# Constants
+SCORE_NA_RESPONSE = {"score": "N/A", "decision": "N/A"}
 
 
 def calculate_relevance_ratios(out_df, config: Config):
     logger = config.logger
-    logger.debug(f" IN CALCULATE RELEVANCE RATIOS  Complete Out df: {out_df.to_string()}")
+    logger.debug(f" Complete Out df: {out_df.to_string()}")
     mask_columns = ["ab_mask", "bc_mask", "ac_mask"]
-    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Mask columns: {mask_columns}")
-    logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Out df columns: {out_df.columns}")
+    logger.debug(f"  Mask columns: {mask_columns}")
+    logger.debug(f"  Out df columns: {out_df.columns}")
     for col in mask_columns:
         if col in out_df.columns:
             prefix = col.split("_")[0]
             ratio_col = f"{prefix}_relevance_ratio"
             fraction_col = f"{prefix}_relevance_fraction"
-            logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Ratio col: {ratio_col}")
-            logger.debug(f" IN CALCULATE RELEVANCE RATIOS   Fraction col: {fraction_col}")
+            logger.debug(f"  Ratio col: {ratio_col}")
+            logger.debug(f"  Fraction col: {fraction_col}")
             out_df[[ratio_col, fraction_col]] = (
                 out_df[col]
                 .apply(
@@ -54,10 +57,8 @@ def process_single_row(row, config: Config):
                 "b_term": b_term,
                 "c_term": c_term,
                 "Relationship": f"{a_term} - {b_term} - {c_term}",
-                "Hypothesis": (
-                    config.skim_hypotheses["ABC"].format(a_term=a_term, b_term=b_term, c_term=c_term)
-                    if hasattr(config, "skim_hypotheses") and "ABC" in config.skim_hypotheses
-                    else ""
+                "Hypothesis": config.skim_hypotheses["ABC"].format(
+                    a_term=a_term, b_term=b_term, c_term=c_term
                 ),
                 "Result": abc_result,
                 "Prompt": abc_prompt,
@@ -76,10 +77,8 @@ def process_single_row(row, config: Config):
                 "b_term": b_term,
                 "c_term": c_term,
                 "Relationship": f"{a_term} - {c_term}",
-                "Hypothesis": (
-                    config.skim_hypotheses["AC"].format(a_term=a_term, c_term=c_term)
-                    if hasattr(config, "skim_hypotheses") and "AC" in config.skim_hypotheses
-                    else ""
+                "Hypothesis": config.skim_hypotheses["AC"].format(
+                    a_term=a_term, c_term=c_term
                 ),
                 "Result": ac_result,
                 "Prompt": ac_prompt,
@@ -88,47 +87,12 @@ def process_single_row(row, config: Config):
                 },
             }
 
-    elif config.is_km_with_gpt and not config.is_dch:
-        a_term = row.get("a_term")
-        b_term = row.get("b_term")
-
-        if config.is_dch and isinstance(b_term, list):
-            # DCH case where b_term is a list of two; defer branching to prompt-building using config.is_dch
-            relationship_type = "A_B"
-            result, prompt, urls = perform_analysis(
-                job_type=config.job_type, row=row, config=config, relationship_type=relationship_type
-            )
-
-            if result or prompt:
-                processed_results = json.loads(result)
-
-        else:
-            # Standard km_with_gpt case
-            if not all([a_term, b_term]):
-                logger.error(f"Missing 'a_term' or 'b_term' in row.")
-                return None
-
-        # Do not strip pipes here; preserve synonyms for relevance filtering
-        ab_result, ab_prompt, ab_urls = perform_analysis(
-            row=row, config=config, relationship_type="A_B"
-        )
-        if ab_result or ab_prompt:
-            processed_results["A_B_Relationship"] = {
-                "a_term": a_term,
-                "b_term": b_term,
-                "Relationship": f"{a_term} - {b_term}",
-                "Hypothesis": (config.km_hypothesis.format(a_term=a_term, b_term=b_term)
-                                if hasattr(config, "km_hypothesis") else ""),
-                "Result": ab_result,
-                "Prompt": ab_prompt,
-                "URLS": {"AB": ab_urls.get("AB", [])},
-            }
-    elif config.is_km_with_gpt and config.is_dch:
-        # Use canonical (pipe-stripped) hypotheses for final JSON and prompting
+    elif config.is_dch:
+        # DCH mode: direct hypothesis comparison (is_dch can only be True if is_km_with_gpt is True)
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
-        canonical_h1 = strip_pipe(hypothesis1) if isinstance(hypothesis1, str) else hypothesis1
-        canonical_h2 = strip_pipe(hypothesis2) if isinstance(hypothesis2, str) else hypothesis2
+        canonical_h1 = strip_pipe(hypothesis1)
+        canonical_h2 = strip_pipe(hypothesis2)
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
@@ -144,6 +108,29 @@ def process_single_row(row, config: Config):
         if not all([hypothesis1, hypothesis2]):
             logger.error(f"Missing hypotheses for DCH row.")
             return None
+    elif config.is_km_with_gpt:
+        # Standard km_with_gpt case (not DCH)
+        a_term = row.get("a_term")
+        b_term = row.get("b_term")
+
+        if not all([a_term, b_term]):
+            logger.error(f"Missing 'a_term' or 'b_term' in row.")
+            return None
+
+        # Do not strip pipes here; preserve synonyms for relevance filtering
+        ab_result, ab_prompt, ab_urls = perform_analysis(
+            row=row, config=config, relationship_type="A_B"
+        )
+        if ab_result or ab_prompt:
+            processed_results["A_B_Relationship"] = {
+                "a_term": a_term,
+                "b_term": b_term,
+                "Relationship": f"{a_term} - {b_term}",
+                "Hypothesis": config.km_hypothesis.format(a_term=a_term, b_term=b_term),
+                "Result": ab_result,
+                "Prompt": ab_prompt,
+                "URLS": {"AB": ab_urls.get("AB", [])},
+            }
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
     logger.debug(f"Processed results: {processed_results}")
@@ -158,11 +145,8 @@ def extract_pmids_and_generate_urls(text: Any, config: Config) -> list:
         )
         text = str(text)
 
-    # Regular expression to find PMIDs
-    pmid_pattern = r"PMID:\s*(\d+)"
-
     # Find all PMIDs in the text
-    pmids = re.findall(pmid_pattern, text)
+    pmids = extract_pmids(text)
 
     # Generate PubMed URLs
     pubmed_urls = [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in pmids]
@@ -208,7 +192,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
     
     else:
         logger.error(f"Unknown relationship type: {relationship_type}")
-        return ["Score: N/A"], "", {}
+        return [SCORE_NA_RESPONSE], "", {}
 
     # Compute expected per-abstract count based on available abstracts
     if relationship_type == "A_B_C":
@@ -248,19 +232,19 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             logger.error(
                 f"Early exit for job_type '{config.job_type}' and relationship_type '{relationship_type}': Missing 'ab_abstracts' or 'bc_abstracts'."
             )
-            return ["Score: N/A"], "", urls
+            return [SCORE_NA_RESPONSE], "", urls
     elif relationship_type == "A_C":
         if not ac_abstracts:
             logger.error(
                 f"Early exit for job_type '{config.job_type}' and relationship_type '{relationship_type}': Missing 'ac_abstracts'."
             )
-            return ["Score: N/A"], "", urls
+            return [SCORE_NA_RESPONSE], "", urls
     elif relationship_type == "A_B":
         if not config.is_dch and not ab_abstracts:
             logger.error(
                 f"Early exit for relationship_type '{relationship_type}': Missing 'ab_abstracts'."
             )
-            return ["Score: N/A"], "", urls
+            return [SCORE_NA_RESPONSE], "", urls
     
 
     # Consolidate abstracts based on relationship type
@@ -283,10 +267,9 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         logger.debug(f"C term: {c_term}")
         # Strip pipes right before LLM calling
         if not config.is_dch:
-            a_term = strip_pipe(a_term) if isinstance(a_term, str) else a_term
-            b_term = strip_pipe(row.get("b_term", ""))
-        else:
-            b_term = row.get("b_term", "")
+            a_term = strip_pipe(a_term)
+            b_term = strip_pipe(b_term)
+        # else: b_term already set from row.get() above, no need to fetch again
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=b_term,
@@ -305,7 +288,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         return result, prompt_text, urls
     except Exception as e:
         logger.error(f"Error during analysis: {e}")
-        return ["Score: N/A"], "", urls
+        return [SCORE_NA_RESPONSE], "", urls
 
 
 def analyze_abstract_with_frontier_LLM(
@@ -322,7 +305,7 @@ def analyze_abstract_with_frontier_LLM(
     logger = config.logger
     if not a_term and not config.is_dch:
         logger.error("A term is empty.")
-        return [], ""
+        return [SCORE_NA_RESPONSE], ""
 
     # Initialize client based on model type
     if config.model == "r1":
@@ -394,24 +377,24 @@ def generate_prompt(
 ) -> str:
     logger = config.logger
   
-    if config.is_km_with_gpt:
-        # Handle DCH here based on global config flag; relationship_type is not used to branch
-        if config.is_dch:
-            # Require direct hypotheses for DCH
-            if not (hypothesis1 and hypothesis2):
-                logger.error("DCH requires hypothesis1 and hypothesis2.")
-                return ""
-            h1 = hypothesis1
-            h2 = hypothesis2
-            prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
-            if not prompt_function:
-                logger.error("Prompt function for DCH not found.")
-                return ""
-            return prompt_function(
-                hypothesis_1=h1,
-                hypothesis_2=h2,
-                consolidated_abstracts=content,
-            )
+    if config.is_dch:
+        # DCH mode: direct hypothesis comparison (is_dch implies is_km_with_gpt)
+        if not (hypothesis1 and hypothesis2):
+            logger.error("DCH requires hypothesis1 and hypothesis2.")
+            return ""
+        h1 = hypothesis1
+        h2 = hypothesis2
+        prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
+        if not prompt_function:
+            logger.error("Prompt function for DCH not found.")
+            return ""
+        return prompt_function(
+            hypothesis_1=h1,
+            hypothesis_2=h2,
+            consolidated_abstracts=content,
+        )
+    elif config.is_km_with_gpt:
+        # Standard km_with_gpt (non-DCH)
         hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
     elif config.is_skim_with_gpt:
         if relationship_type == "A_B_C":
@@ -479,10 +462,10 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     if config.is_dch:
         system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
         irrelevant_label = "neither"
-    elif getattr(config, "is_km_with_gpt", False):
+    elif config.is_km_with_gpt:
         system_instructions = prompts_module.km_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
-    elif getattr(config, "is_skim_with_gpt", False):
+    elif config.is_skim_with_gpt:
         system_instructions = prompts_module.skim_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
     else:
@@ -510,8 +493,8 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     }
 
     # Retry and error handling (migrated from call_openai)
-    retry_delay = config.global_settings["RETRY_DELAY"]
-    max_retries = config.global_settings["MAX_RETRIES"]
+    retry_delay = config.retry_delay
+    max_retries = config.max_retries
 
     for _ in range(1, max_retries + 1):
         try:
@@ -542,7 +525,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
-            elif getattr(config, "is_km_with_gpt", False) or getattr(config, "is_skim_with_gpt", False):
+            elif config.is_km_with_gpt or config.is_skim_with_gpt:
                 for tk in ["support","refute","inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
@@ -625,8 +608,4 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
 
-    return None
-
-def call_openai(client, prompt, config: Config):
-    # Deprecated: unified into call_openai_json; kept for backward compatibility if referenced elsewhere
     return None

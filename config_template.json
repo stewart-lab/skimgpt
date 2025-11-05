@@ -8,7 +8,6 @@
         "AC": "",
         "ABC": ""
     },
-    "Evaluate_single_abstract": false,
     "GLOBAL_SETTINGS": {
         "A_TERM": "",
         "A_TERM_SUFFIX": "",
@@ -17,16 +16,15 @@
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
         "MODEL": "o1-preview",
-        "REASONING_EFFORT": "medium",
-        "API_URL": "http://localhost:5099/skim/api/jobs",
-        "PORT": "5081",
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
         "RETRY_DELAY": 5,
         "LOG_LEVEL": "INFO",
         "OUTDIR_SUFFIX": "",
-        "iterations": 3
+        "iterations": 3,
+        "DCH_MIN_SAMPLING_FRACTION": 0.06,
+        "DCH_SAMPLE_SIZE": 50
     },
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
@@ -51,29 +49,22 @@
             "B_TERMS_FILE": "../input_lists/hpv.txt",
             "is_dch": false,
             "SORT_COLUMN": "ab_sort_ratio",
-            "NUM_B_TERMS": 25,
-            "km_with_gpt": {
-                "ab_fet_threshold": 1,
-                "censor_year_upper": 1980,
-                "censor_year_lower": 0
-            }
+            "ab_fet_threshold": 1,
+            "censor_year_upper": 1980,
+            "censor_year_lower": 0
         },
         
         "skim_with_gpt": {
-            "position": true,
+            "position": false,
             "A_TERM_LIST": true,
             "A_TERMS_FILE": "../input_lists/exercise3/skim_a.txt",
             "B_TERMS_FILE": "../input_lists/exercise3/skim_b.txt",
-            "NUM_B_TERMS": 20000,
             "C_TERMS_FILE": "../input_lists/exercise3/skim_c.txt",
             "SORT_COLUMN": "bc_sort_ratio",
-            "skim_with_gpt": {
-                "ab_fet_threshold": 0.1,
-                "bc_fet_threshold": 0.5,
-                "censor_year_upper": 2024,
-                "censor_year_lower": 0,
-                "top_n": 300
-            }
+            "ab_fet_threshold": 0.1,
+            "bc_fet_threshold": 0.5,
+            "censor_year_upper": 2024,
+            "censor_year_lower": 0
         }
     }
 }

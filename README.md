@@ -71,7 +71,6 @@ This configuration file contains various settings for different job types. Below
   - `rel_AC`: Relevance hyopthesis between `{c_term}` and `{a_term}` (e.g., `"There exists an interaction between the disease {c_term} and the organ {a_term}."`).
   - `ABC`: Evaluation hypothesis (e.g., `"The gene {b_term} links the organ {a_term} to the disease {c_term}."`).
   - `AC`: Evaluation hypothesis (e.g., `"The gene {a_term} influences the disease {c_term}."`).
-- `Evaluate_single_abstract`: Boolean flag to evaluate a single abstract (e.g., `false`).
 
 ## Global Settings
 
