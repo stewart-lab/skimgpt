@@ -7,21 +7,47 @@ plt.rcParams.update({
     'pdf.fonttype': 42,
     'ps.fonttype': 42,
     'font.family': 'sans-serif',
-    'font.size': 8,
+    'font.size': 10,  # Increased from 8 to 10
     'font.weight': 'bold',
     'axes.labelweight': 'bold',
     'axes.titleweight': 'bold',
 })
 
-# ---------- Figure container (single column) ----------
-# 4 rows: Confusion, DDI, PPI, Legend
-fig, (ax_cm, ax_ddi, ax_ppi, ax_leg) = plt.subplots(
-    4, 1,
-    figsize=(3.35, 9.5),   # slight shrink to stay <250 mm
-    dpi=300,
-    gridspec_kw={'height_ratios': [1, 1, 1, 0.18]}
-)
-fig.subplots_adjust(hspace=0.75)
+# ---------- Figure container (2x2 grid) ----------
+# Row 1: Baseline Confusion (left), Fine-tuned Confusion (right)
+# Row 2: DDI Dataset (left), PPI Dataset (right)
+# Legend below the grid
+fig = plt.figure(figsize=(11.0, 10.0), dpi=300)  # Increased height for bigger appearance
+# Create two separate gridspecs for different row layouts
+gs_top = fig.add_gridspec(1, 2, height_ratios=[1], 
+                          width_ratios=[1, 1],
+                          hspace=0,
+                          wspace=0.5,    # Normal spacing for confusion matrices (A, B)
+                          left=0.10,     # Wide margins for confusion matrices
+                          right=0.90,
+                          top=0.96,
+                          bottom=0.62)   # Bottom of top row (raised from 0.56 to make row smaller)
+
+gs_bottom = fig.add_gridspec(1, 2, height_ratios=[1], 
+                             width_ratios=[1, 1],
+                             hspace=0,
+                             wspace=1.8,    # Much more spacing between C and D
+                             left=0.22,     # Narrower margins for bar charts
+                             right=0.85,    # Extended right margin (was 0.78) to move D to the right
+                             top=0.52,      # Top of bottom row (raised from 0.46 to make row larger)
+                             bottom=0.16)   # Bottom of bottom row
+
+gs_legend = fig.add_gridspec(1, 1,
+                             left=0.10,
+                             right=0.90,
+                             top=0.12,      # Top of legend (was 0.10) - more space above legend
+                             bottom=0.03)
+
+ax_cm_baseline = fig.add_subplot(gs_top[0, 0])
+ax_cm_finetuned = fig.add_subplot(gs_top[0, 1])
+ax_ddi = fig.add_subplot(gs_bottom[0, 0])
+ax_ppi = fig.add_subplot(gs_bottom[0, 1])
+ax_leg = fig.add_subplot(gs_legend[0, 0])
 
 def calculate_precision_recall(categories, is_interaction, accuracy_values, total_samples_per_category=100):
     """
@@ -210,73 +236,66 @@ non_interaction_color = '#ff7f0e' # Orange
 def plot_dataset(ax, categories, is_interaction, accuracy, panel_label, dataset_name, precision, recall, f1):
     colors = [interaction_color if is_int else non_interaction_color for is_int in is_interaction]
     y_pos = np.arange(len(categories))
-    ax.barh(y_pos, accuracy, color=colors, height=0.6)
-    ax.set_title(f'{panel_label}) {dataset_name}', fontsize=8, pad=4)
-    ax.set_xlabel('Accuracy', fontsize=7)
-    ax.set_ylabel('Relevance Category', fontsize=7)
+    ax.barh(y_pos, accuracy, color=colors, height=0.5)  # Reduced bar height from 0.6 to 0.5
+    ax.set_title(f'{panel_label}) {dataset_name}', fontsize=12, pad=10)
+    ax.set_xlabel('Accuracy', fontsize=11, fontweight='bold')
+    ax.set_ylabel('Category', fontsize=11, fontweight='bold')
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(categories, fontsize=6)
-    ax.set_xlim(0, 1.05)
+    ax.set_yticklabels(categories, fontsize=9)
+    ax.set_xlim(0, 1.0)  # Narrowed from 1.05 to 1.0
     ax.grid(axis='x', linestyle='--', alpha=0.4)
+    # Adjust subplot to make room for y-labels
+    ax.tick_params(axis='y', pad=2)
+    ax.tick_params(axis='x', labelsize=10)
 
 # Plot full-page version
 plot_dataset(ax_ddi, ddi_categories, ddi_is_interaction, ddi_accuracy,
-            'B', 'DDI Dataset', ddi_precision, ddi_recall, ddi_f1)
+            'C', 'Drug–Drug Interaction (DDI) Dataset', ddi_precision, ddi_recall, ddi_f1)
 
 plot_dataset(ax_ppi, ppi_categories, ppi_is_interaction, ppi_accuracy,
-            'C', 'PPI Dataset', ppi_precision, ppi_recall, ppi_f1)
+            'D', 'Functional Gene Interaction (FGI) Dataset', ppi_precision, ppi_recall, ppi_f1)
 
 # Add legend for interaction types
 from matplotlib.patches import Patch
 legend_elements = [
-    Patch(facecolor=interaction_color, label='Interaction Category (Relevant to Hypothesis)'),
-    Patch(facecolor=non_interaction_color, label='Non-Interaction Category (Not Relevant)')
+    Patch(facecolor=interaction_color, label='Relevant Category'),
+    Patch(facecolor=non_interaction_color, label='Irrelevant Category')
 ]
 
-# --- Legend row ---
+# --- Legend row (spans full width) ---
 ax_leg.axis('off')
-# Render legend and then shift legend axis upwards slightly
-ax_leg.legend(handles=legend_elements, loc='upper center', ncol=2, fontsize=6, frameon=False)
+ax_leg.legend(handles=legend_elements, loc='center', ncol=2, fontsize=11, frameon=False,
+              columnspacing=3.5)  # Increased spacing between legend items
 
-# Move legend axis closer to panel C (reduce bottom padding)
-leg_pos = ax_leg.get_position()
-ax_leg.set_position([leg_pos.x0, leg_pos.y0 + 0.03, leg_pos.width, leg_pos.height])
+# -------- Confusion matrix data --------
+# Baseline (non fine-tuned) confusion matrix - Panel A
+# From baseline_results.json: TN=5, FP=19, FN=4, TP=44
+cm_baseline = np.array([[44, 4], [19, 5]])
 
-# -------- Confusion matrix data (Panel A) --------
-cm = np.array([[46,2],[8,16]])
+# Fine-tuned confusion matrix - Panel B
+cm_finetuned = np.array([[46, 2], [8, 16]])
 
-def plot_confusion(ax):
+def plot_confusion(ax, cm, panel_label, title):
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, square=False,
                 xticklabels=["Relevant","Irrelevant"],
-                yticklabels=["Relevant","Irrelevant"], ax=ax, linewidths=0.5, linecolor='gray')
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    ax.set_title("A) Confusion Matrix: Relevance Classification", pad=6)
+                yticklabels=["Relevant","Irrelevant"], ax=ax, linewidths=0.5, linecolor='gray',
+                annot_kws={"size": 14, "weight": "bold"})
+    ax.set_xlabel("Predicted", fontsize=11, fontweight='bold')
+    ax.set_ylabel("Actual", fontsize=11, fontweight='bold')
+    ax.set_title(f"{panel_label}) {title}", pad=12, fontsize=12)
+    ax.tick_params(axis='both', labelsize=10)
     ax.set_aspect('auto')
 
-# ---------- Render confusion matrix BEFORE saving ----------
+# ---------- Render confusion matrices BEFORE saving ----------
 
-plot_confusion(ax_cm)
+plot_confusion(ax_cm_baseline, cm_baseline, "A", "Pretrained Model: Relevance Classification")
+plot_confusion(ax_cm_finetuned, cm_finetuned, "B", "Fine-tuned Model: Relevance Classification")
 
-if ax_cm.collections and ax_cm.collections[0].colorbar:
-    ax_cm.collections[0].colorbar.set_label('Count')
+# Set y-axis labels rotation for both confusion matrices
+ax_cm_baseline.set_yticklabels(ax_cm_baseline.get_yticklabels(), rotation=0)
+ax_cm_finetuned.set_yticklabels(ax_cm_finetuned.get_yticklabels(), rotation=0)
 
-ax_cm.set_yticklabels(ax_cm.get_yticklabels(), rotation=0)
-
-# Confusion matrix already titled concisely above; ensure fontsize small
-
-ax_ddi.set_title("B) DDI Dataset Accuracy", pad=6)
-ax_ppi.set_title("C) PPI Dataset Accuracy", pad=6)
-
-# Adjust layout with minimal padding
-fig.tight_layout(pad=0.2)
-# Extra bottom padding now handled by legend row; small bottom margin
-fig.subplots_adjust(bottom=0.02)
-
-# Manually stretch plotting axes horizontally to occupy most of figure width
-for ax in [ax_cm, ax_ddi, ax_ppi]:
-    pos = ax.get_position()
-    ax.set_position([0.16, pos.y0, 0.78, pos.height])  # x0, y0, width, height
+# Titles are already set in plot_dataset function, no need to override
 
 # Save figure
 fig.savefig('figure3_combined_accuracy_charts_300dpi_fullpage.png', dpi=300, bbox_inches='tight', pad_inches=0.05)
