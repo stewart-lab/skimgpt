@@ -7,36 +7,81 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-and-publish:
-    name: Check for tags and publish package
+  publish-testpypi:
+    name: Publish to TestPyPI
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'v1.') && !startsWith(github.ref, 'refs/tags/v')"
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/skimgpt/
 
     permissions:
-      id-token: write   # OIDC trusted publishing
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set development version
+        run: |
+          DEV_VERSION="0.0.0.dev$(date +%Y%m%d%H%M%S)"
+          echo "$DEV_VERSION" > VERSION
+          echo "Created VERSION file with dev version: $DEV_VERSION"
+          if [ -f "pyproject.toml" ] && grep -q "^version = " pyproject.toml; then
+            sed -i "s/^version = .*/version = \"$DEV_VERSION\"/" pyproject.toml
+          fi
+
+      - name: Build wheel & sdist
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to PyPI (production)
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.message, 'v1.') || startsWith(github.ref, 'refs/tags/v')"
+    environment:
+      name: pypi
+      url: https://pypi.org/project/skimgpt/
+
+    permissions:
+      id-token: write
       contents: read
 
     steps:
       - uses: actions/checkout@v4
         with:
-          # Fetch all history and tags to check for version tags on the pushed commit
           fetch-depth: 0
 
-      - name: Check for version tag on pushed commit or recent commits
-        id: check-tag
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Extract version from tag
+        id: get-version
         run: |
           # Get the pushed commit SHA
           COMMIT_SHA="${{ github.sha }}"
           echo "Checking for tags on commit: $COMMIT_SHA"
           
           # First check if this exact commit has any version tags (v*.*.*)
-          VERSION_TAG=$(git tag --points-at $COMMIT_SHA | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+          VERSION_TAG=$(git tag --points-at $COMMIT_SHA | grep -E '^v[0-9]+\.[0-9]+' | head -1 || echo "")
           
           # If no tag on the merge commit, check the last few commits (for PR merges)
           if [ -z "$VERSION_TAG" ]; then
             echo "No tag on merge commit, checking recent commits..."
-            # Check the last 5 commits for version tags
             for commit in $(git rev-list -n 5 $COMMIT_SHA); do
-              TAG=$(git tag --points-at $commit | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "")
+              TAG=$(git tag --points-at $commit | grep -E '^v[0-9]+\.[0-9]+' | head -1 || echo "")
               if [ -n "$TAG" ]; then
                 VERSION_TAG=$TAG
                 echo "Found version tag $VERSION_TAG on commit $commit"
@@ -46,47 +91,20 @@ jobs:
           fi
           
           if [ -n "$VERSION_TAG" ]; then
-            echo "Found version tag: $VERSION_TAG"
-            # Extract version number from tag (remove 'v' prefix)
             VERSION_NUMBER=${VERSION_TAG#v}
-            echo "Extracted version number: $VERSION_NUMBER"
-            echo "has_version_tag=true" >> $GITHUB_OUTPUT
-            echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
             echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
-            echo "environment=prod" >> $GITHUB_OUTPUT
-            echo "repository_url=" >> $GITHUB_OUTPUT  # Empty = PyPI production
+            echo "Version: $VERSION_NUMBER"
           else
-            echo "No version tag found, will publish to TestPyPI"
-            echo "has_version_tag=false" >> $GITHUB_OUTPUT
-            echo "version_tag=" >> $GITHUB_OUTPUT
-            echo "version_number=" >> $GITHUB_OUTPUT
-            echo "environment=test" >> $GITHUB_OUTPUT
-            echo "repository_url=https://test.pypi.org/legacy/" >> $GITHUB_OUTPUT
+            echo "ERROR: No version tag found!"
+            exit 1
           fi
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Set version from git tag or default
+      - name: Set version from git tag
         run: |
-          if [ "${{ steps.check-tag.outputs.has_version_tag }}" == "true" ]; then
-            # Create VERSION file with the version from git tag
-            echo "${{ steps.check-tag.outputs.version_number }}" > VERSION
-            echo "Created VERSION file with: ${{ steps.check-tag.outputs.version_number }}"
-            VERSION="${{ steps.check-tag.outputs.version_number }}"
-          else
-            # Create VERSION file with development version for TestPyPI
-            DEV_VERSION="0.0.0.dev$(date +%Y%m%d%H%M%S)"
-            echo "$DEV_VERSION" > VERSION
-            echo "Created VERSION file with dev version: $DEV_VERSION"
-            VERSION="$DEV_VERSION"
-          fi
-          
-          # Also update pyproject.toml if it exists and has a version field
+          echo "${{ steps.get-version.outputs.version_number }}" > VERSION
+          echo "Created VERSION file with: ${{ steps.get-version.outputs.version_number }}"
           if [ -f "pyproject.toml" ] && grep -q "^version = " pyproject.toml; then
-            sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
-            echo "Updated pyproject.toml version to: $VERSION"
+            sed -i "s/^version = .*/version = \"${{ steps.get-version.outputs.version_number }}\"/" pyproject.toml
           fi
 
       - name: Build wheel & sdist
@@ -94,21 +112,7 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build
 
-      - name: Publish to TestPyPI
-        if: steps.check-tag.outputs.has_version_tag == 'false'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-        env:
-          # Use test environment secrets
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Publish to PyPI (production)
-        if: steps.check-tag.outputs.has_version_tag == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-        env:
-          # Use production environment secrets
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
