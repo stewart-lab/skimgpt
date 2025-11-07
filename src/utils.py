@@ -7,6 +7,35 @@ import os
 import logging  
 import re
 
+# Compiled PMID pattern for reuse across modules
+PMID_PATTERN = re.compile(r"PMID:\s*(\d+)")
+
+
+def extract_pmid(text: str) -> str:
+    """Extract the first PMID from text.
+    
+    Args:
+        text: String containing PMID reference
+        
+    Returns:
+        First PMID number as string, or empty string if not found
+    """
+    match = PMID_PATTERN.search(text)
+    return match.group(1) if match else ""
+
+
+def extract_pmids(text: str) -> list:
+    """Extract all PMIDs from text.
+    
+    Args:
+        text: String containing PMID references
+        
+    Returns:
+        List of PMID numbers as strings
+    """
+    return PMID_PATTERN.findall(text)
+
+
 class RaggedTensor:
     def __init__(self, data, break_point=[]):
         self.data = data
@@ -143,52 +172,47 @@ def strip_pipe(term: str) -> str:
         String with only the first option from each pipe-separated group,
         with normalized whitespace. Returns empty string for None or empty inputs.
     """
+    # Handle None and non-string inputs
     if term is None:
         return ""
     
     if not isinstance(term, str):
-        try:
-            term = str(term)
-        except Exception:
-            return ""
+        term = str(term)
     
+    # Normalize whitespace and check if empty
     term = term.strip()
     if not term:
         return ""
     
+    # Simple case: no pipe separator
     if '|' not in term:
         return ' '.join(term.split())
     
-    try:
-        parts = []
-        for part in term.split('|'):
-            cleaned_part = part.strip()
-            if cleaned_part:
-                parts.append(cleaned_part)
+    # Extract first non-empty option from pipe-separated list
+    for part in term.split('|'):
+        cleaned_part = part.strip()
+        if cleaned_part:
+            # Normalize internal whitespace and return
+            return ' '.join(cleaned_part.split())
+    
+    # All parts were empty
+    return ""
+
+
+def apply_a_term_suffix(a_term: str, config: Config) -> str:
+    """Apply configured A_TERM_SUFFIX to the given term if configured.
+    
+    Args:
+        a_term: The A term to potentially modify
+        config: Config object containing global_settings
         
-        if not parts:
-            return ""
-        
-        first_option = parts[0]
-        
-        result = ' '.join(first_option.split())
-        
-        if result and term:
-            original_ends_with_punct = re.search(r'[.!?;:,]$', term)
-            result_ends_with_punct = re.search(r'[.!?;:,]$', result)
-            
-            if original_ends_with_punct and not result_ends_with_punct:
-                punct = original_ends_with_punct.group()
-                if not result.endswith(punct):
-                    result += punct
-        
-        return result
-        
-    except Exception as e:
-        try:
-            return ' '.join(term.split())
-        except Exception:
-            return ""
+    Returns:
+        The a_term with suffix appended if configured, otherwise unchanged
+    """
+    suffix = config.global_settings.get("A_TERM_SUFFIX")
+    if suffix:
+        return a_term + suffix
+    return a_term
 
 
 def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
@@ -237,22 +261,6 @@ def normalize_entries(value):
             # Fallback: treat as a single abstract entry
             segments.append(text)
     return segments
-
-
-def make_key(text: str) -> str:
-    try:
-        import re as _re
-        m = _re.search(r"PMID:\s*(\d+)", text)
-        if m:
-            return f"pmid:{m.group(1)}"
-    except Exception:
-        pass
-    try:
-        import hashlib as _hashlib
-        norm = " ".join(text.split()).lower()
-        return "hash:" + _hashlib.sha1(norm.encode("utf-8")).hexdigest()
-    except Exception:
-        return "hash:" + text[:64]
 
 
 def extract_json_from_markdown(s: str) -> dict:
@@ -331,18 +339,11 @@ class Config:
         self.is_km_with_gpt = self.job_type == "km_with_gpt"
         self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
         self.is_dch = True if self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False) else False
-        self.evaluate_single_abstract = self.job_config["Evaluate_single_abstract"]
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
         self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
-        self.km_api_url = self.global_settings["API_URL"]
-        self.model = self.global_settings["MODEL"]
-        self.rate_limit = self.global_settings["RATE_LIMIT"]
-        self.delay = self.global_settings["DELAY"]
-        self.max_retries = self.global_settings["MAX_RETRIES"]
-        self.retry_delay = self.global_settings["RETRY_DELAY"]
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
         self.htcondor_config = self.job_config.get("HTCONDOR", {})
@@ -353,6 +354,23 @@ class Config:
         
         # Add HTCondor configuration validation
         self._validate_htcondor_config()
+        
+        # Validate mutually exclusive settings
+        self._validate_job_settings()
+        
+    def _validate_job_settings(self):
+        """Validate job-specific settings for conflicts"""
+        # Check for mutually exclusive settings in km_with_gpt
+        if self.is_km_with_gpt:
+            position_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("position", False)
+            is_dch_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
+            
+            if position_enabled and is_dch_enabled:
+                raise ValueError(
+                    "Configuration error: 'position' and 'is_dch' cannot both be true. "
+                    "Position mode pairs terms by index (A1-B1, A2-B2), while DCH mode "
+                    "compares exactly 2 B terms against each A term. Please set one to false."
+                )
         
     def load_km_output(self, km_output_path: str):
         """Load TSV data and configure output paths when km_output is available"""
@@ -489,8 +507,6 @@ class Config:
         self.logger.debug(f"Loading skim terms for {self.job_type}")
         self.logger.debug(f"Job settings: {job_settings}")
         
-        self.position = job_settings["position"]
-        
         # Load C terms
         c_terms_file = job_settings["C_TERMS_FILE"]
         self.c_terms = self._read_terms_from_file(c_terms_file)
@@ -509,7 +525,6 @@ class Config:
     def _load_km_terms(self):
         """Load terms for km_with_gpt job type (supports DCH via is_dch flag)"""
         job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]
-        self.position = job_settings["position"]
         
         # Load A terms
         if job_settings.get("A_TERM_LIST", False):
@@ -556,27 +571,29 @@ class Config:
         return self.job_specific_settings.get("SORT_COLUMN", "ab_sort_ratio")
 
     @property
+    def position(self):
+        return self.job_specific_settings.get("position", False)
+
+    @property
     def fet_thresholds(self):
         if self.job_type == "skim_with_gpt":
             return {
-                "ab": self.job_specific_settings["skim"]["ab_fet_threshold"],
-                "bc": self.job_specific_settings["skim"]["bc_fet_threshold"]
+                "ab": self.job_specific_settings["ab_fet_threshold"],
+                "bc": self.job_specific_settings["bc_fet_threshold"]
             }
         else:
             return {
-                "ab": self.job_specific_settings["km_with_gpt"]["ab_fet_threshold"]
+                "ab": self.job_specific_settings["ab_fet_threshold"]
             }
 
     @property
     def censor_year_upper(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
-        return nested.get("censor_year_upper", nested.get("censor_year", 2024))
+        return self.job_specific_settings.get("censor_year_upper", self.job_specific_settings.get("censor_year", 2024))
 
     @property
     def censor_year_lower(self):
-        nested = self.job_specific_settings.get(self.job_type, {})
         # Default lower bound is zero (include all years)
-        return nested.get("censor_year_lower", 0)
+        return self.job_specific_settings.get("censor_year_lower", 0)
 
     def _validate_htcondor_config(self):
         """Validate required HTCondor settings"""

@@ -102,12 +102,11 @@ class KMCostEstimator(CostEstimator):
             abstract_tokens = min(ab_count, self.post_n) * 300
             
             # Standard KM prompt size estimate; DCH uses a combined prompt built in relevance.py
-            if True:
-                hypothesis_template = self.config.km_hypothesis.format(
-                    a_term=row['a_term'], 
-                    b_term=row['b_term']
-                )
-                prompt_text = km_with_gpt(row['b_term'], row['a_term'], hypothesis_template, "")
+            hypothesis_template = self.config.km_hypothesis.format(
+                a_term=row['a_term'], 
+                b_term=row['b_term']
+            )
+            prompt_text = km_with_gpt(row['b_term'], row['a_term'], hypothesis_template, "")
             
             prompt_tokens = int(len(prompt_text.replace("{consolidated_abstracts}", "").split()) * 4/3)
             

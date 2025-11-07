@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 import time
 import ast
-from src.utils import Config, sanitize_term_for_filename, strip_pipe
+from src.utils import Config, sanitize_term_for_filename, strip_pipe, apply_a_term_suffix
 
 def save_to_tsv(data, filename, output_directory, config: Config):
     """Save the data into a TSV (Tab Separated Values) file."""
@@ -86,7 +86,8 @@ def run_and_save_query(
         c_terms,
         b_terms
     )
-    api_url = config.km_api_url 
+    # Default API URL (can be overridden via SKIM_API_URL environment variable if needed)
+    api_url = "http://localhost:5099/skim/api/jobs"
     config.logger.debug(f"Running API query for {job_type} with a_term: {a_term}, b_terms: {b_terms}, c_terms: {c_terms}")
     config.logger.debug(f"Job config: {job_config}")
     api_client = APIClient(config=config)
@@ -131,10 +132,8 @@ def configure_job(config: Config, job_type, a_term, c_terms, b_terms=None):
         "top_n_articles_most_recent": config.top_n_articles_most_recent,
     }
 
-    # Get job-specific settings dynamically based on job_type
-    job_specific_settings = config.job_specific_settings.get(job_type)
-    if not job_specific_settings:
-        raise ValueError(f"Missing JOB_SPECIFIC_SETTINGS for {job_type} in config")
+    # Get job-specific settings - config.job_specific_settings already returns the correct job's settings
+    job_specific_settings = config.job_specific_settings
 
     if config.is_skim_with_gpt:
         return {
@@ -292,8 +291,7 @@ def km_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     logger.debug(f"km_with_gpt_workflow: term = {term}, type(b_terms) = {type(b_terms)}, b_terms = {b_terms}")
     
     # Add suffix if configured
-    if config.global_settings.get("A_TERM_SUFFIX"):
-        a_term += config.global_settings["A_TERM_SUFFIX"]
+    a_term = apply_a_term_suffix(a_term, config)
 
     logger.info(f"Processing A term: {a_term} with {len(b_terms)} B terms")
     
@@ -380,8 +378,7 @@ def skim_with_gpt_workflow(term: dict, config: Config, output_directory: str):
     b_terms = term["b_terms"]  # Could be single or multiple based on position
 
     # Add suffix if configured
-    if config.global_settings.get("A_TERM_SUFFIX"):
-        a_term += config.global_settings["A_TERM_SUFFIX"]
+    a_term = apply_a_term_suffix(a_term, config)
 
     logger.info(f"Processing Skim combination: {a_term} with {len(b_terms)} B terms and {c_term}")
 
