@@ -1,16 +1,19 @@
 name: Release to PyPI
 
-# Publish to production PyPI when a version tag is pushed to main
+# Publish to production PyPI when a version tag is pushed
 on:
   push:
-    branches: [main]  # Trigger on pushes to main (including PR merges)
+    branches: [main]
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0, v1.1, etc
+      - 'v*.*'
   workflow_dispatch:
 
 jobs:
   publish-pypi:
     name: Publish to PyPI (production)
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.message, 'v1.') || startsWith(github.ref, 'refs/tags/v')"
+    if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: prod
       url: https://pypi.org/project/skimgpt/
