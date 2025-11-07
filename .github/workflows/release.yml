@@ -1,57 +1,18 @@
-name: Release – TestPyPI on PR to main
+name: Release to PyPI
 
-# Publish to TestPyPI on PRs to main, and to production PyPI if the merged commit has a version tag
+# Publish to production PyPI when a version tag is pushed to main
 on:
   push:
     branches: [main]  # Trigger on pushes to main (including PR merges)
   workflow_dispatch:
 
 jobs:
-  publish-testpypi:
-    name: Publish to TestPyPI
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'v1.') && !startsWith(github.ref, 'refs/tags/v')"
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/project/skimgpt/
-
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Set development version
-        run: |
-          DEV_VERSION="0.0.0.dev$(date +%Y%m%d%H%M%S)"
-          echo "$DEV_VERSION" > VERSION
-          echo "Created VERSION file with dev version: $DEV_VERSION"
-          if [ -f "pyproject.toml" ] && grep -q "^version = " pyproject.toml; then
-            sed -i "s/^version = .*/version = \"$DEV_VERSION\"/" pyproject.toml
-          fi
-
-      - name: Build wheel & sdist
-        run: |
-          python -m pip install --upgrade pip build
-          python -m build
-
-      - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
-
   publish-pypi:
     name: Publish to PyPI (production)
     runs-on: ubuntu-latest
     if: "contains(github.event.head_commit.message, 'v1.') || startsWith(github.ref, 'refs/tags/v')"
     environment:
-      name: pypi
+      name: prod
       url: https://pypi.org/project/skimgpt/
 
     permissions:
