@@ -4,49 +4,18 @@ import pandas as pd
 import argparse
 import os
 import socket
-import subprocess
 import time
-import vllm
 from itertools import chain
 import random
-import torch
 from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
 )
+from src.triton_client import TritonClient
 
 
-def convert_gpu_uuid_to_device_id(gpu_uuid):
-    """Convert GPU UUID to numeric device ID for vLLM compatibility"""
-    try:
-        # Get GPU information from nvidia-smi
-        result = subprocess.run([
-            'nvidia-smi', '--query-gpu=uuid,index', 
-            '--format=csv,noheader,nounits'
-        ], capture_output=True, text=True, check=True)
-        
-        for line in result.stdout.strip().split('\n'):
-            if not line.strip():
-                continue
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 2:
-                uuid_part, index_part = parts[0], parts[1]
-                # Handle different UUID formats
-                if gpu_uuid in uuid_part or uuid_part.endswith(gpu_uuid) or gpu_uuid.startswith(uuid_part.split('-')[0]):
-                    return index_part
-        
-        # If not found, try to extract numeric suffix from UUID
-        if '-' in gpu_uuid:
-            suffix = gpu_uuid.split('-')[-1]
-            if suffix.isdigit():
-                return suffix
-                
-    except (subprocess.SubprocessError, subprocess.CalledProcessError, FileNotFoundError):
-        pass
-    
-    return gpu_uuid  # Return original if conversion fails
 
 
 def getHypothesis(
@@ -116,11 +85,17 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def gen(
-    prompts: RaggedTensor, model: any, sampling_config: any
+    prompts: RaggedTensor, client: TritonClient, sampling_config: dict
 ) -> RaggedTensor:
-    generated = model.generate(prompts.data, sampling_params=sampling_config)
+    """Generate outputs using Triton client batch inference"""
+    batch_results = client.generate_batch(
+        text_inputs=prompts.data,
+        sampling_parameters=sampling_config,
+        max_workers=sampling_config.get("max_workers", 10)
+    )
     outputs = RaggedTensor(
-        [output.outputs[0].text for output in generated], prompts.break_point
+        [result.get("text_output", "") for result in batch_results], 
+        prompts.break_point
     )
     return outputs
 
@@ -448,38 +423,6 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             write_to_json([result_dict], output_json, output_base_dir, config)
 
 
-def estimate_max_batched_tokens(seq_len: int = 4000,
-                               gpu_memory_util: float = 0.8,
-                               token_mem_mb: float = 0.5,
-                               weight_mem_gib: float = 8.0, config: Config = None) -> int:
-    """Estimate max_num_batched_tokens for vLLM based on available GPU memory.
-
-    Args:
-        seq_len: Target tokens per sequence (context length).
-        gpu_memory_util: Fraction of total GPU memory vLLM is allowed to use.
-            Phi-3-mini a more accurate value is ~0.31 MB).
-        weight_mem_gib: Estimated memory footprint of model weights (GiB).
-            For Phi-3-mini the weight footprint is ~7.2 GiB.
-    Returns:
-        An integer suitable for vLLM's ``max_num_batched_tokens`` parameter.
-    """
-    try:
-        config.logger.info(f"device count: {torch.cuda.device_count()}")
-        prop = torch.cuda.get_device_properties(0)
-        total_gib = prop.total_memory / (1024 ** 3)
-        # Memory budget for KV cache under gpu_memory_utilisation
-        avail_gib = total_gib * gpu_memory_util - weight_mem_gib
-        if avail_gib <= 0:
-            return seq_len
-        # Convert per-token MB to GiB
-        token_mem_gib = token_mem_mb / 1024
-        tokens_budget = int(avail_gib / token_mem_gib)
-        # Round down to nearest multiple of seq_len
-        max_tokens = max(seq_len, (tokens_budget // seq_len) * seq_len)
-        return max_tokens
-    except Exception:
-        # In case of any error fall back to seq_len
-        return seq_len
 
 
 def main():
@@ -603,100 +546,35 @@ def main():
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    dynamic_max_tokens = 4000
-
-    # Configure GPU environment before vLLM model initialization
+    # Initialize Triton client for remote inference
+    logger.info("Initializing Triton client for remote inference...")
     try:
-        os.environ['VLLM_NO_USAGE_STATS'] = '1'
-        os.environ['DO_NOT_TRACK'] = '1'
-
-        logger.info("Configuring PyTorch environment for containerized execution...")
+        server_url = config.filter_config.get("SERVER_URL", "https://xdddev.chtc.io/triton")
+        model_name = config.filter_config.get("MODEL_NAME", "porpoise")
         
-        os.environ['TORCH_COMPILE_DISABLE'] = '1'
-        os.environ['TORCHINDUCTOR_DISABLE'] = '1'
+        client = TritonClient(server_url, model_name)
         
-        # Set cache directories to current working directory (writable)
-        current_dir = os.getcwd()
-        os.environ['TORCH_HOME'] = current_dir
-        os.environ['TORCHINDUCTOR_CACHE_DIR'] = os.path.join(current_dir, 'torch_cache')
-        os.environ['TRITON_CACHE_DIR'] = os.path.join(current_dir, 'triton_cache')
+        # Check server health
+        if not client.check_server_health():
+            logger.error(f"Triton server at {server_url} is not ready")
+            raise RuntimeError(f"Triton server at {server_url} is not responding")
         
-        # Disable other PyTorch features that might cause issues in containerized environments
-        os.environ['PYTORCH_DISABLE_DISTRIBUTED_SAMPLING'] = '1'
-        os.environ['NCCL_DISABLE_WARN'] = '1'
-        
-        # vLLM-specific environment configurations
-        os.environ['VLLM_DISABLE_CUSTOM_ALL_REDUCE'] = '1'
-        os.environ['VLLM_USE_TRITON_FLASH_ATTN'] = '0'
-        os.environ['VLLM_ALLOW_LONG_MAX_MODEL_LEN'] = '1'
-        
-        # Dynamically estimate max_num_batched_tokens based on available memory
-        dynamic_max_tokens = estimate_max_batched_tokens(
-            seq_len=4000,
-            gpu_memory_util=0.8,
-            token_mem_mb=0.31,  # ~0.31 MB per token for Phi-3-mini KV-cache
-            weight_mem_gib=7.2,  # ~7.2 GiB weights for Phi-3-mini
-            config=config
-        )
-        logger.info(f"Dynamic max_num_batched_tokens estimated: {dynamic_max_tokens}")
-        
-        logger.info("PyTorch and vLLM environment configured for containerized execution")
-        
-        # Set environment variables to handle GPU device ID issues
-        if torch.cuda.is_available():
-            cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
-            logger.info(f"Original CUDA_VISIBLE_DEVICES: {cuda_devices}")
-            
-            if cuda_devices and not cuda_devices.replace(',', '').isdigit():
-                # Contains UUIDs, need to convert
-                device_list = [d.strip() for d in cuda_devices.split(',') if d.strip()]
-                converted_devices = []
-                
-                for device in device_list:
-                    if device.startswith('GPU-'):
-                        # Convert UUID to numeric ID
-                        numeric_id = convert_gpu_uuid_to_device_id(device)
-                        logger.info(f"Converted GPU UUID {device} to device ID {numeric_id}")
-                        converted_devices.append(str(numeric_id))
-                    else:
-                        converted_devices.append(device)
-                
-                # Set the converted device list
-                new_cuda_devices = ','.join(converted_devices)
-                os.environ['CUDA_VISIBLE_DEVICES'] = new_cuda_devices
-                logger.info(f"Updated CUDA_VISIBLE_DEVICES: {new_cuda_devices}")
-        
+        logger.info(f"Successfully connected to Triton server at {server_url}")
+        logger.info(f"Using model: {model_name}")
     except Exception as e:
-        logger.error(f"Error configuring GPU environment: {str(e)}")
-        logger.warning("Proceeding with default GPU configuration")
-
-    # Model setup and inference (single, non-defensive initialisation)
-    logger.info("Initializing vLLM model …")
-    try:
-        model = vllm.LLM(
-            model=config.filter_config["MODEL"],
-            max_model_len=4000,
-            max_num_batched_tokens=dynamic_max_tokens,
-            gpu_memory_utilization=0.8,
-            enforce_eager=True,
-            disable_custom_all_reduce=True,
-            trust_remote_code=False,
-        )
-        logger.info("Successfully initialized vLLM model")
-    except Exception as e:
-        # Fail fast – we no longer attempt multiple fallbacks
-        logger.error(f"Failed to initialize vLLM model: {e}")
+        logger.error(f"Failed to initialize Triton client: {e}")
         raise
 
-    sampling_config = vllm.SamplingParams(
-        temperature=config.filter_config["TEMPERATURE"],
-        top_k=config.filter_config["TOP_K"],
-        top_p=config.filter_config["TOP_P"],
-        max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
-    )
+    # Configure sampling parameters for Triton
+    sampling_config = {
+        "temperature": config.filter_config["TEMPERATURE"],
+        "top_p": config.filter_config["TOP_P"],
+        "max_tokens": config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
+        "max_workers": config.filter_config.get("MAX_WORKERS", 10)
+    }
 
     prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, model, sampling_config)
+    answers = gen(prompts, client, sampling_config)
 
     defaults = 3 * [RaggedTensor([])]
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)

@@ -346,14 +346,10 @@ class Config:
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
-        self.htcondor_config = self.job_config.get("HTCONDOR", {})
         self.temperature = self.filter_config["TEMPERATURE"]
         self.top_k = self.filter_config["TOP_K"]
         self.top_p = self.filter_config["TOP_P"]
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
-        
-        # Add HTCondor configuration validation
-        self._validate_htcondor_config()
         
         # Validate mutually exclusive settings
         self._validate_job_settings()
@@ -595,42 +591,6 @@ class Config:
         # Default lower bound is zero (include all years)
         return self.job_specific_settings.get("censor_year_lower", 0)
 
-    def _validate_htcondor_config(self):
-        """Validate required HTCondor settings"""
-        if not self.htcondor_config:
-            self.logger.warning("No HTCondor configuration found in config file")
-            return
-            
-        required_keys = [
-            "collector_host", 
-            "submit_host",
-            "docker_image",
-        ]
-        
-        missing = [key for key in required_keys if key not in self.htcondor_config]
-        if missing:
-            raise ValueError(f"Missing required HTCondor config keys: {', '.join(missing)}")
-
-    @property
-    def using_htcondor(self):
-        """Check if HTCondor configuration is present and valid"""
-        return bool(self.htcondor_config) and all([
-            self.collector_host,
-            self.submit_host,
-            self.docker_image
-        ])
-
-    @property
-    def collector_host(self):
-        return self.htcondor_config.get("collector_host")
-
-    @property
-    def submit_host(self):
-        return self.htcondor_config.get("submit_host")
-
-    @property
-    def docker_image(self):
-        return self.htcondor_config.get("docker_image")
 
 
     def create_secrets_file(self):
@@ -638,12 +598,11 @@ class Config:
         secrets = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
-            "HTCONDOR_TOKEN": os.getenv("HTCONDOR_TOKEN"),
             "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
         }
         
         # Only check for required keys based on model
-        required_keys = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        required_keys = ["PUBMED_API_KEY"]
         if self.model == "r1":
             required_keys.append("DEEPSEEK_API_KEY")
         else:
@@ -673,7 +632,7 @@ class Config:
 
     def validate_secrets(self):
         """Validate required secrets exist"""
-        required = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        required = ["PUBMED_API_KEY"]
         
         # Add API key requirement based on model
         if self.model == "r1":

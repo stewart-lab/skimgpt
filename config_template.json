@@ -26,17 +26,14 @@
         "DCH_MIN_SAMPLING_FRACTION": 0.06,
         "DCH_SAMPLE_SIZE": 50
     },
-    "HTCONDOR": {
-        "collector_host": "cm.chtc.wisc.edu",
-        "submit_host": "ap2002.chtc.wisc.edu",
-        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
-    },
     "abstract_filter": {
-        "MODEL": "lexu14/porpoise1",
+        "SERVER_URL": "https://xdddev.chtc.io/triton",
+        "MODEL_NAME": "porpoise",
         "TEMPERATURE": 0,
         "TOP_K": 20,
         "TOP_P": 0.95,
         "MAX_COT_TOKENS": 500,
+        "MAX_WORKERS": 10,
         "DEBUG": false,
         "TEST_LEAKAGE": false,
         "TEST_LEAKAGE_TYPE": "empty"
