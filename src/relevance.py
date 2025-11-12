@@ -53,6 +53,13 @@ def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
 
+    # Replace ampersands with spaces in all terms for hypothesis generation
+    if a_term:
+        a_term = a_term.replace("&", " ")
+    if b_term:
+        b_term = b_term.replace("&", " ")
+    if c_term:
+        c_term = c_term.replace("&", " ")
 
     if config.is_km_with_gpt:
         assert a_term and b_term and not c_term
@@ -152,7 +159,7 @@ def postProcess(
         abstracts.applyFilter(answer_masks)
     else:
         answer_masks = RaggedTensor(
-            [safe_eval(answer[0], idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
+            [safe_eval(answer[0] if answer else "", idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
                        flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger)
              for idx, answer in enumerate(outputs.data)],
             outputs.break_point
@@ -533,7 +540,7 @@ def main():
     ab_hypotheses = []
 
     for _, row in config.data.iterrows():
-        a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+        a_term = row['a_term']
         logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
         b_term = row['b_term']
 
@@ -562,7 +569,7 @@ def main():
         for _, row in config.data.iterrows():
             b_term = row['b_term']
             c_term = row['c_term']
-            a_term = row['a_term'].split("&")[0]  # Handle potential compound terms
+            a_term = row['a_term']
             
             # Process BC terms
             bc_pmid_list = ast.literal_eval(row['bc_pmid_intersection'])
