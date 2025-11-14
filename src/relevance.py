@@ -16,8 +16,6 @@ from src.classifier import (
 from src.triton_client import TritonClient
 
 
-
-
 def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
@@ -85,14 +83,51 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def gen(
-    prompts: RaggedTensor, client: TritonClient, sampling_config: dict
+    prompts: RaggedTensor, model: TritonClient, sampling_config: dict, logger=None,
+    max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
 ) -> RaggedTensor:
-    """Generate outputs using Triton client batch inference"""
-    batch_results = client.generate_batch(
+    """Generate outputs using Triton client batch inference with configurable parameters.
+    
+    Args:
+        prompts: RaggedTensor containing input prompts
+        model: TritonClient instance for inference
+        sampling_config: Dictionary with sampling parameters (temperature, top_p, max_tokens)
+        logger: Logger instance for debugging
+        max_workers: Maximum concurrent requests (default: None = use client default)
+        show_progress: Show progress bar during inference (default: False)
+        batch_chunk_size: Process large batches in chunks (default: None = no chunking)
+    
+    Returns:
+        RaggedTensor containing model outputs
+    """
+    # Debug: log first few prompts
+    if logger:
+        logger.info(f"DEBUG gen(): Number of prompts: {len(prompts.data)}")
+        if len(prompts.data) > 0:
+            logger.info(f"DEBUG gen(): First prompt (truncated): {prompts.data[0][:300]}...")
+            logger.info(f"DEBUG gen(): Sampling config: {sampling_config}")
+        if max_workers:
+            logger.info(f"DEBUG gen(): Using max_workers={max_workers}")
+        if batch_chunk_size:
+            logger.info(f"DEBUG gen(): Using batch_chunk_size={batch_chunk_size}")
+    
+    batch_results = model.generate_batch(
         text_inputs=prompts.data,
         sampling_parameters=sampling_config,
-        max_workers=sampling_config.get("max_workers", 10)
+        max_workers=max_workers,
+        show_progress=show_progress,
+        batch_chunk_size=batch_chunk_size
     )
+    
+    # Debug: log first few results and check for errors
+    if logger:
+        logger.info(f"DEBUG gen(): Number of results: {len(batch_results)}")
+        error_count = sum(1 for r in batch_results if "error" in r)
+        if error_count > 0:
+            logger.warning(f"DEBUG gen(): {error_count}/{len(batch_results)} requests failed")
+        if len(batch_results) > 0:
+            logger.info(f"DEBUG gen(): First result: {batch_results[0]}")
+    
     outputs = RaggedTensor(
         [result.get("text_output", "") for result in batch_results], 
         prompts.break_point
@@ -122,23 +157,48 @@ def postProcess(
     flat_hypotheses = hypotheses.data.copy() if hypotheses.data else []
 
     abstracts.reshape(shape)
+    
+    logger = config.logger
+    logger.info(f"Processing {len(outputs.data)} abstracts for {terms} relationship")
 
     if not config.debug:
-        answer_masks = RaggedTensor(
-            [safe_eval(output, idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "", 
-                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger) 
-             for idx, output in enumerate(outputs.data)], 
-            outputs.break_point
-        )
+        # Non-debug mode: simple evaluation
+        evaluated_results = []
+        for idx, output in enumerate(outputs.data):
+            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
+            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
+            result = safe_eval(output, idx, abstract, hypothesis, 0, logger)
+            evaluated_results.append(result)
+            
+            # Log each evaluation
+            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
+            logger.info(f"[{terms}] Abstract {idx}: {relevance_status}")
+            logger.info(f"  Model output: '{output.strip()}'")
+            logger.info(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
+            logger.info(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+        
+        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
         answer_masks.reshape(shape)
         abstracts.applyFilter(answer_masks)
     else:
-        answer_masks = RaggedTensor(
-            [safe_eval(answer[0] if answer else "", idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
-                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger)
-             for idx, answer in enumerate(outputs.data)],
-            outputs.break_point
-        )
+        # Debug mode: evaluation with chain-of-thought
+        evaluated_results = []
+        for idx, answer in enumerate(outputs.data):
+            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
+            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
+            first_char = answer[0] if answer else ""
+            result = safe_eval(first_char, idx, abstract, hypothesis, 0, logger)
+            evaluated_results.append(result)
+            
+            # Log each evaluation with full answer (CoT)
+            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
+            logger.info(f"[{terms}] Abstract {idx}: {relevance_status}")
+            logger.info(f"  First char: '{first_char}'")
+            logger.info(f"  Full answer: {answer[:500]}..." if len(answer) > 500 else f"  Full answer: {answer}")
+            logger.info(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
+            logger.info(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+        
+        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
         answer_masks.reshape(shape)
         cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
@@ -151,18 +211,41 @@ def postProcess(
             out_df[f"{terms}_mask"] = answer_masks.data
             out_df[f"{terms}_cot"] = cot.data
             out_df[f"{terms}_hypothesis"] = hypotheses.data
+        
+        # In debug mode, still filter abstracts for downstream processing
+        # The mask is saved separately for debugging purposes
+        abstracts.applyFilter(answer_masks)
 
     out_df[f"{terms}_mask"] = answer_masks.data
-    out_df[f"{terms}_pmid_intersection"] = abstracts.data
+    out_df[f"{terms}_abstracts"] = abstracts.data
+    
+    # Log filtering statistics - flatten the data if it's nested (after reshape)
+    def flatten_if_needed(data):
+        """Flatten nested lists into a single list"""
+        if data and isinstance(data[0], list):
+            return [item for sublist in data for item in sublist]
+        return data
+    
+    flat_masks = flatten_if_needed(answer_masks.data)
+    total_abstracts = len(flat_masks)
+    relevant_count = sum(flat_masks)
+    filtered_count = total_abstracts - relevant_count
+    logger.info(f"[{terms}] Filtering summary: {relevant_count}/{total_abstracts} abstracts marked RELEVANT, {filtered_count} filtered out")
+    
+    # In debug mode, abstracts aren't filtered in-place, so we need to log which ones will be excluded
+    if config.debug:
+        excluded_indices = [idx for idx, mask in enumerate(flat_masks) if mask == 0]
+        if excluded_indices:
+            logger.info(f"[{terms}] The following {len(excluded_indices)} abstract indices were marked NOT RELEVANT and should be excluded from sampling: {excluded_indices[:20]}{'...' if len(excluded_indices) > 20 else ''}")
 
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
     """Process dataframe with optimizations and filtering."""
     logger = config.logger
     columns_to_process = [col for col in [
-        "ab_pmid_intersection",
-        "bc_pmid_intersection",
-        "ac_pmid_intersection"
+        "ab_abstracts",
+        "bc_abstracts",
+        "ac_abstracts"
     ] if col in out_df.columns]
     
     num_intersections = len(columns_to_process)
@@ -228,6 +311,16 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     total1 = len(list1)
     total2 = len(list2)
+    
+    # Log PMIDs in the sampling pool
+    pool_pmids1 = [extract_pmid(abstract) for abstract in list1]
+    pool_pmids2 = [extract_pmid(abstract) for abstract in list2]
+    
+    logger.info(f"Sampling pool: Candidate 1 has {total1} deduplicated abstracts")
+    logger.info(f"  Candidate 1 PMIDs in pool: {pool_pmids1[:20]}{'...' if len(pool_pmids1) > 20 else ''}")
+    logger.info(f"Sampling pool: Candidate 2 has {total2} deduplicated abstracts")
+    logger.info(f"  Candidate 2 PMIDs in pool: {pool_pmids2[:20]}{'...' if len(pool_pmids2) > 20 else ''}")
+    
     logger.debug(f"entities_in_candidate1: {total1}")
     logger.debug(f"entities_in_candidate2: {total2}")
     total = total1 + total2
@@ -302,9 +395,20 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     # Perform sampling
     sampled1 = random.sample(list1, n1) if n1 > 0 else []
     sampled2 = random.sample(list2, n2) if n2 > 0 else []
+    
+    # Extract PMIDs from sampled abstracts for logging
+    sampled_pmids1 = [extract_pmid(abstract) for abstract in sampled1]
+    sampled_pmids2 = [extract_pmid(abstract) for abstract in sampled2]
+    
+    logger.info(f"Sampling: Selected {n1}/{total1} abstracts from candidate 1")
+    logger.info(f"  Candidate 1 PMIDs sampled: {sampled_pmids1[:10]}{'...' if len(sampled_pmids1) > 10 else ''}")
+    logger.info(f"Sampling: Selected {n2}/{total2} abstracts from candidate 2")
+    logger.info(f"  Candidate 2 PMIDs sampled: {sampled_pmids2[:10]}{'...' if len(sampled_pmids2) > 10 else ''}")
+    
     logger.debug(f"sampled1: len {len(sampled1)} {sampled1}")
     logger.debug(f"sampled2: len {len(sampled2)} {sampled2}")
     sampled_abstracts = sampled1 + sampled2
+    logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({n1} from candidate1 + {n2} from candidate2)")
     logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
 
     if sampled_abstracts:
@@ -326,7 +430,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     logger.info(f"Processing {total_rows} results...")
 
     # Determine output directory based on iteration
-    output_base_dir = "output"
+    output_base_dir = config.km_output_dir
     
     # If we're in an iteration, use the iteration subdirectory
     if config.iterations and config.current_iteration > 0:
@@ -349,8 +453,24 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.debug(f"hyp2: {hyp2}")
 
         # Consolidate abstracts/text from both candidate rows (if present)
-        v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
-        v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
+        v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
+        v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
+        
+        # Flatten if needed (abstracts might be nested after RaggedTensor reshape)
+        def flatten_if_nested(data):
+            if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+                return [item for sublist in data for item in sublist]
+            return data
+        
+        v1_all = flatten_if_nested(v1_all_raw)
+        v2_all = flatten_if_nested(v2_all_raw)
+        
+        # Abstracts are now already filtered in postProcess (even in debug mode)
+        # so we can use them directly
+        v1 = v1_all
+        v2 = v2_all
+        logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
+        logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
@@ -546,21 +666,19 @@ def main():
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    # Initialize Triton client for remote inference
+    # Initialize Triton client for inference
     logger.info("Initializing Triton client for remote inference...")
     try:
-        server_url = config.filter_config.get("SERVER_URL", "https://xdddev.chtc.io/triton")
-        model_name = config.filter_config.get("MODEL_NAME", "porpoise")
-        
-        client = TritonClient(server_url, model_name)
+        # Use hardcoded defaults from TritonClient class
+        model = TritonClient()
         
         # Check server health
-        if not client.check_server_health():
-            logger.error(f"Triton server at {server_url} is not ready")
-            raise RuntimeError(f"Triton server at {server_url} is not responding")
+        if not model.check_server_health():
+            logger.error(f"Triton server at {model.server_url} is not ready")
+            raise RuntimeError(f"Triton server at {model.server_url} is not responding")
         
-        logger.info(f"Successfully connected to Triton server at {server_url}")
-        logger.info(f"Using model: {model_name}")
+        logger.info(f"Successfully connected to Triton server at {model.server_url}")
+        logger.info(f"Using model: {model.model_name}")
     except Exception as e:
         logger.error(f"Failed to initialize Triton client: {e}")
         raise
@@ -569,12 +687,29 @@ def main():
     sampling_config = {
         "temperature": config.filter_config["TEMPERATURE"],
         "top_p": config.filter_config["TOP_P"],
-        "max_tokens": config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
-        "max_workers": config.filter_config.get("MAX_WORKERS", 10)
+        "max_tokens": config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
     }
+    
+    # Get optional performance tuning parameters from config
+    max_workers = config.global_settings.get("TRITON_MAX_WORKERS", None)
+    if max_workers:
+        max_workers = int(max_workers)
+        logger.info(f"Using configured max_workers={max_workers} for Triton inference")
+    
+    show_progress = config.global_settings.get("TRITON_SHOW_PROGRESS", False)
+    if isinstance(show_progress, str):
+        show_progress = show_progress.lower() in ("true", "1", "yes")
+    
+    batch_chunk_size = config.global_settings.get("TRITON_BATCH_CHUNK_SIZE", None)
+    if batch_chunk_size:
+        batch_chunk_size = int(batch_chunk_size)
+        logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
 
     prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, client, sampling_config)
+    answers = gen(prompts, model, sampling_config, logger, 
+                  max_workers=max_workers,
+                  show_progress=show_progress,
+                  batch_chunk_size=batch_chunk_size)
 
     defaults = 3 * [RaggedTensor([])]
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
@@ -592,8 +727,10 @@ def main():
             postProcess(
                     config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
                 )
-        
-    out_df = process_dataframe(out_df, config, pubmed_fetcher)
+    
+    # Skip process_dataframe for DCH mode - sampling handles context window sizing
+    if not config.is_dch:
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name

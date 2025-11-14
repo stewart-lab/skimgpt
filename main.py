@@ -64,85 +64,40 @@ def organize_output(directory):
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(debug_dir, exist_ok=True)
 
-    processed_dirs = set()
-
-    for root, dirs, _ in os.walk(directory):
-        for dir_name in dirs:
-            if dir_name.startswith("iteration_"):
-                src_path = os.path.join(root, dir_name)
-                # Skip if we've already processed this directory
-                if src_path in processed_dirs:
-                    continue
-                
-                processed_dirs.add(src_path)
-                logger.info(f"Found iteration directory: {src_path}")
-                
-                # Create the target path in results/
-                dest_path = os.path.join(results_dir, dir_name)
-                
-                if os.path.exists(dest_path):
-                    # If destination exists, move content file by file
-                    logger.info(f"Destination {dest_path} exists, merging content")
-                    for src_root, _, files_dir in os.walk(src_path):
-                        rel_root = os.path.relpath(src_root, src_path)
-                        target_root = os.path.join(dest_path, rel_root)
-                        os.makedirs(target_root, exist_ok=True)
-                        for f in files_dir:
-                            src_file = os.path.join(src_root, f)
-                            dst_file = os.path.join(target_root, f)
-                            logger.debug(f"Moving {src_file} to {dst_file}")
-                            shutil.move(src_file, dst_file)
-                    # After moving files, remove the source directory
-                    shutil.rmtree(src_path, ignore_errors=True)
-                else:
-                    # If destination doesn't exist, move the whole directory
-                    logger.info(f"Moving iteration directory {src_path} to {dest_path}")
-                    shutil.move(src_path, dest_path)
+    # Move iteration directories (only from top level)
+    for item in os.listdir(directory):
+        item_path = os.path.join(directory, item)
+        if os.path.isdir(item_path) and item.startswith("iteration_"):
+            dest_path = os.path.join(results_dir, item)
+            logger.info(f"Moving iteration directory {item_path} to {dest_path}")
+            shutil.move(item_path, dest_path)
     
-    # Define patterns for result JSON files
+    # Move loose files in the top level directory
     result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
-
-    for root, dirs, files in os.walk(directory):
-        # Skip traversal into results or debug to avoid duplicate moves
-        if os.path.abspath(root).startswith(os.path.abspath(results_dir)) or os.path.abspath(root).startswith(os.path.abspath(debug_dir)):
+    
+    for file in os.listdir(directory):
+        file_path = os.path.join(directory, file)
+        if not os.path.isfile(file_path):
             continue
-        
-        for file in files:
-            try:
-                file_path = os.path.join(root, file)
-                # Check if it's a result JSON file
-                is_result_json = any(file.endswith(pattern) for pattern in result_patterns)
-                
-                if is_result_json:
-                    shutil.move(file_path, os.path.join(results_dir, file))
-                elif file == "no_results.txt":
-                    shutil.move(file_path, os.path.join(results_dir, file))
-                elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
-                    shutil.move(file_path, os.path.join(debug_dir, file))
-                elif file != "config.json":
-                    # Remove any other files that aren't config.json
-                    os.remove(file_path)
-            except Exception as e:
-                logger.error(f"Error processing file {file}: {str(e)}")
-                continue
-
-    # Clean up empty directories
-    for root, dirs, files in os.walk(directory, topdown=False):
-        for dir in dirs:
-            try:
-                dir_path = os.path.join(root, dir)
-                if not os.listdir(dir_path):
-                    os.rmdir(dir_path)
-            except Exception as e:
-                logger.error(f"Error removing directory {dir}: {str(e)}")
-                continue
-
-    filtered_dir = os.path.join(directory, "filtered")
-    if os.path.exists(filtered_dir):
+            
         try:
-            shutil.rmtree(filtered_dir)
+            # Check if it's a result JSON file
+            is_result_json = any(file.endswith(pattern) for pattern in result_patterns)
+            
+            if is_result_json:
+                shutil.move(file_path, os.path.join(results_dir, file))
+                logger.info(f"Moved result JSON {file} to results/")
+            elif file == "no_results.txt":
+                shutil.move(file_path, os.path.join(results_dir, file))
+            elif file.endswith((".tsv", ".log", ".err", ".sub", ".out")):
+                shutil.move(file_path, os.path.join(debug_dir, file))
+                logger.info(f"Moved {file} to debug/")
+            elif file != "config.json":
+                # Remove any other files that aren't config.json
+                os.remove(file_path)
         except Exception as e:
-            logger.error(f"Error removing filtered directory: {str(e)}")
+            logger.error(f"Error processing file {file}: {str(e)}")
+            continue
 
 
 
@@ -380,7 +335,7 @@ def main():
         logger.info("Running relevance filtering...")
         try:
             config_path = os.path.join(output_directory, "config.json")
-            secrets_path = config.secrets_file
+            secrets_path = config.secrets_path
             
             # Run relevance.py as a subprocess
             relevance_cmd = [

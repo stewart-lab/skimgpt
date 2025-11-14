@@ -369,8 +369,8 @@ class Config:
                 )
         
     def load_km_output(self, km_output_path: str):
-        """Load TSV data and configure output paths when km_output is available"""
-        self.data = self.read_tsv_to_dataframe_from_files_txt(km_output_path)
+        """Load TSV data directly from file path"""
+        self.data = pd.read_csv(km_output_path, sep='\t')
         
         # Configure output paths
         self.km_output_dir = os.path.dirname(km_output_path)
