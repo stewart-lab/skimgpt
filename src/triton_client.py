@@ -15,7 +15,6 @@ Features:
 
 import json
 import requests
-import argparse
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -54,7 +53,10 @@ class TritonClient:
                  connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
                  read_timeout: float = DEFAULT_READ_TIMEOUT,
                  pool_connections: int = DEFAULT_POOL_CONNECTIONS,
-                 pool_maxsize: int = DEFAULT_POOL_MAXSIZE):
+                 pool_maxsize: int = DEFAULT_POOL_MAXSIZE,
+                 temperature: float = None,
+                 top_p: float = None,
+                 max_tokens: int = None):
         """
         Initialize the Triton client with connection pooling and retry logic.
         
@@ -66,12 +68,20 @@ class TritonClient:
             read_timeout: Timeout for reading response in seconds (default: 300)
             pool_connections: Number of connection pools to cache (default: 20)
             pool_maxsize: Maximum size of the connection pool (default: 20)
+            temperature: Sampling temperature for generation (required)
+            top_p: Nucleus sampling parameter (required)
+            max_tokens: Maximum tokens to generate (required)
         """
         self.server_url = (server_url or self.DEFAULT_SERVER_URL).rstrip('/')
         self.model_name = model_name or self.DEFAULT_MODEL_NAME
         self.generate_url = f"{self.server_url}/v2/models/{self.model_name}/generate"
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
+        
+        # Store required sampling parameters (validation should happen in Config)
+        self.temperature = temperature
+        self.top_p = top_p
+        self.max_tokens = max_tokens
         
         # Create a session with connection pooling
         self.session = requests.Session()
@@ -132,17 +142,18 @@ class TritonClient:
             text_input: The input text/prompt for generation
             stream: Whether to stream the response
             sampling_parameters: Dict of sampling params (temperature, top_p, max_tokens, etc.)
+                               If None, uses the default parameters set during initialization
             exclude_input_in_output: Whether to exclude the input prompt from output
             
         Returns:
             Dictionary containing the generation response, or dict with 'error' key on failure
         """
-        # Default sampling parameters
+        # Use instance defaults if no sampling parameters provided
         if sampling_parameters is None:
             sampling_parameters = {
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "max_tokens": 100
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "max_tokens": self.max_tokens
             }
 
         # Construct the request payload using Triton's format
@@ -222,12 +233,12 @@ class TritonClient:
         if not text_inputs:
             return []
         
-        # Default sampling parameters
+        # Use instance defaults if no sampling parameters provided
         if sampling_parameters is None:
             sampling_parameters = {
-                "temperature": 0.7,
-                "top_p": 0.95,
-                "max_tokens": 100
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "max_tokens": self.max_tokens
             }
         
         # Use default max_workers if not specified
@@ -341,113 +352,3 @@ class TritonClient:
         
         logger.info(f"Chunked batch complete: {total_requests} total requests processed")
         return all_results
-
-
-def main():
-    """Main function to demonstrate the Triton client."""
-
-    parser = argparse.ArgumentParser(
-        description="Send inference requests to the Triton Porpoise model",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Use default example prompt
-  python triton_client.py
-  # Custom prompt
-  python triton_client.py --prompt "Write a short story about"
-  # Adjust generation parameters
-  python triton_client.py --prompt "Explain quantum computing" --max-tokens 200 --temperature 0.5
-  # Check server status only
-  python triton_client.py --health-check
-        """
-    )
-
-    parser.add_argument(
-        "--prompt", "-p",
-        type=str,
-        default="I really enjoyed this",
-        help="Input prompt for text generation (default: 'I really enjoyed this')"
-    )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=100,
-        help="Maximum number of tokens to generate (default: 100)"
-    )
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        default=0.7,
-        help="Sampling temperature (default: 0.7)"
-    )
-    parser.add_argument(
-        "--top-p",
-        type=float,
-        default=0.95,
-        help="Nucleus sampling top-p (default: 0.95)"
-    )
-    parser.add_argument(
-        "--health-check",
-        action="store_true",
-        help="Only check server health and exit"
-    )
-    parser.add_argument(
-        "--show-metadata",
-        action="store_true",
-        help="Show model metadata"
-    )
-
-    args = parser.parse_args()
-
-    # Initialize client with default configuration
-    client = TritonClient()
-
-    # Check server health
-    print("Checking server health...")
-    if client.check_server_health():
-        print("✓ Server is ready\n")
-    else:
-        print("✗ Server is not ready")
-        return
-
-    if args.health_check:
-        return
-
-    # Get model metadata if requested
-    if args.show_metadata:
-        print(f"Getting metadata for model '{client.model_name}'...")
-        metadata = client.get_model_metadata()
-        if metadata:
-            print("Model metadata:")
-            print(json.dumps(metadata, indent=2))
-            print()
-
-    # Send generation request
-    print(f"Prompt: {args.prompt}")
-    print(f"Parameters: max_tokens={args.max_tokens}, temperature={args.temperature}, top_p={args.top_p}")
-    print("\nGenerating...\n")
-
-    result = client.generate(
-        text_input=args.prompt,
-        stream=False,
-        sampling_parameters={
-            "temperature": args.temperature,
-            "top_p": args.top_p,
-            "max_tokens": args.max_tokens
-        }
-    )
-
-    if result:
-        output_text = result.get("text_output", "")
-        print("=" * 60)
-        print("Generated Text:")
-        print("=" * 60)
-        print(output_text)
-        print("=" * 60)
-    else:
-        print("Failed to get generation result")
-
-
-if __name__ == "__main__":
-    main()
-

@@ -24,16 +24,18 @@
         "OUTDIR_SUFFIX": "",
         "iterations": 3,
         "DCH_MIN_SAMPLING_FRACTION": 0.06,
-        "DCH_SAMPLE_SIZE": 50
+        "DCH_SAMPLE_SIZE": 50,
+        "TRITON_MAX_WORKERS": 10,
+        "TRITON_SHOW_PROGRESS": true,
+        "TRITON_BATCH_CHUNK_SIZE": null
     },
-    "abstract_filter": {
+    "relevance_filter": {
         "SERVER_URL": "https://xdddev.chtc.io/triton",
         "MODEL_NAME": "porpoise",
         "TEMPERATURE": 0,
         "TOP_K": 20,
         "TOP_P": 0.95,
         "MAX_COT_TOKENS": 500,
-        "MAX_WORKERS": 10,
         "DEBUG": false,
         "TEST_LEAKAGE": false,
         "TEST_LEAKAGE_TYPE": "empty"

@@ -111,7 +111,7 @@ def run_and_save_query(
     return file_path
 
 
-def filter_term_columns(df, config: Config):
+def filter_term_columns(df):
     for column in ["a_term", "b_term", "c_term"]:
         if column in df.columns:
             # Use .loc to explicitly set the values
@@ -197,7 +197,7 @@ def process_query_results(
     valid_rows = df_sorted[filter_mask]
 
     # Apply additional term column filtering
-    valid_rows = filter_term_columns(valid_rows, config)
+    valid_rows = filter_term_columns(valid_rows)
     
     # Re-sort by b_term based on input list order if b_terms provided
     if b_terms and len(b_terms) > 1 and 'b_term' in valid_rows.columns:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 import ast
 import pandas as pd
-import argparse
 import os
 import socket
 import time
@@ -83,15 +82,14 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def gen(
-    prompts: RaggedTensor, model: TritonClient, sampling_config: dict, logger=None,
+    prompts: RaggedTensor, model: TritonClient, logger=None,
     max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
 ) -> RaggedTensor:
     """Generate outputs using Triton client batch inference with configurable parameters.
     
     Args:
         prompts: RaggedTensor containing input prompts
-        model: TritonClient instance for inference
-        sampling_config: Dictionary with sampling parameters (temperature, top_p, max_tokens)
+        model: TritonClient instance for inference (with pre-configured sampling parameters)
         logger: Logger instance for debugging
         max_workers: Maximum concurrent requests (default: None = use client default)
         show_progress: Show progress bar during inference (default: False)
@@ -105,7 +103,8 @@ def gen(
         logger.info(f"DEBUG gen(): Number of prompts: {len(prompts.data)}")
         if len(prompts.data) > 0:
             logger.info(f"DEBUG gen(): First prompt (truncated): {prompts.data[0][:300]}...")
-            logger.info(f"DEBUG gen(): Sampling config: {sampling_config}")
+            logger.info(f"DEBUG gen(): Model sampling params - temperature: {model.temperature}, "
+                       f"top_p: {model.top_p}, max_tokens: {model.max_tokens}")
         if max_workers:
             logger.info(f"DEBUG gen(): Using max_workers={max_workers}")
         if batch_chunk_size:
@@ -113,7 +112,6 @@ def gen(
     
     batch_results = model.generate_batch(
         text_inputs=prompts.data,
-        sampling_parameters=sampling_config,
         max_workers=max_workers,
         show_progress=show_progress,
         batch_chunk_size=batch_chunk_size
@@ -172,10 +170,10 @@ def postProcess(
             
             # Log each evaluation
             relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
-            logger.info(f"[{terms}] Abstract {idx}: {relevance_status}")
-            logger.info(f"  Model output: '{output.strip()}'")
-            logger.info(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
-            logger.info(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.debug(f"[{terms}] Abstract {idx}: {relevance_status}")
+            logger.debug(f"  Model output: '{output.strip()}'")
+            logger.debug(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
+            logger.debug(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
         
         answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
         answer_masks.reshape(shape)
@@ -479,7 +477,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         dch_row = {
             "hypothesis1": strip_pipe(hyp1),
             "hypothesis2": strip_pipe(hyp2),
-            "ab_pmid_intersection": consolidated_abstracts,
+            "ab_abstracts": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
         }
@@ -545,34 +543,18 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
 
 
-def main():
-
-    if 'TRANSFORMERS_CACHE' in os.environ:
-        os.environ.setdefault('HF_HOME', os.environ['TRANSFORMERS_CACHE'])
-        os.environ.pop('TRANSFORMERS_CACHE', None)
+def run_relevance_analysis(config: Config, km_output_path: str) -> None:
+    """Run relevance analysis on the provided TSV file.
     
-    # Parse arguments FIRST
-    parser = argparse.ArgumentParser(description="kmGPT relevance analysis (vLLM fine-tuned phi-3 mini)")
-    parser.add_argument(
-        "--km_output",
-        type=str,
-        required=True,
-        help="Tsv file to run relevance filtering on.",
-    )
-    parser.add_argument(
-        "--config", type=str, required=True, help="Config file for kmGPT run."
-    )
-    parser.add_argument(
-        "--secrets", type=str, required=True, help="Secrets file for kmGPT run."
-    )  
-    args = parser.parse_args()
+    Args:
+        config: Initialized Config object
+        km_output_path: Path to the TSV file to process
+    """
     
-    # THEN create Config
-    config = Config(args.config)  # Pass config path from arguments
     logger = config.logger
     logger.debug(f"config: {config}")
-    logger.debug(f"args.km_output: {args.km_output}")
-    config.load_km_output(args.km_output)   
+    logger.debug(f"km_output_path: {km_output_path}")
+    config.load_km_output(km_output_path)   
     start_time = time.time()
     logger.info("Starting relevance analysis...")
     
@@ -669,8 +651,14 @@ def main():
     # Initialize Triton client for inference
     logger.info("Initializing Triton client for remote inference...")
     try:
-        # Use hardcoded defaults from TritonClient class
-        model = TritonClient()
+        # Initialize with configuration from relevance_filter section, including sampling parameters
+        model = TritonClient(
+            server_url=config.filter_config.get("SERVER_URL"),
+            model_name=config.filter_config.get("MODEL_NAME"),
+            temperature=config.filter_config["TEMPERATURE"],
+            top_p=config.filter_config["TOP_P"],
+            max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
+        )
         
         # Check server health
         if not model.check_server_health():
@@ -682,13 +670,6 @@ def main():
     except Exception as e:
         logger.error(f"Failed to initialize Triton client: {e}")
         raise
-
-    # Configure sampling parameters for Triton
-    sampling_config = {
-        "temperature": config.filter_config["TEMPERATURE"],
-        "top_p": config.filter_config["TOP_P"],
-        "max_tokens": config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
-    }
     
     # Get optional performance tuning parameters from config
     max_workers = config.global_settings.get("TRITON_MAX_WORKERS", None)
@@ -706,7 +687,7 @@ def main():
         logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
 
     prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, model, sampling_config, logger, 
+    answers = gen(prompts, model, logger, 
                   max_workers=max_workers,
                   show_progress=show_progress,
                   batch_chunk_size=batch_chunk_size)
@@ -787,7 +768,3 @@ def main():
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Relevance analysis completed in {elapsed_time:.2f} seconds")
-
-
-if __name__ == "__main__":
-    main()
