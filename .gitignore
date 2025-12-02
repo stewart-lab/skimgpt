@@ -1,4 +1,5 @@
 output
+mcp_server/
 src/__pycache__
 relevance_tests
 config.json
