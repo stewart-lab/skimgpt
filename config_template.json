@@ -15,7 +15,7 @@
         "TOP_N_ARTICLES_MOST_RECENT": 50,
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
-        "MODEL": "o1-preview",
+        "MODEL": "o3",
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,

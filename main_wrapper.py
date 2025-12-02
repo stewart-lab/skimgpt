@@ -42,7 +42,10 @@ def update_censor_year(config_path, year):
     data = json.load(open(config_path))
     job_type = data.setdefault("JOB_TYPE", "").strip()
     job_specific_settings = data.setdefault("JOB_SPECIFIC_SETTINGS", {}).setdefault(job_type, {})
-    job_specific_settings[job_type]["censor_year"] = year
+    #job_specific_settings[job_type]["censor_year"] = year
+    # add censor_year_upper and censor_year_lower
+    job_specific_settings["censor_year_upper"] = year
+    job_specific_settings["censor_year_lower"] = year
     with open(config_path, "w") as f:
         json.dump(data, f, indent=4)
 
