@@ -100,15 +100,14 @@ def process_single_row(row, config: Config):
         # DCH mode: direct hypothesis comparison (is_dch can only be True if is_km_with_gpt is True)
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
-        canonical_h1 = strip_pipe(hypothesis1)
-        canonical_h2 = strip_pipe(hypothesis2)
+        # Hypotheses are already cleaned (strip_pipe applied to terms before formatting)
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
         if result or prompt:
             processed_results["Hypothesis_Comparison"] = {
-                "hypothesis1": canonical_h1,
-                "hypothesis2": canonical_h2,
+                "hypothesis1": hypothesis1,
+                "hypothesis2": hypothesis2,
                 "Result": result,
                 "Prompt": prompt,
                 "URLS": urls,
@@ -322,9 +321,7 @@ def analyze_abstract_with_frontier_LLM(
     responses = []
     prompt_text = ""
 
-    #strip pipe from hypothesis1 and hypothesis2
-    hypothesis1 = strip_pipe(hypothesis1)
-    hypothesis2 = strip_pipe(hypothesis2)
+    # Hypotheses are already cleaned (strip_pipe applied to terms before formatting in relevance.py)
     prompt_text = generate_prompt(
         a_term=a_term,
         b_term=b_term,

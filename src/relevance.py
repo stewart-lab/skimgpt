@@ -442,8 +442,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     if config.is_dch:
         # Build direct comparison hypotheses and provide consolidated text content
-        # Preserve pipes in terms for relevance; canonicalization happens later
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
+        # Strip pipes from individual terms BEFORE formatting hypotheses
+        a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
+        b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
+        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
         hyp2 = hypotheses[1]
@@ -473,10 +475,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
 
-        # Store canonical (pipe-stripped) hypotheses in final JSON for DCH
+        # Store hypotheses (already cleaned via strip_pipe on individual terms)
         dch_row = {
-            "hypothesis1": strip_pipe(hyp1),
-            "hypothesis2": strip_pipe(hyp2),
+            "hypothesis1": hyp1,
+            "hypothesis2": hyp2,
             "ab_abstracts": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
