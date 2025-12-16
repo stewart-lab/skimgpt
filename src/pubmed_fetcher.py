@@ -3,6 +3,15 @@ from src.utils import Config, extract_pmid
 import time
 import re
 from typing import List, Dict, Any
+import os
+from pathlib import Path
+
+# Configure tiktoken cache directory before import to avoid permission issues
+# in shared computing environments
+tiktoken_cache_dir = Path.home() / ".cache" / "tiktoken"
+tiktoken_cache_dir.mkdir(parents=True, exist_ok=True)
+os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_cache_dir)
+
 import tiktoken
 import warnings
 
