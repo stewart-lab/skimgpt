@@ -47,8 +47,22 @@ def parse_results_file(fn: str, job_type: str):
             rel   = r.get("Relationship", "").strip()
             score = r.get("Score",        "").strip()
             parts = [p.strip().strip("'") for p in rel.split(" - ")]
-
-            if job_type == "skim_with_gpt":
+            hyp = r.get("Hypothesis", "").strip()
+            print(hyp)
+            if job_type == "km_with_gpt":
+                terms = [p.strip(".") for p in hyp.split(" ")]
+                print(terms)
+                row = {
+                    "Hypothesis": hyp,
+                    "support": r.get("support", "").strip(),
+                    "refute": r.get("refute", "").strip(),
+                    "inconclusive": r.get("inconclusive", "").strip(),
+                    "Score": score,
+                    "A_term": terms[0],
+                    "B_term": terms[-1]
+                }
+                
+            elif job_type == "skim_with_gpt":
                 if len(parts) < 3: continue
                 row = {
                     "A_term": parts[0],
@@ -86,6 +100,8 @@ def merge_results(parent_dir: str, logger: logging.Logger):
 
     if job_type == "skim_with_gpt":
         fieldnames = ["A_term","B_term","C_term","censor_year","iter_number",f"{model}_score"]
+    elif job_type == "km_with_gpt":
+        fieldnames = ["censor_year","Hypothesis","A_term","B_term","support","refute","inconclusive","iter_number",f"{model}_score"]
     elif job_type == "km_with_gpt_direct_comp":
         fieldnames = ["A_term","B1_term","B2_term","SOC","Abstracts Supporting Hypothesis 1","Abstracts Supporting Hypothesis 2","Abstracts Supporting Neither Hypothesis or are Inconclusive","censor_year","iter_number",f"{model}_score"]
     else:
@@ -108,8 +124,10 @@ def merge_results(parent_dir: str, logger: logging.Logger):
 
         results_txt = os.path.join(cy_path, "results.txt")
         if not os.path.isfile(results_txt):
-            logger.error(f"Skipping {cy_dir}: no results.txt found")
-            continue
+            results_txt = os.path.join(cy_path, "results.tsv")
+            if not os.path.isfile(results_txt):
+                logger.error(f"Skipping {cy_dir}: no results.txt or results.tsv found")
+                continue
 
         logger.info(f"Merging {results_txt}")
         for row in parse_results_file(results_txt, job_type):
