@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkimGPT JSON Renderer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --sidebar-bg: rgba(22, 27, 34, 0.8);
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --accent-glow: rgba(88, 166, 255, 0.15);
+            --success-color: #238636;
+            --figure-bg: #1c2128;
+            --sidebar-width: 320px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.6;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--accent-color);
+            letter-spacing: -0.02em;
+        }
+
+        #file-input-container {
+            margin-bottom: 16px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 8px 16px;
+            cursor: pointer;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            width: 100%;
+            text-align: center;
+        }
+
+        .custom-file-upload:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        #search-container {
+            position: relative;
+        }
+
+        #search-input {
+            width: 100%;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #search-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        #pmid-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .pmid-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .pmid-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .pmid-item.active {
+            background: var(--accent-glow);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* Main Content */
+        #main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            scroll-behavior: smooth;
+        }
+
+        #welcome-view {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        #article-view {
+            max-width: 900px;
+            margin: 0 auto;
+            display: none;
+        }
+
+        .article-header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 24px;
+        }
+
+        .article-pmid {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-color);
+            font-size: 0.875rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .article-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            letter-spacing: -0.03em;
+        }
+
+        /* Markdown Styling */
+        .markdown-content p {
+            margin-bottom: 1.5rem;
+            font-size: 1.125rem;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-color);
+            margin-top: 2.5rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.25rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Figure Card */
+        .figure-card {
+            background: var(--figure-bg);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 40px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .figure-card h3 {
+            margin-top: 0;
+            font-size: 1rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <h1>SkimGPT Viewer</h1>
+            <div id="file-input-container">
+                <label for="json-upload" class="custom-file-upload">Load JSON File</label>
+                <input type="file" id="json-upload" accept=".json">
+            </div>
+            <div id="search-container">
+                <input type="text" id="search-input" placeholder="Search PMIDs...">
+            </div>
+        </div>
+        <div id="pmid-list"></div>
+    </div>
+
+    <div id="main-content">
+        <div id="welcome-view">
+            <h2>Welcome to SkimGPT Viewer</h2>
+            <p>Upload a JSON file to begin.</p>
+        </div>
+        <div id="article-view">
+            <div class="article-header">
+                <span class="article-pmid" id="display-pmid"></span>
+                <h1 class="article-title" id="display-title"></h1>
+            </div>
+            <div id="article-body"></div>
+        </div>
+    </div>
+
+    <script>
+        let jsonData = {};
+        const marked = window.marked;
+        marked.setOptions({ breaks: true, gfm: true });
+
+        const fileInput = document.getElementById('json-upload');
+        const pmidListContainer = document.getElementById('pmid-list');
+        const searchInput = document.getElementById('search-input');
+        const welcomeView = document.getElementById('welcome-view');
+        const articleView = document.getElementById('article-view');
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                jsonData = JSON.parse(event.target.result);
+                renderPmidList();
+                welcomeView.style.display = 'none';
+            };
+            reader.readAsText(file);
+        });
+
+        searchInput.addEventListener('input', renderPmidList);
+
+        function renderPmidList() {
+            const query = searchInput.value.toLowerCase();
+            pmidListContainer.innerHTML = '';
+            Object.keys(jsonData).filter(p => p.includes(query)).forEach(pmid => {
+                const div = document.createElement('div');
+                div.className = 'pmid-item';
+                div.textContent = pmid;
+                div.onclick = () => selectArticle(pmid);
+                pmidListContainer.appendChild(div);
+            });
+        }
+
+        function selectArticle(pmid) {
+            document.querySelectorAll('.pmid-item').forEach(el => el.classList.remove('active'));
+            articleView.style.display = 'block';
+            welcomeView.style.display = 'none';
+
+            const rawContent = jsonData[pmid];
+            const titleMatch = rawContent.match(/Title:\s*(.*)/i);
+            document.getElementById('display-pmid').textContent = `PMID: ${pmid}`;
+            document.getElementById('display-title').textContent = titleMatch ? titleMatch[1] : "No Title Found";
+
+            const articleBody = document.getElementById('article-body');
+            articleBody.innerHTML = '';
+
+            const headers = ["Abstract", "Introduction", "Discussion", "Conclusion", "Methods", "Results", "Pharmacotherapy", "Levosimendan", "Ranolazine", "Finerenone", "Emerging", "Regardless", "Figures"];
+
+            const segments = rawContent.split(/(\[FIGURE ANALYSIS.*?\]:)/g);
+            segments.forEach((segment, index) => {
+                if (segment.startsWith('[FIGURE ANALYSIS')) {
+                    const card = document.createElement('div');
+                    card.className = 'figure-card';
+                    card.innerHTML = `<h3>${segment.replace(':', '')}</h3>`;
+                    if (segments[index + 1]) {
+                        const contentDiv = document.createElement('div');
+                        contentDiv.className = 'markdown-content';
+                        contentDiv.innerHTML = marked.parse(segments[index + 1].trim());
+                        card.appendChild(contentDiv);
+                        segments[index + 1] = '';
+                    }
+                    articleBody.appendChild(card);
+                } else if (segment.trim()) {
+                    let processedText = segment.trim();
+                    headers.forEach(h => {
+                        processedText = processedText.replace(new RegExp(`^(${h}):\\s*`, 'mi'), '\n## $1\n\n');
+                    });
+                    processedText = processedText.replace(/^(\d+(\.\d+)?\s+[^:\n]+):(\s*)/gm, '\n## $1\n\n$3');
+
+                    if (index === 0) {
+                        processedText = processedText.replace(/^PMID:.*?\n/i, '').replace(/^\[FULL-TEXT\]\n/i, '').replace(/^Title:.*?\n/i, '');
+                    }
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'markdown-content';
+                    contentDiv.innerHTML = marked.parse(processedText);
+                    articleBody.appendChild(contentDiv);
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -574,3 +574,17 @@ Rules:
 - Labels per abstract: supports, refutes, inconclusive.
 - The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
+
+def get_transcription_prompt():
+    return """
+    You are an expert scientific image transcriber. Your task is to transcribe the content of this scientific figure.
+    
+    Instructions:
+    1. Identify the figure type (e.g., bar chart, line graph, blot, diagram, microscopy image).
+    2. Extract all visible text, labels, and legends.
+    3. Describe the visual patterns, trends, or relationships shown.
+    4. If it's a chart, estimate the values of data points.
+    5. If it's a blot or microscopy image, describe the key observations.
+    6. Provide a detailed, structured transcription that captures all scientific information in the image.
+    7. Do not analyze or interpret the scientific implications yet, just describe what is visually present.
+    """

@@ -97,6 +97,10 @@ def organize_output(directory: Path):
                 # Only TSV and log files (removed HTCondor-specific: .err, .sub, .out)
                 shutil.move(str(item), str(debug_dir / item.name))
                 logger.info(f"Moved {item.name} to debug/")
+            elif item.name in ("full_text_raw.json", "full_text_chunked.json", "secrets.json"):
+                # Preserve full text artifacts and secrets in debug folder
+                shutil.move(str(item), str(debug_dir / item.name))
+                logger.info(f"Moved {item.name} to debug/")
             elif item.name != "config.json":
                 # Remove any other files that aren't config.json
                 item.unlink()

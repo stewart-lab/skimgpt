@@ -15,7 +15,8 @@
         "TOP_N_ARTICLES_MOST_RECENT": 50,
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
-        "MODEL": "o3",
+        "EVAL_MODEL": "o3",
+        "FULL_TEXT_MODEL": "gemini-3-flash-preview",
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
@@ -52,7 +53,6 @@
             "censor_year_upper": 1980,
             "censor_year_lower": 0
         },
-        
         "skim_with_gpt": {
             "position": false,
             "A_TERM_LIST": true,

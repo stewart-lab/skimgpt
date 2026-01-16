@@ -14,7 +14,7 @@ class CostEstimator:
     def __init__(self, config: Config):
         self.config = config
         self.logger = logging.getLogger("SKiM-GPT")
-        self.model = config.model
+        self.model = config.eval_model
         self.post_n = config.post_n
         
         # Set costs based on model
@@ -312,7 +312,7 @@ class WrapperCostEstimator:
             print("\n" + "="*50)
             print(
                 f"COST ESTIMATION FOR {self.config.job_type.upper()} "
-                f"WITH {self.config.model.upper()} wrapper run "
+                f"WITH {self.config.eval_model.upper()} wrapper run "
                 f"({num_years} years × {num_iters} iters)"
             )
             print("="*50)

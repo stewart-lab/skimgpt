@@ -342,7 +342,11 @@ class Config:
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
         
         # Add API configuration first
-        self.model = self.global_settings["MODEL"]
+        # Backwards compatibility: if MODEL is present but EVAL_MODEL/FULL_TEXT_MODEL are not, use MODEL
+        self.model = self.global_settings.get("MODEL") # Legacy support
+        self.eval_model = self.global_settings.get("EVAL_MODEL", self.model)
+        self.full_text_model = self.global_settings.get("FULL_TEXT_MODEL", "gemini-3-flash-preview")
+        
         self.max_retries = self.global_settings["MAX_RETRIES"]
         self.retry_delay = self.global_settings["RETRY_DELAY"]
         
@@ -356,18 +360,32 @@ class Config:
         self.secrets = self.load_secrets()
         self.validate_secrets()
         
-        # Initialize OpenAI/DeepSeek client
+        # Initialize client for EVAL model (Classifier)
+        self.llm_client = None
+        if self.eval_model:
+            if "gemini" in self.eval_model:
+                 # If eval model is Gemini (rare, but supported via env var mostly)
+                 os.environ["GEMINI_API_KEY"] = self.secrets.get("GEMINI_API_KEY", "")
+                 self.logger.debug("Configured for Gemini Eval - GEMINI_API_KEY set in env")
+            else:
+                is_deepseek = self.eval_model == "r1"
+                key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
+                api_key = self.secrets.get(key_name)
+                
+                if api_key:
+                    client_kwargs = {"api_key": api_key}
+                    if is_deepseek:
+                        client_kwargs["base_url"] = "https://api.deepseek.com/v1"
+                    
+                    self.llm_client = openai.OpenAI(**client_kwargs)
+                    self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client for eval_model: {self.eval_model}")
+                    
+        # Setup Gemini env var if full_text_model uses it
+        if "gemini" in self.full_text_model:
+             gemini_key = self.secrets.get("GEMINI_API_KEY")
+             if gemini_key:
+                 os.environ["GEMINI_API_KEY"] = gemini_key
 
-        is_deepseek = self.model == "r1"
-        key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
-        api_key = self.secrets[key_name]
-        
-        client_kwargs = {"api_key": api_key}
-        if is_deepseek:
-            client_kwargs["base_url"] = "https://api.deepseek.com/v1"
-        
-        self.llm_client = openai.OpenAI(**client_kwargs)
-        self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client")
         
         self.km_output_dir = None
         self.km_output_base_name = None
@@ -379,6 +397,7 @@ class Config:
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["relevance_filter"]
+
         self.debug = self.filter_config["DEBUG"]
         self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.post_n = self.global_settings["POST_N"]
@@ -647,21 +666,35 @@ class Config:
         """Check if in DCH (direct comparison hypothesis) mode"""
         return self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
 
+    @property
+    def full_text(self):
+        """Check if full-text fetching from PMC is enabled"""
+        return self.global_settings.get("full_text", False)
 
     def create_secrets_file(self):
         """Create secrets.json from environment variables if missing"""
         secrets = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
-            "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
+            "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
+            "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY")
         }
         
         # Only check for required keys based on model
         required_keys = ["PUBMED_API_KEY"]
-        if self.model == "r1":
+        
+        # Check eval_model requirements
+        if self.eval_model == "r1":
             required_keys.append("DEEPSEEK_API_KEY")
-        else:
+        elif self.eval_model and "gemini" in self.eval_model: # Check if model name implies gemini
+            required_keys.append("GEMINI_API_KEY")
+        elif self.eval_model: # Default to OpenAI if not special
             required_keys.append("OPENAI_API_KEY")
+
+        # Check full_text_model requirements
+        if self.full_text_model and "gemini" in self.full_text_model:
+             if "GEMINI_API_KEY" not in required_keys:
+                 required_keys.append("GEMINI_API_KEY")
         
         missing = [k for k in required_keys if not secrets.get(k)]
         if missing:
@@ -689,15 +722,21 @@ class Config:
         """Validate required secrets exist"""
         required = ["PUBMED_API_KEY"]
         
-        # Add API key requirement based on model
-        if self.model == "r1":
+        if self.eval_model == "r1":
             required.append("DEEPSEEK_API_KEY")
-        else:
+        elif self.eval_model and "gemini" in self.eval_model:
+            required.append("GEMINI_API_KEY")
+        elif self.eval_model:
             required.append("OPENAI_API_KEY")
+            
+        if self.full_text_model and "gemini" in self.full_text_model:
+             if "GEMINI_API_KEY" not in required:
+                 required.append("GEMINI_API_KEY")
         
         missing = [key for key in required if not self.secrets.get(key)]
         if missing:
             raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")
+
 
     def set_iteration(self, iteration_number: int):
         """Set the current iteration and update output paths accordingly"""

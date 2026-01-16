@@ -483,7 +483,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
 
     params = {
         "messages": messages,
-        "model": ("deepseek-reasoner" if config.model == "r1" else config.model),
+        "model": ("deepseek-reasoner" if config.eval_model == "r1" else config.eval_model),
     }
 
     # Retry and error handling (migrated from call_openai)
@@ -565,7 +565,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
         except openai.UnprocessableEntityError as e:
-            if config.model == "r1":
+            if config.eval_model == "r1":
                 config.logger.error("UnprocessableEntityError: Invalid parameters for DeepSeek API.")
             else:
                 config.logger.error("UnprocessableEntityError: Unable to process the request.")
@@ -573,11 +573,12 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
         except openai.RateLimitError as e:
-            if config.model == "r1":
+            if config.eval_model == "r1":
                 config.logger.warning("Rate Limit Reached: Please slow down requests.")
             else:
                 config.logger.warning("429 received; backing off …")
             config.logger.debug(str(e))
+
             time.sleep(retry_delay)
             continue
         except openai.APITimeoutError as e:
@@ -591,7 +592,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
         except openai.APIStatusError as e:
-            if config.model == "r1" and e.status_code == 500:
+            if config.eval_model == "r1" and e.status_code == 500:
                 config.logger.error("Server Error: DeepSeek server issue; retrying later …")
             else:
                 config.logger.error(
@@ -600,7 +601,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             time.sleep(retry_delay)
             continue
         except openai.APIError as e:
-            if config.model == "r1":
+            if config.eval_model == "r1":
                 status_code = getattr(e, 'status_code', None)
                 if status_code == 402:
                     config.logger.error("Insufficient Balance: Please add funds.")

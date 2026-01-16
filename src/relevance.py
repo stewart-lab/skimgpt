@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ast
+import json
 import pandas as pd
 import os
 import socket
@@ -8,18 +9,28 @@ from itertools import chain
 import random
 from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
 from src.pubmed_fetcher import PubMedFetcher
+from src.full_text_chunker import FullTextChunker
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
+    analyze_abstract_with_frontier_LLM,
 )
+
 from src.triton_client import TritonClient
+from src.image_analyzer import ImageAnalyzer
+
+
+def flatten_nested(data: list) -> list:
+    """Flatten nested lists into a single list if the first element is itself a list."""
+    if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+        return [item for sublist in data for item in sublist]
+    return data
 
 
 def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
-
-    # Replace ampersands with spaces in all terms for hypothesis generation
+    # Sanitize terms for hypothesis generation
     if a_term:
         a_term = a_term.replace("&", " ")
     if b_term:
@@ -29,24 +40,20 @@ def getHypothesis(
 
     if config.is_km_with_gpt:
         assert a_term and b_term and not c_term
-        hypothesis_template = config.km_hypothesis
-        return hypothesis_template.format(a_term=a_term, b_term=b_term)
-    elif config.is_skim_with_gpt:
+        return config.km_hypothesis.format(a_term=a_term, b_term=b_term)
+
+    if config.is_skim_with_gpt:
         assert (
             (a_term and b_term and not c_term)
             or (b_term and c_term and not a_term)
             or (a_term and c_term and not b_term)
         )
-
         if a_term and b_term and not c_term:
-            hypothesis_template = config.skim_hypotheses["AB"]
-            return hypothesis_template.format(a_term=a_term, b_term=b_term)
-        elif b_term and c_term and not a_term:
-            hypothesis_template = config.skim_hypotheses["BC"]
-            return hypothesis_template.format(b_term=b_term, c_term=c_term)
-        elif a_term and c_term and not b_term:
-            hypothesis_template = config.skim_hypotheses["rel_AC"]
-            return hypothesis_template.format(a_term=a_term, c_term=c_term)
+            return config.skim_hypotheses["AB"].format(a_term=a_term, b_term=b_term)
+        if b_term and c_term and not a_term:
+            return config.skim_hypotheses["BC"].format(b_term=b_term, c_term=c_term)
+        if a_term and c_term and not b_term:
+            return config.skim_hypotheses["rel_AC"].format(a_term=a_term, c_term=c_term)
 
     return f"No valid hypothesis for the provided {config.job_type}."
 
@@ -141,6 +148,13 @@ def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTenso
         hypotheses.break_point,
     )
 
+def _truncate_for_log(text: str, max_len: int) -> str:
+    """Truncate text for logging, appending ellipsis if needed."""
+    if len(text) > max_len:
+        return f"{text[:max_len]}..."
+    return text
+
+
 def postProcess(
     config: Config,
     outputs: RaggedTensor,
@@ -149,92 +163,64 @@ def postProcess(
     out_df: pd.DataFrame,
     terms: str,
     shape: list,
-):
-    # Save flat references before reshaping for logging context
+) -> None:
     flat_abstracts = abstracts.data.copy() if abstracts.data else []
     flat_hypotheses = hypotheses.data.copy() if hypotheses.data else []
-
     abstracts.reshape(shape)
-    
+
     logger = config.logger
     logger.info(f"Processing {len(outputs.data)} abstracts for {terms} relationship")
 
-    if not config.debug:
-        # Non-debug mode: simple evaluation
-        evaluated_results = []
-        for idx, output in enumerate(outputs.data):
-            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
-            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
-            result = safe_eval(output, idx, abstract, hypothesis, 0, logger)
-            evaluated_results.append(result)
-            
-            # Log each evaluation
-            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
-            logger.debug(f"[{terms}] Abstract {idx}: {relevance_status}")
-            logger.debug(f"  Model output: '{output.strip()}'")
-            logger.debug(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
-            logger.debug(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+    # Evaluate outputs
+    evaluated_results = []
+    for idx, answer in enumerate(outputs.data):
+        abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
+        hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
         
-        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
-        answer_masks.reshape(shape)
-        abstracts.applyFilter(answer_masks)
-    else:
-        # Debug mode: evaluation with chain-of-thought
-        evaluated_results = []
-        for idx, answer in enumerate(outputs.data):
-            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
-            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
-            first_char = answer[0] if answer else ""
-            result = safe_eval(first_char, idx, abstract, hypothesis, 0, logger)
-            evaluated_results.append(result)
-            
-            # Log each evaluation with full answer (CoT)
-            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
-            logger.info(f"[{terms}] Abstract {idx}: {relevance_status}")
-            logger.info(f"  First char: '{first_char}'")
-            logger.info(f"  Full answer: {answer[:500]}..." if len(answer) > 500 else f"  Full answer: {answer}")
-            logger.info(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
-            logger.info(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+        # In debug mode, extract first char from chain-of-thought answer
+        text_to_eval = answer[0] if config.debug and answer else answer
+        result = safe_eval(text_to_eval, idx, abstract, hypothesis, 0, logger)
+        evaluated_results.append(result)
+
+        # Log evaluation
+        relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
+        log_fn = logger.info if config.debug else logger.debug
+        log_fn(f"[{terms}] Abstract {idx}: {relevance_status}")
         
-        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
-        answer_masks.reshape(shape)
+        if config.debug:
+            logger.info(f"  First char: '{text_to_eval}'")
+            logger.info(f"  Full answer: {_truncate_for_log(answer, 500)}")
+        else:
+            logger.debug(f"  Model output: '{answer.strip()}'")
+        
+        log_fn(f"  Hypothesis: {_truncate_for_log(hypothesis, 150)}")
+        log_fn(f"  Abstract: {_truncate_for_log(abstract, 200)}")
+
+    answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
+    answer_masks.reshape(shape)
+
+    if config.debug:
         cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
+        out_df[f"{terms}_cot"] = cot.data
+        out_df[f"{terms}_hypothesis"] = hypotheses.data
 
-        if terms == "ac":
-            out_df[f"{terms}_mask"] = answer_masks.data
-            out_df[f"{terms}_cot"] = cot.data
-            out_df[f"{terms}_hypothesis"] = hypotheses.data
-        else:
-            out_df[f"{terms}_mask"] = answer_masks.data
-            out_df[f"{terms}_cot"] = cot.data
-            out_df[f"{terms}_hypothesis"] = hypotheses.data
-        
-        # In debug mode, still filter abstracts for downstream processing
-        # The mask is saved separately for debugging purposes
-        abstracts.applyFilter(answer_masks)
-
+    abstracts.applyFilter(answer_masks)
     out_df[f"{terms}_mask"] = answer_masks.data
     out_df[f"{terms}_abstracts"] = abstracts.data
-    
-    # Log filtering statistics - flatten the data if it's nested (after reshape)
-    def flatten_if_needed(data):
-        """Flatten nested lists into a single list"""
-        if data and isinstance(data[0], list):
-            return [item for sublist in data for item in sublist]
-        return data
-    
-    flat_masks = flatten_if_needed(answer_masks.data)
-    total_abstracts = len(flat_masks)
+
+    # Log filtering statistics
+    flat_masks = flatten_nested(answer_masks.data)
+    total_count = len(flat_masks)
     relevant_count = sum(flat_masks)
-    filtered_count = total_abstracts - relevant_count
-    logger.info(f"[{terms}] Filtering summary: {relevant_count}/{total_abstracts} abstracts marked RELEVANT, {filtered_count} filtered out")
-    
-    # In debug mode, abstracts aren't filtered in-place, so we need to log which ones will be excluded
+    logger.info(f"[{terms}] Filtering summary: {relevant_count}/{total_count} abstracts marked RELEVANT, {total_count - relevant_count} filtered out")
+
     if config.debug:
         excluded_indices = [idx for idx, mask in enumerate(flat_masks) if mask == 0]
         if excluded_indices:
-            logger.info(f"[{terms}] The following {len(excluded_indices)} abstract indices were marked NOT RELEVANT and should be excluded from sampling: {excluded_indices[:20]}{'...' if len(excluded_indices) > 20 else ''}")
+            preview = excluded_indices[:20]
+            suffix = "..." if len(excluded_indices) > 20 else ""
+            logger.info(f"[{terms}] The following {len(excluded_indices)} abstract indices were marked NOT RELEVANT and should be excluded from sampling: {preview}{suffix}")
 
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
@@ -268,7 +254,77 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
-def sample_consolidated_abstracts(v1, v2, config: Config):
+def _deduplicate_by_pmid(entries: list, seen_pmids: set) -> list:
+    """Deduplicate entries by PMID, updating seen_pmids in place."""
+    result = []
+    for text in entries:
+        pmid = extract_pmid(text)
+        if pmid:
+            if pmid in seen_pmids:
+                continue
+            seen_pmids.add(pmid)
+        result.append(text)
+    return result
+
+
+def _compute_sampling_allocation(
+    total1: int, total2: int, target_total: int, min_floor: float
+) -> tuple[int, int]:
+    """Compute sample sizes for two pools with proportional allocation.
+    
+    Returns (n1, n2) sample counts respecting availability and floor constraints.
+    """
+    total = total1 + total2
+    if total == 0:
+        return 0, 0
+
+    # Compute proportional shares with minimum floor
+    s1 = max(total1 / total, min_floor) if total1 > 0 else 0.0
+    s2 = max(total2 / total, min_floor) if total2 > 0 else 0.0
+
+    # Normalize shares
+    sum_s = s1 + s2
+    if sum_s > 0:
+        s1, s2 = s1 / sum_s, s2 / sum_s
+
+    # Initial allocation with rounding
+    n1 = int(round(s1 * target_total)) if total1 > 0 else 0
+    n2 = int(round(s2 * target_total)) if total2 > 0 else 0
+
+    # Adjust to hit target_total
+    diff = target_total - (n1 + n2)
+    while diff > 0:
+        cap1, cap2 = total1 - n1, total2 - n2
+        if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
+            if cap1 > 0:
+                n1 += 1
+        elif cap2 > 0:
+            n2 += 1
+        diff -= 1
+
+    while diff < 0:
+        if n1 >= n2 and n1 > 0:
+            n1 -= 1
+        elif n2 > 0:
+            n2 -= 1
+        diff += 1
+
+    # Cap by availability
+    n1 = min(n1, total1)
+    n2 = min(n2, total2)
+
+    # Top up from the other side if under target
+    remaining = target_total - (n1 + n2)
+    if remaining > 0:
+        add1 = min(remaining, total1 - n1)
+        n1 += add1
+        remaining -= add1
+        n2 += min(remaining, total2 - n2)
+
+    return n1, n2
+
+
+def sample_consolidated_abstracts(v1, v2, config: Config) -> tuple[str, int, int]:
     """Sample from two abstract collections; return consolidated text, sampled count, total deduped count.
 
     Args:
@@ -281,266 +337,157 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     """
     logger = config.logger
 
-    list1 = normalize_entries(v1)
-    list2 = normalize_entries(v2)
+    # Normalize and deduplicate
+    seen_pmids: set = set()
+    list1 = _deduplicate_by_pmid(normalize_entries(v1), seen_pmids)
+    list2 = _deduplicate_by_pmid(normalize_entries(v2), seen_pmids)
 
-    # Deduplicate across rows using PMID
-    seen_pmids = set()
-    dedup1 = []
-    for t in list1:
-        pmid = extract_pmid(t)
-        if pmid:
-            if pmid in seen_pmids:
-                continue
-            seen_pmids.add(pmid)
-        dedup1.append(t)
+    total1, total2 = len(list1), len(list2)
 
-    dedup2 = []
-    for t in list2:
-        pmid = extract_pmid(t)
-        if pmid:
-            if pmid in seen_pmids:
-                continue
-            seen_pmids.add(pmid)
-        dedup2.append(t)
-
-    list1 = dedup1
-    list2 = dedup2
-
-    total1 = len(list1)
-    total2 = len(list2)
-    
     # Log PMIDs in the sampling pool
     pool_pmids1 = [extract_pmid(abstract) for abstract in list1]
     pool_pmids2 = [extract_pmid(abstract) for abstract in list2]
-    
+
     logger.info(f"Sampling pool: Candidate 1 has {total1} deduplicated abstracts")
     logger.info(f"  Candidate 1 PMIDs in pool: {pool_pmids1[:20]}{'...' if len(pool_pmids1) > 20 else ''}")
     logger.info(f"Sampling pool: Candidate 2 has {total2} deduplicated abstracts")
     logger.info(f"  Candidate 2 PMIDs in pool: {pool_pmids2[:20]}{'...' if len(pool_pmids2) > 20 else ''}")
-    
+
     logger.debug(f"entities_in_candidate1: {total1}")
     logger.debug(f"entities_in_candidate2: {total2}")
-    total = total1 + total2
-    logger.debug(f"entities_total: {total}")
+    logger.debug(f"entities_total: {total1 + total2}")
 
-    # Configurable parameters (cap removed, floor fixed at 0.06)
+    # Configurable parameters
     min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
     target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
 
-    n1 = 0
-    n2 = 0
-    if total > 0:
-        s1 = (total1 / total) if total > 0 else 0.0
-        s2 = (total2 / total) if total > 0 else 0.0
-
-        # Apply minimum floor only to non-empty sets
-        if total1 > 0:
-            s1 = max(s1, min_floor)
-        if total2 > 0:
-            s2 = max(s2, min_floor)
-
-        # Normalize shares
-        if s1 == 0 and s2 > 0:
-            s2 = 1.0
-        elif s2 == 0 and s1 > 0:
-            s1 = 1.0
-        else:
-            sum_s = s1 + s2
-            s1 = s1 / sum_s if sum_s > 0 else 0.0
-            s2 = s2 / sum_s if sum_s > 0 else 0.0
-
-        # No max ratio cap; proceed directly to allocation
-
-        # Initial allocation with rounding
-        n1 = int(round(s1 * target_total)) if total1 > 0 else 0
-        n2 = int(round(s2 * target_total)) if total2 > 0 else 0
-
-        # Adjust to hit target_total
-        diff = target_total - (n1 + n2)
-        if diff != 0:
-            if diff > 0:
-                # Allocate remaining to the side with larger fractional share and capacity
-                for _ in range(diff):
-                    cap1 = total1 - n1
-                    cap2 = total2 - n2
-                    if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
-                        n1 += 1 if cap1 > 0 else 0
-                    else:
-                        n2 += 1 if cap2 > 0 else 0
-            else:
-                # Remove extras from the side with larger current allocation
-                for _ in range(-diff):
-                    if n1 >= n2 and n1 > 0:
-                        n1 -= 1
-                    elif n2 > 0:
-                        n2 -= 1
-
-        # Cap by availability
-        n1 = min(n1, total1)
-        n2 = min(n2, total2)
-
-        # If still under target due to limited availability, top up from the other side
-        remaining = target_total - (n1 + n2)
-        if remaining > 0:
-            add1 = min(remaining, total1 - n1)
-            n1 += add1
-            remaining -= add1
-            if remaining > 0:
-                add2 = min(remaining, total2 - n2)
-                n2 += add2
+    n1, n2 = _compute_sampling_allocation(total1, total2, target_total, min_floor)
 
     # Perform sampling
     sampled1 = random.sample(list1, n1) if n1 > 0 else []
     sampled2 = random.sample(list2, n2) if n2 > 0 else []
-    
-    # Extract PMIDs from sampled abstracts for logging
+
+    # Log sampled PMIDs
     sampled_pmids1 = [extract_pmid(abstract) for abstract in sampled1]
     sampled_pmids2 = [extract_pmid(abstract) for abstract in sampled2]
-    
+
     logger.info(f"Sampling: Selected {n1}/{total1} abstracts from candidate 1")
     logger.info(f"  Candidate 1 PMIDs sampled: {sampled_pmids1[:10]}{'...' if len(sampled_pmids1) > 10 else ''}")
     logger.info(f"Sampling: Selected {n2}/{total2} abstracts from candidate 2")
     logger.info(f"  Candidate 2 PMIDs sampled: {sampled_pmids2[:10]}{'...' if len(sampled_pmids2) > 10 else ''}")
-    
+
     logger.debug(f"sampled1: len {len(sampled1)} {sampled1}")
     logger.debug(f"sampled2: len {len(sampled2)} {sampled2}")
+    
     sampled_abstracts = sampled1 + sampled2
     logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({n1} from candidate1 + {n2} from candidate2)")
     logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
 
-    if sampled_abstracts:
-        consolidated_abstracts = "\n\n".join(sampled_abstracts)
-        expected_count = len(sampled_abstracts)
-    else:
-        consolidated_abstracts = ""
-        expected_count = 0
+    consolidated = "\n\n".join(sampled_abstracts) if sampled_abstracts else ""
+    return consolidated, len(sampled_abstracts), total1 + total2
 
-    total_relevant_abstracts = total1 + total2
 
-    return consolidated_abstracts, expected_count, total_relevant_abstracts
+def _get_output_filename(row: pd.Series, config: Config) -> str:
+    """Generate the output JSON filename based on config mode and row data."""
+    if config.is_dch:
+        hyp1_name = sanitize_term_for_filename(row.get("hypothesis1", "hypothesis1"))
+        hyp2_name = sanitize_term_for_filename(row.get("hypothesis2", "hypothesis2"))
+        return f"{hyp1_name}_vs_{hyp2_name}_km_with_gpt_direct_comp.json"
+    
+    a_fname = sanitize_term_for_filename(row.get("a_term", ""))
+    b_fname = sanitize_term_for_filename(row.get("b_term", ""))
+    
+    if config.is_skim_with_gpt:
+        c_fname = sanitize_term_for_filename(row.get("c_term", ""))
+        return f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
+    
+    return f"{a_fname}_{b_fname}_km_with_gpt.json"
 
 
 def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched: int) -> None:
-    logger = config.logger
     """Process results and write to JSON files."""
+    logger = config.logger
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
 
     # Determine output directory based on iteration
     output_base_dir = config.km_output_dir
-    
-    # If we're in an iteration, use the iteration subdirectory
     if config.iterations and config.current_iteration > 0:
-        iteration_dir = f"iteration_{config.current_iteration}"
-        output_base_dir = os.path.join(output_base_dir, iteration_dir)
-        # Make sure the directory exists
+        output_base_dir = os.path.join(output_base_dir, f"iteration_{config.current_iteration}")
         os.makedirs(output_base_dir, exist_ok=True)
         logger.info(f"Writing results to iteration directory: {output_base_dir}")
     else:
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if config.is_dch:
-        # Build direct comparison hypotheses and provide consolidated text content
-        # Strip pipes from individual terms BEFORE formatting hypotheses
+        # Build direct comparison hypotheses
         a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
         b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
+        hypotheses = [
+            getHypothesis(config=config, a_term=a, b_term=b)
+            for a, b in zip(a_terms_clean, b_terms_clean)
+        ]
         logger.debug(f"hypotheses: {hypotheses}")
-        hyp1 = hypotheses[0]
-        hyp2 = hypotheses[1]
-        logger.debug(f"hyp1: {hyp1}")
-        logger.debug(f"hyp2: {hyp2}")
+        logger.debug(f"hyp1: {hypotheses[0]}")
+        logger.debug(f"hyp2: {hypotheses[1]}")
 
-        # Consolidate abstracts/text from both candidate rows (if present)
-        v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
-        v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
-        
-        # Flatten if needed (abstracts might be nested after RaggedTensor reshape)
-        def flatten_if_nested(data):
-            if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-                return [item for sublist in data for item in sublist]
-            return data
-        
-        v1_all = flatten_if_nested(v1_all_raw)
-        v2_all = flatten_if_nested(v2_all_raw)
-        
-        # Abstracts are now already filtered in postProcess (even in debug mode)
-        # so we can use them directly
-        v1 = v1_all
-        v2 = v2_all
+        # Consolidate abstracts from both candidate rows
+        v1 = flatten_nested(out_df.iloc[0].get("ab_abstracts", []))
+        v2 = flatten_nested(out_df.iloc[1].get("ab_abstracts", []))
         logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
         logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
-        # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
-        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
-
-        # Store hypotheses (already cleaned via strip_pipe on individual terms)
-        dch_row = {
-            "hypothesis1": hyp1,
-            "hypothesis2": hyp2,
+        consolidated_abstracts, expected_count, total_relevant = sample_consolidated_abstracts(v1, v2, config)
+        out_df = pd.DataFrame([{
+            "hypothesis1": hypotheses[0],
+            "hypothesis2": hypotheses[1],
             "ab_abstracts": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
-            "total_relevant_abstracts": total_relevant_abstracts,
-        }
-        out_df = pd.DataFrame([dch_row])
+            "total_relevant_abstracts": total_relevant,
+        }])
 
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
         logger.debug(f" Result dict: {result_dict}")
-        if result_dict:
-            # Ensure Hypothesis is present for standard KM outputs (non-DCH)
-            if config.is_km_with_gpt and not config.is_dch:
-                try:
-                    a_term_val = row.get("a_term", "")
-                    b_term_val = row.get("b_term", "")
-                    hyp_str = getHypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
-                    if "A_B_Relationship" in result_dict:
-                        result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
-                except Exception:
-                    pass
-            for ratio_type in ["ab", "bc", "ac"]:
-                ratio_col = f"{ratio_type}_relevance_ratio"
-                fraction_col = f"{ratio_type}_relevance_fraction"
-                if ratio_col in out_df.columns and fraction_col in out_df.columns:
-                    ratio = row[ratio_col]
-                    fraction = row[fraction_col]
-                    result_dict[f"{ratio_type}_relevance"] = f"{ratio:.2f} ({fraction})"
+        if not result_dict:
+            continue
 
-            result_dict["num_abstracts_fetched"] = num_abstracts_fetched
-            
-            # DCH-specific processing
-            if config.is_dch:
-                # Append authoritative total relevant count from relevance filter
-                try:
-                    result_dict["total_relevant_abstracts"] = int(row.get("total_relevant_abstracts", 0))
-                except Exception:
-                    result_dict["total_relevant_abstracts"] = 0
-                logger.info(f"Processed row {index + 1}/{total_rows} (DCH)")
-            else:
-                logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+        # Add hypothesis for standard KM outputs
+        if config.is_km_with_gpt and not config.is_dch:
+            try:
+                hyp_str = getHypothesis(
+                    config=config,
+                    a_term=row.get("a_term", ""),
+                    b_term=row.get("b_term", "")
+                )
+                if "A_B_Relationship" in result_dict:
+                    result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
+            except Exception:
+                pass
 
-            raw_a = row.get("a_term", "")
-            raw_b = row.get("b_term", "")
-            raw_c = row.get("c_term", "")
+        # Add relevance ratios
+        for ratio_type in ["ab", "bc", "ac"]:
+            ratio_col = f"{ratio_type}_relevance_ratio"
+            fraction_col = f"{ratio_type}_relevance_fraction"
+            if ratio_col in out_df.columns and fraction_col in out_df.columns:
+                result_dict[f"{ratio_type}_relevance"] = f"{row[ratio_col]:.2f} ({row[fraction_col]})"
 
-            if config.is_dch:
-                hyp1_name = sanitize_term_for_filename(row.get("hypothesis1", "hypothesis1"))
-                hyp2_name = sanitize_term_for_filename(row.get("hypothesis2", "hypothesis2"))
-                output_json = f"{hyp1_name}_vs_{hyp2_name}_km_with_gpt_direct_comp.json"
-            elif config.is_skim_with_gpt:
-                a_fname = sanitize_term_for_filename(raw_a)
-                b_fname = sanitize_term_for_filename(raw_b)
-                c_fname = sanitize_term_for_filename(raw_c)
-                output_json = f"{a_fname}_{c_fname}_{b_fname}_skim_with_gpt.json"
-            else:
-                a_fname = sanitize_term_for_filename(raw_a)
-                b_fname = sanitize_term_for_filename(raw_b)
-                output_json = f"{a_fname}_{b_fname}_km_with_gpt.json"
+        result_dict["num_abstracts_fetched"] = num_abstracts_fetched
 
-            logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
-            logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, output_base_dir, config)
+        # DCH-specific processing
+        if config.is_dch:
+            try:
+                result_dict["total_relevant_abstracts"] = int(row.get("total_relevant_abstracts", 0))
+            except Exception:
+                result_dict["total_relevant_abstracts"] = 0
+            logger.info(f"Processed row {index + 1}/{total_rows} (DCH)")
+        else:
+            logger.info(f"Processed row {index + 1}/{total_rows} ({row['b_term']})")
+
+        output_json = _get_output_filename(row, config)
+        logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
+        logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
+        write_to_json([result_dict], output_json, output_base_dir, config)
 
 
 
@@ -646,7 +593,9 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     # Fetch abstracts
     abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
     num_abstracts_fetched = len(abstract_map)
+    # PubMedFetcher already prefixes with PMID, so we don't need to add it here
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
+
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
@@ -714,6 +663,277 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     # Skip process_dataframe for DCH mode - sampling handles context window sizing
     if not config.is_dch:
         out_df = process_dataframe(out_df, config, pubmed_fetcher)
+
+    # --- ENRICHMENT STEP ---
+    # Now that we have relevance scores and filtered abstracts, selectively fetch full text for relevant articles.
+    # We need to act on the dataframe contents.
+    
+    if getattr(config, 'full_text', False):
+        logger.info("Full-text enrichment enabled. Identifying relevant PMIDs...")
+        relevant_pmids = set()
+        
+        # Collect relevant PMIDs from out_df columns
+        # The columns containing abstracts (e.g., 'ab_abstracts') might have been modified/sampled.
+        # But we also have the RaggedTensor masks/data that were used.
+        # However, it's easier to iterate through the dataframe which lines up with our outputs.
+        # Wait, out_df['ab_abstracts'] etc contain lists of text.
+        # We need to parse PMIDs from them if we want to enrich them.
+        # Or better, we can use the 'ab_mask' etc columns if we have access to the original PMIDs.
+        # The 'process_results' step does filtering. 'postProcess' updates 'out_df'.
+        # 'all_pmids' was configured earlier.
+        
+        # Let's iterate through the rows and checking for relevant items.
+        # But wait, out_df[col] usually holds a list of STRINGS (abstracts).
+        # We need to update these specific strings in place or map them.
+        
+        pmids_to_enrich = []
+        
+        # Helper to extract PMIDs from relevant entries
+        def collect_relevant(df, col_prefix):
+            mask_col = f"{col_prefix}_mask"
+            abs_col = f"{col_prefix}_abstracts"
+            if mask_col in df.columns and abs_col in df.columns:
+                for idx, row in df.iterrows():
+                    masks = row[mask_col]
+                    abstracts = row[abs_col]
+                    
+                    if not isinstance(masks, list):
+                        continue
+                    
+                    # Handle case where pandas stored single abstract as string
+                    if isinstance(abstracts, str):
+                        abstracts = [abstracts]
+                        
+                    if not isinstance(abstracts, list):
+                        continue
+                    
+                    for m, text in zip(masks, abstracts):
+                        if m == 1: # Relevant
+                            pmid = extract_pmid(text)
+                            if pmid:
+                                pmids_to_enrich.append(pmid)
+        
+        collect_relevant(out_df, "ab")
+        if config.is_skim_with_gpt:
+            collect_relevant(out_df, "bc")
+            if config.has_ac:
+                collect_relevant(out_df, "ac")
+        
+        # Deduplicate
+        pmids_to_enrich = list(set(pmids_to_enrich))
+        logger.info(f"Identified {len(pmids_to_enrich)} distinctive relevant articles for enrichment.")
+
+        
+        if pmids_to_enrich:
+            # Fetch raw data to allow for figure processing
+            enriched_data_map = pubmed_fetcher.fetch_full_text_context(pmids_to_enrich, return_raw=True)
+            
+            # Initialize ImageAnalyzer
+            logger.info("Initializing ImageAnalyzer for figure transcription...")
+            image_analyzer = None
+            try:
+                image_analyzer = ImageAnalyzer(
+                    secrets=config.secrets,
+                    model_name=config.full_text_model,
+                    logger=logger
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize ImageAnalyzer: {e}")
+
+            # Process figures and prepare final content map
+            enriched_content_map = {}
+            for pmid, data in enriched_data_map.items():
+                pmid_str = str(pmid)
+                figures = data.get("figures", [])
+                pmcid = data.get("pmcid")
+                
+                # Full text as string for context in image analysis
+                full_text_body = pubmed_fetcher._format_fulltext_complete(data)
+                
+                if figures and image_analyzer and pmcid:
+                    logger.info(f"Processing {len(figures)} figures for PMID {pmid_str} (PMCID: {pmcid})")
+                    # Create temporary directory for figures
+                    temp_fig_dir = os.path.join(config.km_output_dir, "figures", pmid_str)
+                    os.makedirs(temp_fig_dir, exist_ok=True)
+                    
+                    try:
+                        # 1. Download figures
+                        figures = pubmed_fetcher._download_figures_from_package(pmcid, figures, temp_fig_dir)
+                        
+                        # 2. Analyze figures (Transcription only)
+                        # Filter to only those that were actually downloaded
+                        downloaded_figures = [f for f in figures if "local_path" in f]
+                        if downloaded_figures:
+                            analyzed_figures = image_analyzer.enhance_figure_descriptions(downloaded_figures, full_text_body)
+                            
+                            # Update original figures list with results
+                            fig_map = {f['id']: f for f in analyzed_figures}
+                            for f in figures:
+                                if f['id'] in fig_map:
+                                    f.update(fig_map[f['id']])
+                        
+                        # 3. Reinject transcriptions into sections
+                        # We need to replace [[FIGURE:id]] in the section text
+                        sections = data.get("sections", {})
+                        for sec_name, sec_text in sections.items():
+                            for fig in figures:
+                                fig_id = fig.get("id")
+                                transcription = fig.get("enhanced_content", fig.get("caption", ""))
+                                placeholder = f"[[FIGURE:{fig_id}]]"
+                                if placeholder in sec_text:
+                                    replacement = f"\n\n[FIGURE ANALYSIS {fig_id}]: {transcription}\n\n"
+                                    sections[sec_name] = sec_text.replace(placeholder, replacement)
+                                    logger.debug(f"Reinjected transcription for {fig_id} into section {sec_name}")
+                                    
+                    except Exception as e:
+                        logger.error(f"Error processing figures for PMID {pmid_str}: {e}")
+                
+                # Re-format the (now potentially enriched) data
+                final_text = pubmed_fetcher._format_fulltext_complete(data)
+                enriched_content_map[pmid_str] = f"PMID: {pmid_str}\n[FULL-TEXT]\n{final_text}\n\n===END OF FULL TEXT===\n\n"
+
+            # 5. Chunking Agent: Extract Evidence
+            logger.info("Running Chunking Agent on enriched texts...")
+            # Initialize Chunker with Gemini model details from config
+            chunker = FullTextChunker(
+                secrets=config.secrets, 
+                model_name=config.full_text_model,
+                logger=logger
+            )
+            
+            # Access underlying data lists
+
+            all_pmids_list = all_pmids.data
+            all_hypotheses_list = all_hypotheses.data
+            
+            evidence_map = {}
+            for pmid in pmids_to_enrich:
+                # pmid in pmids_to_enrich is string (from extract_pmid)
+                pmid_str = str(pmid)
+                
+                # Find index in all_pmids_list to get hypothesis
+                # all_pmids_list items might be int or str
+                idx = -1
+                if pmid_str in all_pmids_list:
+                    idx = all_pmids_list.index(pmid_str)
+                else:
+                    try:
+                        pmid_int = int(pmid_str)
+                        if pmid_int in all_pmids_list:
+                            idx = all_pmids_list.index(pmid_int)
+                    except ValueError:
+                        pass
+                
+                if idx != -1:
+                    hypothesis = str(all_hypotheses_list[idx])
+                    
+                    if pmid_str in enriched_content_map:
+                        full_text = enriched_content_map[pmid_str]
+                        logger.debug(f"Chunking PMID {pmid_str} with hypothesis: {hypothesis[:50]}...")
+                        try:
+                            evidence = chunker.chunk_document(full_text, hypothesis)
+                            evidence_map[pmid_str] = evidence
+                        except Exception as e:
+                            logger.error(f"Chunking failed for {pmid_str}: {e}")
+                            evidence_map[pmid_str] = f"Error: {e}"
+                    else:
+                        evidence_map[pmid_str] = "Full text not available."
+                else:
+                    logger.warning(f"Could not find hypothesis for PMID {pmid_str}")
+
+            # Save Evidence for potential downstream usage and debugging
+            if evidence_map:
+                sample_key = list(evidence_map.keys())[0]
+                logger.info(f"Sample Evidence for {sample_key}:\n{evidence_map[sample_key][:200]}...")
+
+                # Save artifacts: Raw Full Text and Chunked Evidence
+                try:
+                    debug_dir = os.path.dirname(config.debug_tsv_name if config.debug else config.filtered_tsv_name)
+                    if not os.path.exists(debug_dir):
+                         # Should ideally exist by now if output dir was created, but safety check
+                         # config.filtered_tsv_name is usually in output_DIR/filename
+                         debug_dir = os.path.dirname(config.filtered_tsv_name)
+                    
+                    # Create a specialized debug folder inside the output dir if preferred, or just use `debug/` from project root?
+                    # config.filtered_tsv_name path is usually /.../output_TIMESTAMP/filename.tsv. 
+                    # Let's verify where 'debug/' is relative to the output.
+                    # Usually main.py creates iteration dirs.
+                    # We will save adjacent to the TSV for now.
+                    
+                    full_text_raw_path = os.path.join(debug_dir, "full_text_raw.json")
+                    full_text_chunked_path = os.path.join(debug_dir, "full_text_chunked.json")
+                    
+                    with open(full_text_raw_path, "w") as f:
+                        json.dump(enriched_content_map, f, indent=2)
+                    logger.info(f"Saved raw full text artifact to {full_text_raw_path}")
+                    
+                    with open(full_text_chunked_path, "w") as f:
+                        json.dump(evidence_map, f, indent=2)
+                    logger.info(f"Saved chunked evidence artifact to {full_text_chunked_path}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to save full text artifacts: {e}")
+
+            
+            # Now update the dataframe content
+            def update_content(df, col_prefix):
+                abs_col = f"{col_prefix}_abstracts"
+                if abs_col in df.columns:
+                    updated_column = []
+                    total_replaced = 0
+                    total_abstracts = 0
+                    for idx, row in df.iterrows():
+                        abstracts_data = row[abs_col]
+                        
+                        # Handle case where abstracts is a string (concatenated by process_dataframe)
+                        is_string = isinstance(abstracts_data, str)
+                        if is_string:
+                            # Split back into individual entries for processing
+                            abstracts_list = normalize_entries(abstracts_data)
+                        elif isinstance(abstracts_data, list):
+                            abstracts_list = abstracts_data
+                        else:
+                            updated_column.append(abstracts_data)
+                            continue
+
+                        new_abs_list = []
+                        for text in abstracts_list:
+                            total_abstracts += 1
+                            pmid = extract_pmid(text)
+                            # FIX: Use EVIDENCE (chunked) if available, otherwise fallback to raw -> abstract
+                            # IMPORTANT: Preserve PMID prefix so downstream URL generation works
+                            if pmid and str(pmid) in evidence_map:
+                                # Preserve PMID prefix for citation tracking
+                                evidence_with_pmid = f"PMID: {pmid}\n[ENRICHED EVIDENCE]\n{evidence_map[str(pmid)]}"
+                                new_abs_list.append(evidence_with_pmid)
+                                total_replaced += 1
+                                logger.debug(f"Updating PMID {pmid} with chunked evidence")
+                            elif pmid and str(pmid) in enriched_content_map:
+                                # Fallback if chunking failed/wasn't done but we have full text
+                                new_abs_list.append(enriched_content_map[str(pmid)])
+                                total_replaced += 1
+                                logger.debug(f"Updating PMID {pmid} with raw full text (fallback)")
+                            else:
+                                new_abs_list.append(text)
+                        
+                        if is_string:
+                            # Re-concatenate if it was originally a string
+                            updated_column.append("\n\n===END OF ABSTRACT===\n\n".join(new_abs_list) + "\n\n===END OF ABSTRACT===\n\n")
+                        else:
+                            updated_column.append(new_abs_list)
+                            
+                    df[abs_col] = updated_column
+                    if total_abstracts > 0:
+                        logger.info(f"[{col_prefix}] Replaced {total_replaced}/{total_abstracts} abstracts with full-text evidence")
+
+            update_content(out_df, "ab")
+            if config.is_skim_with_gpt:
+                update_content(out_df, "bc")
+                if config.has_ac:
+                    update_content(out_df, "ac")
+                    
+            logger.info("Enrichment complete. Dataframe updated with full text content.")
+    # --- END ENRICHMENT STEP ---
 
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name

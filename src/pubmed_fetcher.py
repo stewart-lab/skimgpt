@@ -5,6 +5,12 @@ import re
 from typing import List, Dict, Any
 import os
 from pathlib import Path
+import xml.etree.ElementTree as ET
+import requests
+import tarfile
+import tempfile
+import shutil
+import io
 
 # Configure tiktoken cache directory before import to avoid permission issues
 # in shared computing environments
@@ -29,7 +35,8 @@ class PubMedFetcher:
         self.backoff_factor = backoff_factor
         self.pmid_years = {}  # Store PMID -> Year mapping
         self._setup_entrez()
-        self.logger.info("PubMedFetcher initialized")  # Use config's logger
+        self._rate_limit_delay = 0.1 if api_key else 0.34         # Rate limit: 10 req/s with API key, 3 req/s without
+        self.logger.info(f"PubMedFetcher initialized (rate limit: {1/self._rate_limit_delay:.1f} req/s)")
 
     def _setup_entrez(self):
         """Configure Entrez with credentials."""
@@ -87,10 +94,516 @@ class PubMedFetcher:
             
         return pub_year
 
+    def _fetch_pmc_ids(self, pmids: List[str]) -> Dict[str, str]:
+        """Map PMIDs to PMCIDs for articles available in PMC.
+        
+        Args:
+            pmids: List of PubMed IDs
+            
+        Returns:
+            Dictionary mapping {pmid: pmcid} for articles in PMC
+        """
+        if not pmids:
+            return {}
+            
+        pmid_to_pmcid = {}
+        
+        try:
+            # Use elink to map PMIDs to PMCIDs
+            with Entrez.elink(dbfrom="pubmed", db="pmc", id=pmids) as handle:
+                records = Entrez.read(handle)
+            
+            # Parse the linkset results
+            for record in records:
+                if "LinkSetDb" in record and record["LinkSetDb"]:
+                    # Get the source PMID
+                    source_pmid = str(record["IdList"][0]) if "IdList" in record and record["IdList"] else None
+                    
+                    # Look for PMC links
+                    for linksetdb in record["LinkSetDb"]:
+                        if linksetdb.get("LinkName") == "pubmed_pmc":
+                            # Get the linked PMCID
+                            if "Link" in linksetdb and linksetdb["Link"]:
+                                pmcid = str(linksetdb["Link"][0]["Id"])
+                                if source_pmid:
+                                    pmid_to_pmcid[source_pmid] = pmcid
+                                    self.logger.debug(f"Mapped PMID {source_pmid} -> PMCID {pmcid}")
+            
+            self.logger.info(f"Found {len(pmid_to_pmcid)} PMC IDs out of {len(pmids)} PMIDs")
+            
+        except Exception as e:
+            self.logger.error(f"Error mapping PMIDs to PMCIDs: {e}")
+            
+        return pmid_to_pmcid
+
+    def _fetch_pmc_fulltext(self, pmcid: str) -> Dict[str, Any]:
+        """Fetch and parse full-text article from PMC.
+        
+        Args:
+            pmcid: PubMed Central ID
+            
+        Returns:
+            Dictionary with keys: title, abstract, sections, tables, figures
+            Returns None if fetch fails
+        """
+        try:
+            # Fetch PMC article XML
+            with Entrez.efetch(db="pmc", id=pmcid, retmode="xml") as handle:
+                xml_content = handle.read()
+            
+            # Parse XML
+            root = ET.fromstring(xml_content)
+            
+            # Initialize result structure
+            result = {
+                "title": "",
+                "abstract": "",
+                "sections": {},
+                "tables": [],
+                "figures": []
+            }
+            
+            # Extract title
+            title_elem = root.find(".//article-title")
+            if title_elem is not None:
+                result["title"] = self._extract_text(title_elem)
+            
+            # Extract abstract
+            abstract_elem = root.find(".//abstract")
+            if abstract_elem is not None:
+                result["abstract"] = self._extract_text(abstract_elem)
+            
+            # Extract body sections
+            body = root.find(".//body")
+            if body is not None:
+                result["sections"] = self._extract_sections(body)
+            
+            # Extract tables
+            result["tables"] = self._extract_tables(root)
+            
+            # Extract figures
+            result["figures"] = self._extract_figures(root)
+            
+            # Include PMCID for downstream package downloading
+            result["pmcid"] = pmcid
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching PMC full-text for PMCID {pmcid}: {e}")
+            return None
+
+    def _extract_text(self, element) -> str:
+        """Extract all text content from an XML element, preserving paragraph structure."""
+        if element is None:
+            return ""
+        
+        text_parts = []
+        
+        # Get text from paragraphs if they exist
+        paragraphs = element.findall(".//p")
+        if paragraphs:
+            for p in paragraphs:
+                p_text = "".join(p.itertext()).strip()
+                if p_text:
+                    text_parts.append(p_text)
+        else:
+            # If no paragraphs, get all text
+            text = "".join(element.itertext()).strip()
+            if text:
+                text_parts.append(text)
+        
+        return " ".join(text_parts)
+
+    def _extract_sections(self, body_element) -> Dict[str, str]:
+        """Extract sections from the article body with inline figure placeholders.
+        
+        Args:
+            body_element: XML element containing the article body
+            
+        Returns:
+            Dictionary mapping section names to their content
+        """
+        sections = {}
+        
+        for sec in body_element.findall(".//sec"):
+            # Get section title
+            title_elem = sec.find("./title")
+            if title_elem is not None:
+                section_title = "".join(title_elem.itertext()).strip()
+            else:
+                section_title = "Untitled Section"
+            
+            # Normalize section titles
+            title_lower = section_title.lower()
+            if any(keyword in title_lower for keyword in ["introduction", "background"]):
+                key = "Introduction"
+            elif any(keyword in title_lower for keyword in ["method", "material", "experimental"]):
+                key = "Methods"
+            elif any(keyword in title_lower for keyword in ["result", "finding"]):
+                key = "Results"
+            elif any(keyword in title_lower for keyword in ["discussion", "conclusion"]):
+                key = "Discussion"
+            else:
+                key = section_title
+            
+            # Extract content including paragraphs and inline figures
+            content_parts = []
+            
+            # Iterate over all children to preserve order
+            for child in sec:
+                if child.tag == "title":
+                    continue
+                    
+                if child.tag == "p":
+                    p_text = "".join(child.itertext()).strip()
+                    if p_text:
+                        content_parts.append(p_text)
+                        
+                elif child.tag == "fig":
+                    fig_id = child.get("id")
+                    if fig_id:
+                        # Insert placeholder
+                        content_parts.append(f"\n[[FIGURE:{fig_id}]]\n")
+                        
+                elif child.tag == "sec":
+                    # Handle nested sections recursively if needed, 
+                    # but typically standard PMC structure is flat enough for top-level handling
+                    # or we just grab text from them.
+                    # For simplicity, we can recurse or just grab text. 
+                    # Let's simple-recurse by extracting text from this nested sec.
+                    # Actually, the outer loop findall(".//sec") might catch nested sections 
+                    # if we are not careful about direct children vs descendants.
+                    # findall(".//sec") finds ALL descendants. 
+                    # This means nested sections are processed as separate keys in 'sections' dict?
+                    # The current implementation uses keys like 'Results'. 
+                    # If we have nested sections, they might overwrite or append.
+                    # 'if key in sections: sections[key] += ...' handles append.
+                    # So we don't need to handle child 'sec' here if the outer loop catches it.
+                    pass
+            
+            if content_parts:
+                joined_content = " ".join(content_parts)
+                # Cleanup extra spaces around newlines
+                joined_content = joined_content.replace(" \n[[FIGURE", "\n[[FIGURE").replace("]]\n ", "]]\n")
+                
+                if key in sections:
+                    sections[key] += "\n\n" + joined_content
+                else:
+                    sections[key] = joined_content
+        
+        return sections
+
+    def _extract_tables(self, root) -> List[Dict[str, Any]]:
+        """Extract tables from the article.
+        
+        Args:
+            root: Root XML element
+            
+        Returns:
+            List of dictionaries with table info (id, caption, data)
+        """
+        tables = []
+        
+        for table_wrap in root.findall(".//table-wrap"):
+            table_info = {}
+            
+            # Extract table ID/label
+            label = table_wrap.find("./label")
+            if label is not None:
+                table_info["id"] = "".join(label.itertext()).strip()
+            else:
+                table_info["id"] = f"Table {len(tables) + 1}"
+            
+            # Extract caption
+            caption = table_wrap.find(".//caption")
+            if caption is not None:
+                table_info["caption"] = self._extract_text(caption)
+            else:
+                table_info["caption"] = ""
+            
+            # Extract table data (simplified - just extract text rows)
+            table_elem = table_wrap.find(".//table")
+            if table_elem is not None:
+                rows = []
+                for tr in table_elem.findall(".//tr"):
+                    row_data = []
+                    for cell in tr.findall(".//td") + tr.findall(".//th"):
+                        cell_text = "".join(cell.itertext()).strip()
+                        row_data.append(cell_text)
+                    if row_data:
+                        rows.append(row_data)
+                
+                table_info["data"] = rows
+            else:
+                table_info["data"] = []
+            
+            tables.append(table_info)
+        
+        return tables
+
+    def _extract_figures(self, root) -> List[Dict[str, str]]:
+        """Extract figure metadata from the article.
+        
+        Args:
+            root: Root XML element
+            
+        Returns:
+            List of dictionaries with figure info (id, label, caption, graphic_ref)
+        """
+        figures = []
+        
+        for fig in root.findall(".//fig"):
+            fig_info = {}
+            
+            # Extract figure ID
+            fig_id = fig.get("id", "")
+            fig_info["id"] = fig_id
+            
+            # Extract label
+            label = fig.find("./label")
+            if label is not None:
+                fig_info["label"] = "".join(label.itertext()).strip()
+            else:
+                fig_info["label"] = f"Figure {len(figures) + 1}"
+            
+            # Extract caption
+            caption = fig.find(".//caption")
+            if caption is not None:
+                fig_info["caption"] = self._extract_text(caption)
+            else:
+                fig_info["caption"] = ""
+            
+            # Extract graphic reference (image filename)
+            graphic = fig.find(".//graphic")
+            if graphic is not None:
+                href = graphic.get("{http://www.w3.org/1999/xlink}href", "")
+                fig_info["graphic_ref"] = href
+            else:
+                fig_info["graphic_ref"] = ""
+            
+            figures.append(fig_info)
+        
+        return figures
+    
+    def _fetch_oa_package_url(self, pmcid: str) -> str:
+        """Fetch the FTP/HTTPS URL for the Open Access package of the article.
+        
+        Args:
+            pmcid: PubMed Central ID (e.g., 'PMC3148254')
+            
+        Returns:
+            URL to the tar.gz package or None if not found/error.
+        """
+        try:
+            # PMC ID must have 'PMC' prefix for the OA API
+            if not pmcid.startswith("PMC"):
+                query_id = f"PMC{pmcid}"
+            else:
+                query_id = pmcid
+                
+            api_url = "https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi"
+            params = {"id": query_id}
+            
+            response = requests.get(api_url, params=params, timeout=10)
+            if response.status_code != 200:
+                self.logger.warning(f"OA API returned {response.status_code} for {pmcid}")
+                return None
+                
+            # Parse XML response
+            root = ET.fromstring(response.content)
+            
+            # Find the link with format='tgz'
+            # Path: OA -> records -> record -> link check format='tgz'
+            for link in root.findall(".//link"):
+                if link.get("format") == "tgz":
+                    href = link.get("href")
+                    # Prefer HTTPS if returned as FTP
+                    if href and href.startswith("ftp://"):
+                        href = href.replace("ftp://", "https://", 1)
+                    return href
+            
+            self.logger.debug(f"No tgz link found for {pmcid} in OA API response")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching OA package URL for {pmcid}: {e}")
+            return None
+
+    def _download_figures_from_package(self, pmcid: str, figures_list: List[Dict], output_dir: str) -> List[Dict]:
+        """Download OA package and extract requested figures.
+        
+        Args:
+            pmcid: PMCID string (e.g. PMC3148254)
+            figures_list: List of figure dicts with 'graphic_ref'
+            output_dir: Directory to save figures to
+            
+        Returns:
+            Updated figures_list with 'local_path' populated
+        """
+        try:
+            package_url = self._fetch_oa_package_url(pmcid)
+            if not package_url:
+                self.logger.warning(f"No OA package URL found for {pmcid}")
+                return figures_list
+            
+            # Ensure output_dir is a Path object
+            if not isinstance(output_dir, Path):
+                output_dir = Path(output_dir)
+
+            self.logger.info(f"Downloading OA package for {pmcid} from {package_url}")
+            response = requests.get(package_url, stream=True, timeout=60)
+            
+            if response.status_code != 200:
+                self.logger.error(f"Failed to download tarball: {response.status_code}")
+                return figures_list
+                
+            # Create a set of graphic filenames we want
+            # graphic_ref often lacks extension in XML or matches filename in tarball
+            # We usually look for matching filenames.
+            wanted_graphics = set()
+            for fig in figures_list:
+                ref = fig.get("graphic_ref")
+                if ref:
+                    wanted_graphics.add(ref)
+            
+            if not wanted_graphics:
+                return figures_list
+                
+            extracted_count = 0
+            
+            # Use tarfile on the streamed content
+            # We need to wrap raw stream in a file-like object or download to temp
+            # Downloading to temp file is safer for seek operations if needed by tarfile
+            with tempfile.NamedTemporaryFile(delete=True) as tmp_tar:
+                for chunk in response.iter_content(chunk_size=8192):
+                    tmp_tar.write(chunk)
+                tmp_tar.flush()
+                tmp_tar.seek(0)
+                
+                with tarfile.open(fileobj=tmp_tar, mode="r:gz") as tar:
+                    for member in tar.getmembers():
+                        if not member.isfile():
+                            continue
+                            
+                        # Check if this file is one of our wanted graphics
+                        # The member name includes directory, e.g. "PMC3148254/pone.0023061.g001.jpg"
+                        filename = os.path.basename(member.name)
+                        
+                        # Check match (exact or without extension)
+                        # graphic_ref might be "pone.0023061.g001.jpg" or "pone.0023061.g001"
+                        # We try to match flexibility
+                        match_found = False
+                        matched_ref = None
+                        
+                        if filename in wanted_graphics:
+                            match_found = True
+                            matched_ref = filename
+                        else:
+                            # Try matching without extension
+                            name_no_ext = os.path.splitext(filename)[0]
+                            if name_no_ext in wanted_graphics:
+                                match_found = True
+                                matched_ref = name_no_ext
+                                
+                        if match_found:
+                            # Extract to output_dir
+                            target_path = output_dir / filename
+                            with tar.extractfile(member) as source, open(target_path, "wb") as dest:
+                                shutil.copyfileobj(source, dest)
+                                
+                            # Update the figure dict with local path
+                            for fig in figures_list:
+                                if fig.get("graphic_ref") == matched_ref:
+                                    fig["local_path"] = str(target_path)
+                            
+                            extracted_count += 1
+            
+            self.logger.info(f"Extracted {extracted_count} figures for {pmcid}")
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading/extracting figures for {pmcid}: {e}")
+            
+        return figures_list
+
+
+
+    def _format_fulltext_complete(self, content: Dict[str, Any]) -> str:
+        """Format complete full-text content without truncation.
+        
+        Used for sending to AI chunker which has 1M+ token context window.
+        Includes all sections, tables, and figure metadata.
+        
+        Args:
+            content: Dictionary from _fetch_pmc_fulltext with sections, tables, figures
+            
+        Returns:
+            Complete formatted string with all content
+        """
+        parts = []
+        
+        # Title
+        if content.get("title"):
+            parts.append(f"Title: {content['title']}\n")
+        
+        # Abstract
+        if content.get("abstract"):
+            parts.append(f"\nAbstract: {content['abstract']}\n")
+        
+        # All sections in document order (dict preserves insertion order in Python 3.7+)
+        sections = content.get("sections", {})
+        for section_name, section_content in sections.items():
+            parts.append(f"\n{section_name}: {section_content}\n")
+        
+        # Tables
+        tables = content.get("tables", [])
+        if tables:
+            parts.append(self._format_tables(tables))
+        
+        # Figures
+        figures = content.get("figures", [])
+        if figures:
+            parts.append(self._format_figures(figures))
+        
+        return "".join(parts)
+
+    def _format_tables(self, tables: List[Dict]) -> str:
+        """Format tables for inclusion in full-text."""
+        if not tables:
+            return ""
+        
+        parts = [f"\n\nTables ({len(tables)}):"]
+        
+        for table in tables:
+            parts.append(f"\n{table['id']}: {table['caption']}")
+            
+            # Format table data
+            if table.get("data"):
+                parts.append("\nData:")
+                for row in table["data"]:
+                    parts.append(" | ".join(row))
+                
+
+        
+        return "\n".join(parts)
+
+    def _format_figures(self, figures: List[Dict]) -> str:
+        """Format figure metadata for inclusion in full-text."""
+        if not figures:
+            return ""
+        
+        parts = [f"\n\nFigures ({len(figures)}):"]
+        
+        for fig in figures:
+            parts.append(f"\n{fig['label']}: {fig['caption']}")
+        
+        return "\n".join(parts)
+
     def _fetch_batch(self, batch: List[str]) -> Dict[str, Any]:
-        """Fetch a single batch of PMIDs with retry logic."""
+        """Fetch a single batch of parameters (abstracts only)."""
         for attempt in range(1, self.max_retries + 1):
             try:
+                # Fetch basic metadata from PubMed
                 with Entrez.efetch(db="pubmed", id=batch, retmode="xml", rettype="abstract") as efetch:
                     output = Entrez.read(efetch)
 
@@ -105,14 +618,16 @@ class PubMedFetcher:
                     pub_year = self._extract_publication_year(paper)
                     
                     title = article.get("ArticleTitle", "No title available")
-                    abstract_text = " ".join(
-                        article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
-                    )
-                    
+                    abstract_list = article.get("Abstract", {}).get("AbstractText", ["No abstract available"])
+                    if isinstance(abstract_list, list):
+                        abstract_text = " ".join(abstract_list)
+                    else:
+                        abstract_text = str(abstract_list)
+
                     if len(abstract_text.split()) >= self.config.min_word_count:
                         returned_pmids.append(pmid)
-                        self.pmid_years[pmid] = int(pub_year)  # Store year in instance
-                        content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
+                        self.pmid_years[pmid] = int(pub_year)
+                        content = f"PMID: {pmid}\n[ABSTRACT]\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
                         returned_contents.append(content)
                     else:
                         skipped_min_wc_pmids.append(pmid)
@@ -130,14 +645,68 @@ class PubMedFetcher:
                 }
 
             except Exception as e:
-                self.logger.error(f"Attempt {attempt} - Error fetching abstracts for batch: {e}")
+                self.logger.error(f"Attempt {attempt} - Error fetching batch: {e}")
                 if attempt < self.max_retries:
                     sleep_time = self.backoff_factor * (2 ** (attempt - 1))
-                    self.logger.info(f"Retrying after {sleep_time} seconds...")
+                    self.logger.info(f"Retrying in {sleep_time:.2f} seconds...")
                     time.sleep(sleep_time)
                 else:
-                    self.logger.error("Max retries reached for batch. Skipping.")
+                    self.logger.error(f"Failed to fetch batch after {self.max_retries} attempts.")
                     return {}
+
+    def fetch_full_text_context(self, pmids: List[str], return_raw: bool = False) -> Dict[str, Any]:
+        """Fetch full text (enrichment) for a specific list of PMIDs.
+        
+        Args:
+            pmids: List of PMIDs to fetch full text for.
+            return_raw: If True, returns the raw data dictionary from PMC instead of formatted string.
+            
+        Returns:
+            Dictionary mapping PMID to either full text content string or data dictionary.
+        """
+        if not pmids:
+            return {}
+            
+        self.logger.info(f"Enriching {len(pmids)} articles with full text...")
+        
+        # Map PMIDs to PMCIDs
+        pmid_to_pmcid = self._fetch_pmc_ids(pmids)
+        self.logger.info(f"Found {len(pmid_to_pmcid)} PMCIDs for {len(pmids)} PMIDs")
+        
+        results = {}
+        delimiter = "\n\n===END OF FULL TEXT===\n\n"
+        
+        for i, pmid in enumerate(pmids):
+            # Rate limiting based on API key presence
+            if i > 0:
+                time.sleep(self._rate_limit_delay)
+
+            pmid = str(pmid)
+            pmcid = pmid_to_pmcid.get(pmid)
+            
+            # Default to None (caller might want to know if fetch failed, or just keep abstract)
+            # But here we return the *enriched* content replacing the abstract-only one?
+            # Or just the full text part?
+            # Typically this replaces the content in the pipeline.
+            
+            if pmcid:
+                try:
+                    full_text_data = self._fetch_pmc_fulltext(pmcid)
+                    if full_text_data:
+                        if return_raw:
+                            results[pmid] = full_text_data
+                        else:
+                            # Format complete text without truncation for AI chunker
+                            # Gemini Flash has 1M+ token context window, so no need to pre-truncate
+                            formatted_text = self._format_fulltext_complete(full_text_data)
+                            
+                            content = f"PMID: {pmid}\n[FULL-TEXT]\n{formatted_text}{delimiter}"
+                            results[pmid] = content
+                        
+                except Exception as e:
+                    self.logger.error(f"Error enriching PMID {pmid}: {e}")
+                    
+        return results
 
     def fetch_abstracts(self, pmids: List[str]) -> Dict[str, str]:
         """Fetch abstracts for a list of PMIDs."""
@@ -153,7 +722,7 @@ class PubMedFetcher:
             batch_result = self._fetch_batch(batch)
             if batch_result:
                 abstract_dict.update(dict(zip(batch_result["pmids"], batch_result["contents"])))
-            time.sleep(0.34)  # Rate limiting
+            time.sleep(self._rate_limit_delay)  # Rate limiting
 
         if not abstract_dict:
             self.logger.error("No abstracts fetched successfully.")
@@ -316,11 +885,9 @@ class PubMedFetcher:
             # Break if we've processed all entries from both lists
             if cited_idx >= len(original_entries) and recent_idx >= len(year_sorted_entries):
                 break
-            self.logger.debug(f"cited_idx: {cited_idx}, recent_idx: {recent_idx}, n: {n}")
-            
-            self.logger.debug(f"Cited entries used: {cited_idx}, Recent entries used: {recent_idx}")
-            self.logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
-            self.logger.debug(f"Final interleaved list contains {len(result)} entries")
+        
+        # Log summary after loop completes
+        self.logger.debug(f"Interleaving complete: cited_idx={cited_idx}, recent_idx={recent_idx}, unique_pmids={len(used_pmids)}")
             
         if not result:
             return ""
@@ -353,22 +920,18 @@ class PubMedFetcher:
         
         entries = text.split("===END OF ABSTRACT===")
         entries = [e.strip() for e in entries if e.strip()]
-        #self.logger.debug(f"Entries: {entries}")
         optimized_entries = []
         current_tokens = 0
         
         for entry in entries:
             entry_tokens = len(encoding.encode(entry))
-            self.logger.debug(f"Entry tokens: {entry_tokens}")
-            self.logger.debug(f"Current tokens: {current_tokens}")
-            self.logger.debug(f"entry: {entry}")
             if current_tokens + entry_tokens <= tokens_per_intersection:
                 optimized_entries.append(entry)
                 current_tokens += entry_tokens
-                self.logger.debug(f"adding entry: {entry}")
             else:
-                self.logger.debug(f"breaking at entry: {entry}")
                 break
+        
+        self.logger.debug(f"Optimized to {len(optimized_entries)}/{len(entries)} entries, {current_tokens} tokens")
             
         if not optimized_entries:
             return ""
