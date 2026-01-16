@@ -151,6 +151,10 @@ class PubMedFetcher:
             with Entrez.efetch(db="pmc", id=pmcid, retmode="xml") as handle:
                 xml_content = handle.read()
             
+            # Check for publisher restriction
+            if b"publisher of this article does not allow downloading of the full text" in xml_content:
+                self.logger.warning(f"Publisher restricts full text XML download for PMCID {pmcid}. Only abstract/metadata available.")
+            
             # Parse XML
             root = ET.fromstring(xml_content)
             
@@ -259,6 +263,17 @@ class PubMedFetcher:
                     p_text = "".join(child.itertext()).strip()
                     if p_text:
                         content_parts.append(p_text)
+                        
+                        # Check for figure references in this paragraph
+                        # This handles figures that are in floats-group or elsewhere but referenced here
+                        xrefs = child.findall(".//xref[@ref-type='fig']")
+                        seen_rids = set()
+                        for xref in xrefs:
+                            rids = xref.get("rid", "").split()
+                            for rid in rids:
+                                if rid and rid not in seen_rids:
+                                    content_parts.append(f"\n[[FIGURE:{rid}]]\n")
+                                    seen_rids.add(rid)
                         
                 elif child.tag == "fig":
                     fig_id = child.get("id")
