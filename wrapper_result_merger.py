@@ -48,10 +48,8 @@ def parse_results_file(fn: str, job_type: str):
             score = r.get("Score",        "").strip()
             parts = [p.strip().strip("'") for p in rel.split(" - ")]
             hyp = r.get("Hypothesis", "").strip()
-            print(hyp)
             if job_type == "km_with_gpt":
                 terms = [p.strip(".") for p in hyp.split(" ")]
-                print(terms)
                 row = {
                     "Hypothesis": hyp,
                     "support": r.get("support", "").strip(),
