@@ -92,7 +92,6 @@ This configuration file contains various settings for different job types. Below
 - `SERVER_URL`: URL for the Triton server (e.g., `"https://xdddev.chtc.io/triton"`).
 - `MODEL_NAME`: Model name for relevance filtering (e.g., `"porpoise"`).
 - `TEMPERATURE`: Sampling temperature for model inference (e.g., `0`).
-- `TOP_K`: Number of highest-probability vocabulary tokens to keep for top-k-filtering (e.g., `20`).
 - `TOP_P`: Cumulative probability for nucleus sampling (e.g., `0.95`).
 - `MAX_COT_TOKENS`: Maximum tokens for Chain-of-Thought reasoning (e.g., `500`).
 - `DEBUG`: Boolean flag to enable debug mode (e.g., `false`).
