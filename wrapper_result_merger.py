@@ -49,15 +49,15 @@ def parse_results_file(fn: str, job_type: str):
             parts = [p.strip().strip("'") for p in rel.split(" - ")]
             hyp = r.get("Hypothesis", "").strip()
             if job_type == "km_with_gpt":
-                terms = [p.strip(".") for p in hyp.split(" ")]
+                if len(parts) < 2: continue
                 row = {
                     "Hypothesis": hyp,
                     "support": r.get("support", "").strip(),
                     "refute": r.get("refute", "").strip(),
                     "inconclusive": r.get("inconclusive", "").strip(),
                     "Score": score,
-                    "A_term": terms[0],
-                    "B_term": terms[-1]
+                    "A_term": parts[0],
+                    "B_term": parts[1]
                 }
                 
             elif job_type == "skim_with_gpt":
