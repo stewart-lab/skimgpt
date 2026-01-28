@@ -307,27 +307,63 @@
             const articleBody = document.getElementById('article-body');
             articleBody.innerHTML = '';
 
-            const headers = ["Abstract", "Introduction", "Discussion", "Conclusion", "Methods", "Results", "Pharmacotherapy", "Levosimendan", "Ranolazine", "Finerenone", "Emerging", "Regardless", "Figures"];
-
-            const segments = rawContent.split(/(\[FIGURE ANALYSIS.*?\]:)/g);
-            segments.forEach((segment, index) => {
-                if (segment.startsWith('[FIGURE ANALYSIS')) {
+            // Parse figure blocks with explicit end delimiters
+            const parts = [];
+            let currentIndex = 0;
+            const figureMarkerRegex = /\[FIGURE ANALYSIS ([^\]]+)\]:/g;
+            
+            let match;
+            while ((match = figureMarkerRegex.exec(rawContent)) !== null) {
+                // Add text before this figure
+                if (match.index > currentIndex) {
+                    parts.push({
+                        type: 'text',
+                        content: rawContent.substring(currentIndex, match.index)
+                    });
+                }
+                
+                // Find where this figure content ends using explicit delimiter
+                const figureStartIndex = match.index + match[0].length;
+                const endMarker = '===END FIGURE ANALYSIS===';
+                const endMarkerIndex = rawContent.indexOf(endMarker, figureStartIndex);
+                const figureEndIndex = endMarkerIndex + endMarker.length;
+                
+                // Extract figure content (excluding the end marker from display)
+                const figureContent = rawContent.substring(figureStartIndex, endMarkerIndex).trim();
+                
+                parts.push({
+                    type: 'figure',
+                    id: match[1],
+                    content: figureContent
+                });
+                
+                currentIndex = figureEndIndex;
+            }
+            
+            // Add remaining content
+            if (currentIndex < rawContent.length) {
+                parts.push({
+                    type: 'text',
+                    content: rawContent.substring(currentIndex)
+                });
+            }
+            
+            // Render the parts
+            parts.forEach((part, index) => {
+                if (part.type === 'figure') {
                     const card = document.createElement('div');
                     card.className = 'figure-card';
-                    card.innerHTML = `<h3>${segment.replace(':', '')}</h3>`;
-                    if (segments[index + 1]) {
-                        const contentDiv = document.createElement('div');
-                        contentDiv.className = 'markdown-content';
-                        contentDiv.innerHTML = marked.parse(segments[index + 1].trim());
-                        card.appendChild(contentDiv);
-                        segments[index + 1] = '';
-                    }
+                    card.innerHTML = `<h3>FIGURE ANALYSIS ${part.id}</h3>`;
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'markdown-content';
+                    contentDiv.innerHTML = marked.parse(part.content);
+                    card.appendChild(contentDiv);
                     articleBody.appendChild(card);
-                } else if (segment.trim()) {
-                    let processedText = segment.trim();
-                    headers.forEach(h => {
-                        processedText = processedText.replace(new RegExp(`^(${h}):\\s*`, 'mi'), '\n## $1\n\n');
-                    });
+                } else if (part.content.trim()) {
+                    let processedText = part.content.trim();
+                    // Format section headers (e.g., "Abstract:", "Introduction:", "Methods:")
+                    processedText = processedText.replace(/^([A-Z][a-z]+):\s*/gm, '\n## $1\n\n');
+                    // Format numbered sections (e.g., "1.2 Section Name:")
                     processedText = processedText.replace(/^(\d+(\.\d+)?\s+[^:\n]+):(\s*)/gm, '\n## $1\n\n$3');
 
                     if (index === 0) {

@@ -136,11 +136,12 @@ class PubMedFetcher:
             
         return pmid_to_pmcid
 
-    def _fetch_pmc_fulltext(self, pmcid: str) -> Dict[str, Any]:
+    def _fetch_pmc_fulltext(self, pmcid: str, save_xml_path: str = None) -> Dict[str, Any]:
         """Fetch and parse full-text article from PMC.
         
         Args:
             pmcid: PubMed Central ID
+            save_xml_path: Optional path to save raw XML for debugging
             
         Returns:
             Dictionary with keys: title, abstract, sections, tables, figures
@@ -150,6 +151,15 @@ class PubMedFetcher:
             # Fetch PMC article XML
             with Entrez.efetch(db="pmc", id=pmcid, retmode="xml") as handle:
                 xml_content = handle.read()
+            
+            # Optionally save raw XML for debugging
+            if save_xml_path:
+                try:
+                    with open(save_xml_path, "wb") as f:
+                        f.write(xml_content)
+                    self.logger.info(f"Saved raw XML to: {save_xml_path}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to save XML to {save_xml_path}: {e}")
             
             # Check for publisher restriction
             if b"publisher of this article does not allow downloading of the full text" in xml_content:
@@ -275,6 +285,16 @@ class PubMedFetcher:
                                     content_parts.append(f"\n[[FIGURE:{rid}]]\n")
                                     seen_rids.add(rid)
                         
+                        # Check for table references in this paragraph
+                        table_xrefs = child.findall(".//xref[@ref-type='table']")
+                        seen_table_rids = set()
+                        for xref in table_xrefs:
+                            rids = xref.get("rid", "").split()
+                            for rid in rids:
+                                if rid and rid not in seen_table_rids:
+                                    content_parts.append(f"\n[[TABLE:{rid}]]\n")
+                                    seen_table_rids.add(rid)
+                        
                 elif child.tag == "fig":
                     fig_id = child.get("id")
                     if fig_id:
@@ -323,12 +343,24 @@ class PubMedFetcher:
         for table_wrap in root.findall(".//table-wrap"):
             table_info = {}
             
-            # Extract table ID/label
+            # Extract table ID from table-wrap (e.g., "TB1", "TB2")
+            table_id = table_wrap.get("id")
+            if table_id:
+                table_info["id"] = table_id
+            else:
+                # Fallback to label text
+                label = table_wrap.find("./label")
+                if label is not None:
+                    table_info["id"] = "".join(label.itertext()).strip()
+                else:
+                    table_info["id"] = f"table_{len(tables) + 1}"
+            
+            # Store label for display
             label = table_wrap.find("./label")
             if label is not None:
-                table_info["id"] = "".join(label.itertext()).strip()
+                table_info["label"] = "".join(label.itertext()).strip()
             else:
-                table_info["id"] = f"Table {len(tables) + 1}"
+                table_info["label"] = table_info["id"]
             
             # Extract caption
             caption = table_wrap.find(".//caption")
@@ -566,41 +598,146 @@ class PubMedFetcher:
             parts.append(f"\nAbstract: {content['abstract']}\n")
         
         # All sections in document order (dict preserves insertion order in Python 3.7+)
+        # Sections now contain [[TABLE:id]] and [[FIGURE:id]] placeholders
         sections = content.get("sections", {})
         for section_name, section_content in sections.items():
             parts.append(f"\n{section_name}: {section_content}\n")
         
-        # Tables
-        tables = content.get("tables", [])
-        if tables:
-            parts.append(self._format_tables(tables))
-        
-        # Figures
-        figures = content.get("figures", [])
-        if figures:
-            parts.append(self._format_figures(figures))
+        # Don't append tables/figures at end - they should be injected inline via placeholders
+        # Tables and figures metadata are still available in content dict for injection
         
         return "".join(parts)
 
-    def _format_tables(self, tables: List[Dict]) -> str:
-        """Format tables for inclusion in full-text."""
-        if not tables:
-            return ""
+    def _format_single_table(self, table: Dict) -> str:
+        """Format a single table for inline injection.
         
-        parts = [f"\n\nTables ({len(tables)}):"]
-        
-        for table in tables:
-            parts.append(f"\n{table['id']}: {table['caption']}")
+        Args:
+            table: Table dictionary with id, label, caption, and data
             
-            # Format table data
-            if table.get("data"):
-                parts.append("\nData:")
-                for row in table["data"]:
-                    parts.append(" | ".join(row))
-                
-
+        Returns:
+            Formatted table string with end delimiter
+        """
+        parts = []
+        table_label = table.get('label', table['id'])
+        parts.append(f"\n[TABLE {table_label}]: {table['caption']}\n")
+        
+        # Format table data
+        if table.get("data"):
+            parts.append("\nData:")
+            for row in table["data"]:
+                parts.append(" | ".join(row))
+            parts.append("")  # Add blank line after table
+        
+        parts.append("===END TABLE===")
         
         return "\n".join(parts)
+
+    def inject_figures_and_tables(self, raw_data: Dict[str, Any], figures: List[Dict] = None) -> str:
+        """Inject figure transcriptions and tables into section text and format.
+        
+        This method:
+        1. Injects figure transcriptions (if provided) into sections at [[FIGURE:id]] placeholders
+        2. Injects formatted tables into sections at [[TABLE:id]] placeholders
+        3. Cleans up any remaining unreplaced placeholders
+        4. Returns the complete formatted text
+        
+        Args:
+            raw_data: Dictionary from _fetch_pmc_fulltext with sections, tables, figures
+            figures: Optional list of figures with enhanced_content from ImageAnalyzer
+            
+        Returns:
+            Complete formatted string with injected content
+        """
+        import re
+        
+        sections = raw_data.get("sections", {})
+        
+        # 1. Inject figure transcriptions if provided
+        if figures:
+            injected_figures = set()
+            
+            # Collect modifications first (don't iterate and modify simultaneously)
+            modifications = {}
+            for sec_name, sec_text in sections.items():
+                modified_text = sec_text
+                for fig in figures:
+                    fig_id = fig.get("id")
+                    
+                    # Skip if this figure was already injected
+                    if fig_id in injected_figures:
+                        continue
+                        
+                    transcription = fig.get("enhanced_content", fig.get("caption", ""))
+                    placeholder = f"[[FIGURE:{fig_id}]]"
+                    
+                    if placeholder in modified_text:
+                        replacement = f"\n\n[FIGURE ANALYSIS {fig_id}]: {transcription}\n\n===END FIGURE ANALYSIS===\n\n"
+                        # Replace only the first occurrence
+                        modified_text = modified_text.replace(placeholder, replacement, 1)
+                        injected_figures.add(fig_id)
+                        self.logger.debug(f"Injected transcription for {fig_id} into {sec_name}")
+                
+                # Store if modified
+                if modified_text != sec_text:
+                    modifications[sec_name] = modified_text
+            
+            # Apply all modifications
+            for sec_name, modified_text in modifications.items():
+                sections[sec_name] = modified_text
+        
+        # 2. Inject tables
+        tables = raw_data.get("tables", [])
+        injected_tables = set()
+        
+        # Collect modifications first
+        modifications = {}
+        for sec_name, sec_text in sections.items():
+            modified_text = sec_text
+            for table in tables:
+                table_id = table.get("id")
+                
+                # Skip if this table was already injected
+                if table_id in injected_tables:
+                    continue
+                
+                placeholder = f"[[TABLE:{table_id}]]"
+                
+                if placeholder in modified_text:
+                    # Format the table using the fetcher's method
+                    table_content = self._format_single_table(table)
+                    replacement = f"\n\n{table_content}\n\n"
+                    # Replace only the first occurrence
+                    modified_text = modified_text.replace(placeholder, replacement, 1)
+                    injected_tables.add(table_id)
+                    self.logger.info(f"Injected table {table_id} into {sec_name}")
+            
+            # Store if modified
+            if modified_text != sec_text:
+                modifications[sec_name] = modified_text
+        
+        # Apply all modifications
+        for sec_name, modified_text in modifications.items():
+            sections[sec_name] = modified_text
+        
+        # 3. Update raw_data with modified sections
+        raw_data["sections"] = sections
+        
+        # 4. Format the complete text
+        enriched_text = self._format_fulltext_complete(raw_data)
+        
+        # 5. Clean up any remaining figure/table placeholders that weren't replaced
+        # (subsequent references after the first injection)
+        for fig in raw_data.get("figures", []):
+            fig_id = fig.get("id")
+            if fig_id:
+                enriched_text = re.sub(rf'\n?\[\[FIGURE:{re.escape(fig_id)}\]\]\n?', '', enriched_text)
+        
+        for table in raw_data.get("tables", []):
+            table_id = table.get("id")
+            if table_id:
+                enriched_text = re.sub(rf'\n?\[\[TABLE:{re.escape(table_id)}\]\]\n?', '', enriched_text)
+        
+        return enriched_text
 
     def _format_figures(self, figures: List[Dict]) -> str:
         """Format figure metadata for inclusion in full-text."""
@@ -669,12 +806,13 @@ class PubMedFetcher:
                     self.logger.error(f"Failed to fetch batch after {self.max_retries} attempts.")
                     return {}
 
-    def fetch_full_text_context(self, pmids: List[str], return_raw: bool = False) -> Dict[str, Any]:
+    def fetch_full_text_context(self, pmids: List[str], return_raw: bool = False, save_xml_dir: str = None) -> Dict[str, Any]:
         """Fetch full text (enrichment) for a specific list of PMIDs.
         
         Args:
             pmids: List of PMIDs to fetch full text for.
             return_raw: If True, returns the raw data dictionary from PMC instead of formatted string.
+            save_xml_dir: Optional directory path to save raw XML files for debugging (named pmid_<pmid>.xml)
             
         Returns:
             Dictionary mapping PMID to either full text content string or data dictionary.
@@ -706,7 +844,14 @@ class PubMedFetcher:
             
             if pmcid:
                 try:
-                    full_text_data = self._fetch_pmc_fulltext(pmcid)
+                    # Prepare XML save path if requested
+                    save_xml_path = None
+                    if save_xml_dir:
+                        import os
+                        os.makedirs(save_xml_dir, exist_ok=True)
+                        save_xml_path = os.path.join(save_xml_dir, f"pmid_{pmid}_pmcid_{pmcid}.xml")
+                    
+                    full_text_data = self._fetch_pmc_fulltext(pmcid, save_xml_path=save_xml_path)
                     if full_text_data:
                         if return_raw:
                             results[pmid] = full_text_data
