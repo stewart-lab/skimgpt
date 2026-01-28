@@ -139,6 +139,9 @@ def main():
     p.add_argument("-censor_year_depth", type=int, required=False, default=1)
     args = p.parse_args()
 
+    if args.censor_year_depth < 1:
+        sys.exit("Invalid -censor_year_depth, must be a positive integer >= 1")
+
     try:
         lo, hi = map(int, args.censor_year_range.split("-"))
     except:
