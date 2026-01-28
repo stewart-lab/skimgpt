@@ -167,8 +167,7 @@ def handle_cost_estimation(config, combined_df: pd.DataFrame, output_directory: 
             base_est = None
 
         # Non-interactive: compute estimate and proceed without prompting
-        wrapper_est = WrapperCostEstimator(config)
-
+        
         # Create sentinel to indicate consent and allow wrapper to launch children
         try:
             with open(sentinel, "w") as _f:
