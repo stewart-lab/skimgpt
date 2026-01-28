@@ -6,10 +6,12 @@ Takes a PMID as an argument and returns the enriched full text,
 including figure transcriptions reinjected into the text.
 
 Usage:
-    python tests/test_enriched_fulltext.py <PMID>
+    python tests/test_enriched_fulltext.py <PMID> [options]
     
-Example:
+Examples:
     python tests/test_enriched_fulltext.py 34567890
+    python tests/test_enriched_fulltext.py 34567890 --save-xml --output result.json
+    python tests/test_enriched_fulltext.py 34567890 --skip-figures --show-text
 """
 
 import argparse
@@ -25,6 +27,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.pubmed_fetcher import PubMedFetcher
 from src.image_analyzer import ImageAnalyzer
 from src.utils import Config
+
+try:
+    import tiktoken
+except ImportError:
+    tiktoken = None
 
 
 def setup_logging(debug: bool = False) -> logging.Logger:
@@ -49,11 +56,33 @@ def load_secrets() -> dict:
         return json.load(f)
 
 
+def count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
+    """
+    Count the number of tokens in a text string.
+    
+    Args:
+        text: The text to count tokens for
+        encoding_name: The tiktoken encoding name to use
+        
+    Returns:
+        Number of tokens, or -1 if tiktoken is not available
+    """
+    if not tiktoken:
+        return -1
+    
+    try:
+        encoding = tiktoken.get_encoding(encoding_name)
+        return len(encoding.encode(text))
+    except Exception:
+        return -1
+
+
 def fetch_enriched_fulltext(
     pmid: str,
     logger: logging.Logger,
     secrets: dict,
-    skip_figures: bool = False
+    skip_figures: bool = False,
+    save_xml_dir: str = None
 ) -> dict:
     """
     Fetch and enrich full text for a given PMID.
@@ -63,6 +92,7 @@ def fetch_enriched_fulltext(
         logger: Logger instance
         secrets: Dictionary containing API keys
         skip_figures: If True, skip figure processing
+        save_xml_dir: Optional directory to save raw PMC XML for debugging
         
     Returns:
         Dictionary containing:
@@ -71,6 +101,7 @@ def fetch_enriched_fulltext(
         - raw_data: The raw data from PMC
         - enriched_text: The fully enriched text with figure transcriptions
         - figures: List of processed figures with transcriptions
+        - token_count: Total number of tokens in the enriched text
         - success: Boolean indicating success
         - error: Error message if any
     """
@@ -80,6 +111,7 @@ def fetch_enriched_fulltext(
         "raw_data": None,
         "enriched_text": None,
         "figures": [],
+        "token_count": None,
         "success": False,
         "error": None
     }
@@ -101,7 +133,7 @@ def fetch_enriched_fulltext(
     
     # Fetch raw full text data
     logger.info("Fetching full text from PMC...")
-    raw_data_map = fetcher.fetch_full_text_context([pmid], return_raw=True)
+    raw_data_map = fetcher.fetch_full_text_context([pmid], return_raw=True, save_xml_dir=save_xml_dir)
     
     if pmid not in raw_data_map:
         result["error"] = f"No PMC data found for PMID {pmid}. Article may not be in PMC."
@@ -165,25 +197,24 @@ def fetch_enriched_fulltext(
                     
                     result["figures"] = figures
                 
-                # 3. Reinject transcriptions into sections
-                sections = raw_data.get("sections", {})
-                for sec_name, sec_text in sections.items():
-                    for fig in figures:
-                        fig_id = fig.get("id")
-                        transcription = fig.get("enhanced_content", fig.get("caption", ""))
-                        placeholder = f"[[FIGURE:{fig_id}]]"
-                        if placeholder in sec_text:
-                            replacement = f"\n\n[FIGURE ANALYSIS {fig_id}]: {transcription}\n\n"
-                            sections[sec_name] = sec_text.replace(placeholder, replacement)
-                            logger.debug(f"Reinjected transcription for {fig_id} into {sec_name}")
-                
             except Exception as e:
                 logger.error(f"Error processing figures: {e}")
                 result["error"] = f"Figure processing error: {e}"
+        
+        # Inject figures and tables using the source method
+        enriched_text = fetcher.inject_figures_and_tables(raw_data, figures=figures)
+    else:
+        # No figure processing - just inject tables
+        enriched_text = fetcher.inject_figures_and_tables(raw_data)
     
-    # Format the final enriched text
-    enriched_text = fetcher._format_fulltext_complete(raw_data)
     result["enriched_text"] = f"PMID: {pmid}\n[FULL-TEXT]\n{enriched_text}\n\n===END OF FULL TEXT===\n\n"
+    
+    # Count tokens
+    token_count = count_tokens(result["enriched_text"])
+    result["token_count"] = token_count
+    if token_count > 0:
+        logger.info(f"Total tokens: {token_count:,}")
+    
     result["success"] = True
     
     return result
@@ -219,6 +250,11 @@ def main():
         action="store_true",
         help="Print the full enriched text to stdout"
     )
+    parser.add_argument(
+        "--save-xml",
+        action="store_true",
+        help="Save the raw PMC XML for debugging"
+    )
     
     args = parser.parse_args()
     
@@ -232,11 +268,18 @@ def main():
     
     logger.info(f"Fetching enriched full text for PMID: {args.pmid}")
     
+    # Set up XML save directory if requested
+    save_xml_dir = None
+    if args.save_xml:
+        save_xml_dir = os.path.join(os.path.dirname(__file__), "..", "debug_xml")
+        logger.info(f"Raw XML will be saved to: {save_xml_dir}")
+    
     result = fetch_enriched_fulltext(
         pmid=args.pmid,
         logger=logger,
         secrets=secrets,
-        skip_figures=args.skip_figures
+        skip_figures=args.skip_figures,
+        save_xml_dir=save_xml_dir
     )
     
     if result["success"]:
@@ -246,6 +289,8 @@ def main():
         logger.info(f"PMCID: {result['pmcid']}")
         logger.info(f"Figures processed: {len(result['figures'])}")
         logger.info(f"Enriched text length: {len(result['enriched_text'])} characters")
+        if result["token_count"] and result["token_count"] > 0:
+            logger.info(f"Total tokens: {result['token_count']:,}")
         
         if args.show_text:
             print("\n" + "=" * 60)
@@ -259,6 +304,7 @@ def main():
                 "pmid": result["pmid"],
                 "pmcid": result["pmcid"],
                 "enriched_text": result["enriched_text"],
+                "token_count": result["token_count"],
                 "figures": [
                     {
                         "id": f.get("id"),
