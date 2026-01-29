@@ -179,21 +179,24 @@ def handle_cost_estimation(config, combined_df: pd.DataFrame, output_directory: 
         wrapper_logger = setup_logger(wrapper_parent, config.job_type)
 
         # Recompute what you showed the user
-        output_tokens = base_est.get_output_tokens()
-        in_cost = base_est._calculate_cost(input_tokens, is_input=True)
-        out_cost = base_est._calculate_cost(output_tokens, is_input=False)
-        cost_per_iter = in_cost + out_cost
-        num_iters = (
-            config.iterations
-            if isinstance(config.iterations, int) and config.iterations > 0
-            else 1
-        )
-        total_cost = cost_per_iter * num_iters * num_years
+        if base_est:
+            output_tokens = base_est.get_output_tokens()
+            in_cost = base_est._calculate_cost(input_tokens, is_input=True)
+            out_cost = base_est._calculate_cost(output_tokens, is_input=False)
+            cost_per_iter = in_cost + out_cost
+            num_iters = (
+                config.iterations
+                if isinstance(config.iterations, int) and config.iterations > 0
+                else 1
+            )
+            total_cost = cost_per_iter * num_iters * num_years
 
-        wrapper_logger.info(
-            f"Wrapper total estimated cost: ${total_cost:.2f} "
-            f"({num_years} years x {num_iters} iters at ${cost_per_iter:.2f}/iteration)"
-        )
+            wrapper_logger.info(
+                f"Wrapper total estimated cost: ${total_cost:.2f} "
+                f"({num_years} years x {num_iters} iters at ${cost_per_iter:.2f}/iteration)"
+            )
+        else:
+            wrapper_logger.warning(f"Skipping cost estimation for job type: {config.job_type}")
 
         # Now exit so wrapper can kick off the real parallel runs
         sys.exit(0)
