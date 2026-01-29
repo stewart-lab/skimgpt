@@ -653,7 +653,8 @@ class Config:
         secrets = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
-            "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
+            "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
+            "OPEN_WEB_UI_API_KEY": os.getenv("OPEN_WEB_UI_API_KEY")
         }
         
         # Only check for required keys based on model

@@ -13,6 +13,7 @@ from src.classifier import (
     process_single_row,
 )
 from src.triton_client import TritonClient
+from src.openwebui_client import OpenWebUIClient
 
 
 def getHypothesis(
@@ -82,7 +83,7 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def gen(
-    prompts: RaggedTensor, model: TritonClient, logger=None,
+    prompts: RaggedTensor, model, logger=None,
     max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
 ) -> RaggedTensor:
     """Generate outputs using Triton client batch inference with configurable parameters.
@@ -650,27 +651,53 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    # Initialize Triton client for inference
-    logger.info("Initializing Triton client for remote inference...")
+    # Initialize inference client based on configuration
+    # Check which backend to use (default to "triton" for backwards compatibility)
+    inference_backend = config.filter_config.get("BACKEND", "triton").lower()
+    logger.info(f"Initializing {inference_backend} client for remote inference...")
+
     try:
-        # Initialize with configuration from relevance_filter section, including sampling parameters
-        model = TritonClient(
-            server_url=config.filter_config.get("SERVER_URL"),
-            model_name=config.filter_config.get("MODEL_NAME"),
-            temperature=config.filter_config["TEMPERATURE"],
-            top_p=config.filter_config["TOP_P"],
-            max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
-        )
-        
-        # Check server health
-        if not model.check_server_health():
-            logger.error(f"Triton server at {model.server_url} is not ready")
-            raise RuntimeError(f"Triton server at {model.server_url} is not responding")
-        
-        logger.info(f"Successfully connected to Triton server at {model.server_url}")
-        logger.info(f"Using model: {model.model_name}")
+        if inference_backend == "openwebui":
+            # Initialize OpenWebUI client
+            api_key = config.secrets.get("OPEN_WEB_UI_API_KEY")
+            if not api_key:
+                raise ValueError("OPEN_WEB_UI_API_KEY not found in secrets. Please add it to your secrets file.")
+
+            model = OpenWebUIClient(
+                server_url=config.filter_config.get("SERVER_URL"),
+                model_name=config.filter_config.get("MODEL_NAME"),
+                api_key=api_key,
+                temperature=config.filter_config["TEMPERATURE"],
+                top_p=config.filter_config["TOP_P"],
+                max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
+            )
+
+            # Check server health
+            if not model.check_server_health():
+                logger.error(f"OpenWebUI server at {model.server_url} is not ready")
+                raise RuntimeError(f"OpenWebUI server at {model.server_url} is not responding")
+
+            logger.info(f"Successfully connected to OpenWebUI server at {model.server_url}")
+            logger.info(f"Using model: {model.model_name}")
+        else:
+            # Default: Initialize Triton client
+            model = TritonClient(
+                server_url=config.filter_config.get("SERVER_URL"),
+                model_name=config.filter_config.get("MODEL_NAME"),
+                temperature=config.filter_config["TEMPERATURE"],
+                top_p=config.filter_config["TOP_P"],
+                max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
+            )
+
+            # Check server health
+            if not model.check_server_health():
+                logger.error(f"Triton server at {model.server_url} is not ready")
+                raise RuntimeError(f"Triton server at {model.server_url} is not responding")
+
+            logger.info(f"Successfully connected to Triton server at {model.server_url}")
+            logger.info(f"Using model: {model.model_name}")
     except Exception as e:
-        logger.error(f"Failed to initialize Triton client: {e}")
+        logger.error(f"Failed to initialize {inference_backend} client: {e}")
         raise
     
     # Get optional performance tuning parameters from config
