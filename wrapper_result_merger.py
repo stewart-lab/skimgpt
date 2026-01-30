@@ -48,16 +48,29 @@ def parse_results_file(fn: str, job_type: str):
             score = r.get("Score",        "").strip()
             parts = [p.strip().strip("'") for p in rel.split(" - ")]
             hyp = r.get("Hypothesis", "").strip()
+<<<<<<< HEAD
             if job_type == "km_with_gpt":
                 if len(parts) < 2: continue
+=======
+            #print(hyp)
+            if job_type == "km_with_gpt":
+                terms = [p.strip(".") for p in hyp.split(" ")]
+                #print(terms)
+                t= [terms[-2],terms[-1]]
+>>>>>>> a25c7ef (added results.tsv instead of just results.txt)
                 row = {
                     "Hypothesis": hyp,
                     "support": r.get("support", "").strip(),
                     "refute": r.get("refute", "").strip(),
                     "inconclusive": r.get("inconclusive", "").strip(),
                     "Score": score,
+<<<<<<< HEAD
                     "A_term": parts[0],
                     "B_term": parts[1]
+=======
+                    "A_term": terms[0],
+                    "B_term": "_".join(t)
+>>>>>>> a25c7ef (added results.tsv instead of just results.txt)
                 }
                 
             elif job_type == "skim_with_gpt":
