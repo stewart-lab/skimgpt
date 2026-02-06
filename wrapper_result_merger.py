@@ -14,7 +14,8 @@ def get_config_info(cfg_path: str):
         cfg = json.load(f)
     jt    = cfg.get("JOB_TYPE", "unknown").strip()
     model = cfg.get("GLOBAL_SETTINGS", {}).get("MODEL", "model").strip()
-    return jt, clean_model_name(model)
+    job_set = cfg.get("JOB_SPECIFIC_SETTINGS", {}).get("km_with_gpt", {}).get("is_dch", False)
+    return jt, clean_model_name(model), job_set
 
 def setup_logger(parent_dir: str, job_type: str):
     logger = logging.getLogger("SKiM-GPT-wrapper")
@@ -35,7 +36,7 @@ def setup_logger(parent_dir: str, job_type: str):
 
     return logger
 
-def parse_results_file(fn: str, job_type: str):
+def parse_results_file(fn: str, job_type: str, job_set: bool):
     rows = []
     with open(fn) as f:
         rd = csv.DictReader(f, delimiter="\t")
@@ -44,35 +45,48 @@ def parse_results_file(fn: str, job_type: str):
             if not iter_number:
                 iter_number = "1"
 
-            rel   = r.get("Relationship", "").strip()
+            #rel   = r.get("Relationship", "").strip()
             score = r.get("Score",        "").strip()
-            parts = [p.strip().strip("'") for p in rel.split(" - ")]
-            hyp = r.get("Hypothesis", "").strip()
-<<<<<<< HEAD
-            if job_type == "km_with_gpt":
-                if len(parts) < 2: continue
-=======
-            #print(hyp)
-            if job_type == "km_with_gpt":
-                terms = [p.strip(".") for p in hyp.split(" ")]
-                #print(terms)
-                t= [terms[-2],terms[-1]]
->>>>>>> a25c7ef (added results.tsv instead of just results.txt)
+            #parts = [p.strip().strip("'") for p in rel.split(" - ")]
+            #hyp = r.get("Hypothesis", "").strip()
+            if job_type == "km_with_gpt" and job_set:
+                hyp1 = r.get("Hypothesis 1", "").strip()
+                hyp2 = r.get("Hypothesis 2", "").strip()
+                decision = r.get("Decision", "").strip()
+                H1_support = r.get("H1", "").strip()
+                H2_support = r.get("H2", "").strip()
+                neither = r.get("Neither", "").strip()
+                both = r.get("Both", "").strip()
+                total = r.get("Total Relevant Abstracts", "").strip()
+                
+                row = {
+                    "Iteration": iter_number,
+                    "Hyp1": hyp1,
+                    "Hyp2": hyp2,
+                    "Score": score,
+                    "Decision": decision,
+                    "num_abstracts": total,
+                    "support_H1": H1_support,
+                    "support_H2": H2_support,
+                    "both": both,
+                    "neither_or_inconclusive": neither
+                }
+
+            elif job_type == "km_with_gpt" and not job_set:
+                hyp = r.get("Hypothesis", "").strip()
+                support = r.get("support", "").strip()
+                refute = r.get("refute", "").strip()
+                inconclusive = r.get("inconclusive", "").strip()
+
                 row = {
                     "Hypothesis": hyp,
-                    "support": r.get("support", "").strip(),
-                    "refute": r.get("refute", "").strip(),
-                    "inconclusive": r.get("inconclusive", "").strip(),
+                    "support": support,
+                    "refute": refute,
+                    "inconclusive": inconclusive,
+                    "iter_number": iter_number,
                     "Score": score,
-<<<<<<< HEAD
-                    "A_term": parts[0],
-                    "B_term": parts[1]
-=======
-                    "A_term": terms[0],
-                    "B_term": "_".join(t)
->>>>>>> a25c7ef (added results.tsv instead of just results.txt)
-                }
-                
+                }   
+            
             elif job_type == "skim_with_gpt":
                 if len(parts) < 3: continue
                 row = {
@@ -81,25 +95,9 @@ def parse_results_file(fn: str, job_type: str):
                     "C_term": parts[2],
                     "Score":   score
                 }
-            elif job_type == "km_with_gpt_direct_comp":
-                if len(parts) < 3: continue
-                row = {
-                    "A_term":  parts[0],
-                    "B1_term": parts[1],
-                    "B2_term": parts[2],
-                    "SOC": r.get("SOC", "").strip(),
-                    "Abstracts Supporting Hypothesis 1": r.get("Abstracts Supporting Hypothesis 1", "").strip(),
-                    "Abstracts Supporting Hypothesis 2": r.get("Abstracts Supporting Hypothesis 2", "").strip(),
-                    "Abstracts Supporting Neither Hypothesis or are Inconclusive": r.get("Abstracts Supporting Neither Hypothesis or are Inconclusive", "").strip(),
-                    "Score":   score
-                }
             else:
-                if len(parts) < 2: continue
-                row = {
-                    "A_term": parts[0],
-                    "B_term": parts[1],
-                    "Score":  score
-                }
+                print(f"Unknown job type: {job_type}")
+                row = {}
 
             row["iter_number"] = iter_number
             rows.append(row)
@@ -107,14 +105,15 @@ def parse_results_file(fn: str, job_type: str):
 
 def merge_results(parent_dir: str, logger: logging.Logger):
     cfg_path  = os.path.join(parent_dir, "config.json")
-    job_type, model = get_config_info(cfg_path)
+    job_type, model, job_set = get_config_info(cfg_path)
+    
 
     if job_type == "skim_with_gpt":
         fieldnames = ["A_term","B_term","C_term","censor_year","iter_number",f"{model}_score"]
-    elif job_type == "km_with_gpt":
-        fieldnames = ["censor_year","Hypothesis","A_term","B_term","support","refute","inconclusive","iter_number",f"{model}_score"]
-    elif job_type == "km_with_gpt_direct_comp":
-        fieldnames = ["A_term","B1_term","B2_term","SOC","Abstracts Supporting Hypothesis 1","Abstracts Supporting Hypothesis 2","Abstracts Supporting Neither Hypothesis or are Inconclusive","censor_year","iter_number",f"{model}_score"]
+    elif job_type == "km_with_gpt" and job_set:
+        fieldnames = ["censor_year","iteration","Hyp1","Hyp2",f"{model}_score","decision","num_abstracts","support_H1","support_H2","both","neither_or_inconclusive"]
+    elif job_type == "km_with_gpt" and not job_set:
+        fieldnames = ["censor_year","Hypothesis","support","refute","inconclusive", "iter_number",f"{model}_score"]
     else:
         fieldnames = ["A_term","B_term","censor_year","iter_number",f"{model}_score"]
         
@@ -141,7 +140,7 @@ def merge_results(parent_dir: str, logger: logging.Logger):
                 continue
 
         logger.info(f"Merging {results_txt}")
-        for row in parse_results_file(results_txt, job_type):
+        for row in parse_results_file(results_txt, job_type, job_set):
             row["censor_year"]    = cy
             row[f"{model}_score"] = row.pop("Score")
             merged.append(row)
@@ -163,7 +162,7 @@ def main():
 
     parent_dir = args.parent_dir
     cfg_path   = os.path.join(parent_dir, "config.json")
-    job_type, _ = get_config_info(cfg_path)
+    job_type, model, job_set = get_config_info(cfg_path)
     logger = setup_logger(parent_dir, job_type)
     logger.info("Starting wrapper_result_merger")
 

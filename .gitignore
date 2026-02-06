@@ -13,4 +13,5 @@ nohup.out
 skimgpt_visualizer.py
 run_*
 .DS_Store
+config_copy.json
 
