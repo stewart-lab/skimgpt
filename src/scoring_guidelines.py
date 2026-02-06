@@ -156,15 +156,7 @@ def cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2):
 By following these continuous scoring guidelines, you can provide a nuanced and objective assessment of the support level for Hypothesis 1 compared to Hypothesis 2 based on the hypotheses {hypothesis_1} and {hypothesis_2}.
 """
 
-def gpt_customized_scoring_system(b_term, a_term):
-    return (
-        "Scoring Guidelines:\n"
-        f"   - -1 Point: There is sufficient direct evidence in the provided texts suggesting that {b_term} does not effectively alleviate or target key pathogenic mechanisms of {a_term}, or that it does not offer therapeutic benefits or slow disease progression.\n"
-        f"   - 0 Points: The provided texts either offer no direct evidence or only indirect evidence regarding the effectiveness of {b_term} in alleviating or targeting key pathogenic mechanisms of {a_term}. This includes situations where the evidence is related but does not specifically address the hypothesis or focuses on associated subjects without directly supporting or refuting the primary subject.\n"
-        f"   - 1 Point: There is weak but direct evidence supporting the hypothesis that {b_term} may alleviate or target key pathogenic mechanisms of {a_term}, potentially offering therapeutic benefits or slowing disease progression. The studies or findings may have limitations or provide mixed results.\n"
-        f"   - 2 Points: The evidence supporting the hypothesis that {b_term} can alleviate or target key pathogenic mechanisms of {a_term} is moderate and direct in the provided texts. The studies are well conducted and provide fairly consistent results.\n"
-        f"   - 3 Points: There is strong and direct evidence in the provided texts supporting the hypothesis that {b_term} effectively alleviates or targets key pathogenic mechanisms of {a_term}, offering therapeutic benefits or slowing disease progression. Multiple high-quality studies provide consistent and direct support.\n\n"
-    )
+
 
 
 def original_scoring_guidelines():
@@ -299,43 +291,6 @@ def skim_classify():
     )
 
 
-def biomedical_hypothesis_strength():
-    return """
-    -3: Strong evidence against the hypothesis
-        • Multiple high-quality studies directly contradict the hypothesis
-        • Consistent negative findings across different research methodologies
-        • Strong mechanistic evidence opposing the hypothesized relationship
-
-    -2: Moderate evidence against the hypothesis
-        • Some well-designed studies show contradictory results
-        • Negative findings from meta-analyses or systematic reviews
-        • Significant theoretical or mechanistic challenges to the hypothesis
-
-    -1: Weak evidence against the hypothesis
-        • Limited studies showing negative results
-        • Some contradictory findings, but with methodological limitations
-        • Minor theoretical inconsistencies with established knowledge
-
-    0: Insufficient evidence or neutral findings
-        • Lack of relevant studies or inconclusive results
-        • Conflicting evidence with no clear trend
-        • Theoretical basis for the hypothesis, but no empirical support
-
-    1: Weak evidence supporting the hypothesis
-        • Limited studies showing positive results
-        • Some supporting findings, but with methodological limitations
-        • Theoretical consistency with related, established concepts
-
-    2: Moderate evidence supporting the hypothesis
-        • Multiple studies with consistent positive findings
-        • Supportive results from meta-analyses or systematic reviews
-        • Clear mechanistic or theoretical support for the hypothesis
-
-    3: Strong evidence supporting the hypothesis
-        • Numerous high-quality studies consistently support the hypothesis
-        • Robust positive findings across various research methodologies
-        • Strong mechanistic evidence and theoretical framework supporting the hypothesis
-    """
 
 
 def skim():
@@ -347,16 +302,3 @@ def skim():
 - **2 Points:** The hypothesis is **strongly supported** by the provided texts. The evidence is compelling and consistent, indicating that the interactions are **beneficial** and support the proposed outcome.
 """
 
-
-def skim_finer():
-    return (
-        "-2.0 Points: The hypothesis can very likely be refuted based on the provided texts. There is substantial evidence in the provided texts that the hypothesis is false.\n"
-        "-1.5 Points: The hypothesis can probably be refuted based on the provided texts. There is considerable evidence in the provided texts that the hypothesis is less likely to be true.\n"
-        "-1.0 Point: The hypothesis is likely refutable based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is false.\n"
-        "-0.5 Point: The evidence against the hypothesis in the provided texts is slight, but it slightly leans towards refutation rather than support.\n"
-        "0 Points: The hypothesis is not supported or directly refuted by the provided texts. There is either no evidence to support or directly refute the hypothesis in the provided texts, or it is inconclusive, neutral, or irrelevant.\n"
-        "0.5 Point: The evidence supporting the hypothesis in the provided texts is slight, but it slightly leans towards support rather than refutation.\n"
-        "1.0 Point: The hypothesis is likely true based on the provided texts. There is some direct or indirect evidence in the provided texts that the hypothesis is true.\n"
-        "1.5 Points: The hypothesis is probably true based on the provided texts. There is considerable evidence in the provided texts that the hypothesis is more likely to be true.\n"
-        "2.0 Points: The hypothesis is very likely true based on the provided texts. There is a good amount of direct or indirect evidence in the provided texts that the hypothesis is true.\n"
-    )

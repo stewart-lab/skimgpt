@@ -6,6 +6,7 @@ import json
 import os
 import logging  
 import re
+import openai
 
 # Compiled PMID pattern for reuse across modules
 PMID_PATTERN = re.compile(r"PMID:\s*(\d+)")
@@ -199,6 +200,40 @@ def strip_pipe(term: str) -> str:
     return ""
 
 
+def clean_term_for_display(term: str) -> str:
+    """Clean a term for display and LLM processing by removing search operators.
+    
+    This function removes both pipe separators (keeping only the first synonym)
+    and ampersands (replacing with spaces) to create clean, human-readable terms
+    suitable for display in output JSON and prompts sent to LLMs.
+    
+    Examples:
+        "cardiovascular&disease" -> "cardiovascular disease"
+        "hormone&therapy|HT|hormone replacement therapy" -> "hormone therapy"
+        "cancer|tumor" -> "cancer"
+        "lung&cancer|lung&tumor" -> "lung cancer"
+        None -> ""
+        "" -> ""
+    
+    Args:
+        term: String that may contain pipes and/or ampersands, or None
+        
+    Returns:
+        Clean string with pipes collapsed to first option and ampersands 
+        replaced with spaces. Returns empty string for None or empty inputs.
+    """
+    # First strip pipes (keeps only first synonym)
+    term = strip_pipe(term)
+    
+    # Then replace ampersands with spaces
+    if term:
+        term = term.replace("&", " ")
+        # Normalize whitespace after replacement
+        term = ' '.join(term.split())
+    
+    return term
+
+
 def apply_a_term_suffix(a_term: str, config: Config) -> str:
     """Apply configured A_TERM_SUFFIX to the given term if configured.
     
@@ -308,8 +343,6 @@ class Config:
         
         # Add API configuration first
         self.model = self.global_settings["MODEL"]
-        self.rate_limit = self.global_settings["RATE_LIMIT"]
-        self.delay = self.global_settings["DELAY"]
         self.max_retries = self.global_settings["MAX_RETRIES"]
         self.retry_delay = self.global_settings["RETRY_DELAY"]
         
@@ -323,6 +356,19 @@ class Config:
         self.secrets = self.load_secrets()
         self.validate_secrets()
         
+        # Initialize OpenAI/DeepSeek client
+
+        is_deepseek = self.model == "r1"
+        key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
+        api_key = self.secrets[key_name]
+        
+        client_kwargs = {"api_key": api_key}
+        if is_deepseek:
+            client_kwargs["base_url"] = "https://api.deepseek.com/v1"
+        
+        self.llm_client = openai.OpenAI(**client_kwargs)
+        self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client")
+        
         self.km_output_dir = None
         self.km_output_base_name = None
         self.filtered_tsv_name = None
@@ -332,13 +378,9 @@ class Config:
         self.km_hypothesis = self.job_config["KM_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
         self.job_type = self.job_config.get("JOB_TYPE")
-        self.filter_config = self.job_config["abstract_filter"]
+        self.filter_config = self.job_config["relevance_filter"]
         self.debug = self.filter_config["DEBUG"]
         self.test_leakage = self.filter_config["TEST_LEAKAGE"]
-        self.test_leakage_type = self.filter_config["TEST_LEAKAGE_TYPE"]
-        self.is_km_with_gpt = self.job_type == "km_with_gpt"
-        self.is_skim_with_gpt = self.job_type == "skim_with_gpt"
-        self.is_dch = True if self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False) else False
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
@@ -346,17 +388,13 @@ class Config:
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
-        self.htcondor_config = self.job_config.get("HTCONDOR", {})
         self.temperature = self.filter_config["TEMPERATURE"]
-        self.top_k = self.filter_config["TOP_K"]
         self.top_p = self.filter_config["TOP_P"]
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
         
-        # Add HTCondor configuration validation
-        self._validate_htcondor_config()
-        
-        # Validate mutually exclusive settings
+        # Validate configuration settings
         self._validate_job_settings()
+        self._validate_relevance_filter_settings()
         
     def _validate_job_settings(self):
         """Validate job-specific settings for conflicts"""
@@ -371,10 +409,24 @@ class Config:
                     "Position mode pairs terms by index (A1-B1, A2-B2), while DCH mode "
                     "compares exactly 2 B terms against each A term. Please set one to false."
                 )
+    
+    def _validate_relevance_filter_settings(self):
+        """Validate required relevance filter settings for Triton inference"""
+        required_params = {
+            "TEMPERATURE": self.temperature,
+            "TOP_P": self.top_p,
+            "MAX_COT_TOKENS": self.max_cot_tokens
+        }
+        
+        missing = [name for name, value in required_params.items() if value is None]
+        if missing:
+            raise ValueError(
+                f"Missing required relevance_filter parameters in config.json: {', '.join(missing)}"
+            )
         
     def load_km_output(self, km_output_path: str):
-        """Load TSV data and configure output paths when km_output is available"""
-        self.data = self.read_tsv_to_dataframe_from_files_txt(km_output_path)
+        """Load TSV data directly from file path"""
+        self.data = pd.read_csv(km_output_path, sep='\t')
         
         # Configure output paths
         self.km_output_dir = os.path.dirname(km_output_path)
@@ -456,42 +508,31 @@ class Config:
         
         return logger
 
-    @staticmethod
-    def read_tsv_to_dataframe_from_files_txt(files_txt_path: str) -> pd.DataFrame:
-        """
-        Read the first file path from files.txt and load that TSV into a pandas DataFrame.
+    def __getstate__(self):
+        """Prepare Config for pickling - exclude unpicklable objects"""
+        state = self.__dict__.copy()
+        # Remove unpicklable objects (logger has thread locks, llm_client has connections)
+        state['logger'] = None
+        state['llm_client'] = None
+        return state
 
-        Args:
-            files_txt_path: Path to the files.txt file.
-
-        Returns:
-            pandas.DataFrame: DataFrame loaded from the first TSV file listed in files.txt.
-                            Returns an empty DataFrame if files.txt is empty or file not found.
-        """
-        try:
-            with open(files_txt_path, "r") as f:
-                file_paths = [line.strip() for line in f.readlines() if line.strip()]
-                
-                if len(file_paths) > 1:
-                    logging.error(f"Multiple files detected in {files_txt_path}: {file_paths}")
-                    return pd.DataFrame()
-                
-                if not file_paths:
-                    logging.warning(f"{files_txt_path} is empty. Returning empty DataFrame.")
-                    return pd.DataFrame()
-                
-                first_file_path = file_paths[0] if file_paths else ""
-
-        except FileNotFoundError:
-            logging.error(f"{files_txt_path} not found.")
-            return pd.DataFrame()
-
-        try:
-            return pd.read_csv(first_file_path, sep="\t")
+    def __setstate__(self, state):
+        """Restore Config after unpickling - reconstruct unpicklable objects"""
+        self.__dict__.update(state)
         
-        except FileNotFoundError:
-            logging.error(f"File path '{first_file_path}' from {files_txt_path} not found.")
-            return pd.DataFrame()
+        # Reconstruct logger
+        self.logger = self.setup_logger()
+        
+        # Reconstruct OpenAI/DeepSeek client
+        is_deepseek = self.model == "r1"
+        key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
+        api_key = self.secrets[key_name]
+        
+        client_kwargs = {"api_key": api_key}
+        if is_deepseek:
+            client_kwargs["base_url"] = "https://api.deepseek.com/v1"
+        
+        self.llm_client = openai.OpenAI(**client_kwargs)
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
@@ -544,8 +585,6 @@ class Config:
                     f"DCH mode requires exactly 2 B terms, found {len(self.b_terms)} in {b_terms_file}"
                 )
 
-    # Removed legacy km_with_gpt_direct_comp loader
-
     def _read_terms_from_file(self, file_path: str) -> list:
         """Read terms from a text file (one term per line)"""
         try:
@@ -559,8 +598,6 @@ class Config:
         except Exception as e:
             self.logger.error(f"Error reading terms file {file_path}: {str(e)}")
             raise
-         
-    # Removed legacy direct-comp single-line term reader
 
     @property
     def job_specific_settings(self):
@@ -595,42 +632,20 @@ class Config:
         # Default lower bound is zero (include all years)
         return self.job_specific_settings.get("censor_year_lower", 0)
 
-    def _validate_htcondor_config(self):
-        """Validate required HTCondor settings"""
-        if not self.htcondor_config:
-            self.logger.warning("No HTCondor configuration found in config file")
-            return
-            
-        required_keys = [
-            "collector_host", 
-            "submit_host",
-            "docker_image",
-        ]
-        
-        missing = [key for key in required_keys if key not in self.htcondor_config]
-        if missing:
-            raise ValueError(f"Missing required HTCondor config keys: {', '.join(missing)}")
+    @property
+    def is_km_with_gpt(self):
+        """Check if job type is km_with_gpt"""
+        return self.job_type == "km_with_gpt"
 
     @property
-    def using_htcondor(self):
-        """Check if HTCondor configuration is present and valid"""
-        return bool(self.htcondor_config) and all([
-            self.collector_host,
-            self.submit_host,
-            self.docker_image
-        ])
+    def is_skim_with_gpt(self):
+        """Check if job type is skim_with_gpt"""
+        return self.job_type == "skim_with_gpt"
 
     @property
-    def collector_host(self):
-        return self.htcondor_config.get("collector_host")
-
-    @property
-    def submit_host(self):
-        return self.htcondor_config.get("submit_host")
-
-    @property
-    def docker_image(self):
-        return self.htcondor_config.get("docker_image")
+    def is_dch(self):
+        """Check if in DCH (direct comparison hypothesis) mode"""
+        return self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
 
 
     def create_secrets_file(self):
@@ -638,12 +653,11 @@ class Config:
         secrets = {
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
-            "HTCONDOR_TOKEN": os.getenv("HTCONDOR_TOKEN"),
             "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
         }
         
         # Only check for required keys based on model
-        required_keys = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        required_keys = ["PUBMED_API_KEY"]
         if self.model == "r1":
             required_keys.append("DEEPSEEK_API_KEY")
         else:
@@ -673,7 +687,7 @@ class Config:
 
     def validate_secrets(self):
         """Validate required secrets exist"""
-        required = ["PUBMED_API_KEY", "HTCONDOR_TOKEN"]
+        required = ["PUBMED_API_KEY"]
         
         # Add API key requirement based on model
         if self.model == "r1":

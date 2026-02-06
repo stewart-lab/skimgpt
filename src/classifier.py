@@ -1,9 +1,8 @@
 import openai
 import time
-import json
 import re
 from typing import Any
-from src.utils import Config, strip_pipe, extract_json_from_markdown, extract_pmids
+from src.utils import Config, strip_pipe, clean_term_for_display, extract_json_from_markdown, extract_pmids
 from src import prompt_library as prompts_module  
 
 # Constants
@@ -47,6 +46,16 @@ def process_single_row(row, config: Config):
         a_term = row.get("a_term")
         b_term = row.get("b_term")
         c_term = row.get("c_term")
+        
+        # Clean terms for display and LLM processing
+        a_term = clean_term_for_display(a_term)
+        b_term = clean_term_for_display(b_term)
+        c_term = clean_term_for_display(c_term)
+        
+        # Update row with cleaned terms so downstream functions use them
+        row["a_term"] = a_term
+        row["b_term"] = b_term
+        row["c_term"] = c_term
 
         abc_result, abc_prompt, abc_urls = perform_analysis(
             row=row, config=config, relationship_type="A_B_C"
@@ -91,15 +100,14 @@ def process_single_row(row, config: Config):
         # DCH mode: direct hypothesis comparison (is_dch can only be True if is_km_with_gpt is True)
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
-        canonical_h1 = strip_pipe(hypothesis1)
-        canonical_h2 = strip_pipe(hypothesis2)
+        # Hypotheses are already cleaned (strip_pipe applied to terms before formatting)
         result, prompt, urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
         if result or prompt:
             processed_results["Hypothesis_Comparison"] = {
-                "hypothesis1": canonical_h1,
-                "hypothesis2": canonical_h2,
+                "hypothesis1": hypothesis1,
+                "hypothesis2": hypothesis2,
                 "Result": result,
                 "Prompt": prompt,
                 "URLS": urls,
@@ -117,7 +125,14 @@ def process_single_row(row, config: Config):
             logger.error(f"Missing 'a_term' or 'b_term' in row.")
             return None
 
-        # Do not strip pipes here; preserve synonyms for relevance filtering
+        # Clean terms for display and LLM processing
+        a_term = clean_term_for_display(a_term)
+        b_term = clean_term_for_display(b_term)
+        
+        # Update row with cleaned terms so downstream functions use them
+        row["a_term"] = a_term
+        row["b_term"] = b_term
+
         ab_result, ab_prompt, ab_urls = perform_analysis(
             row=row, config=config, relationship_type="A_B"
         )
@@ -161,8 +176,8 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         a_term = row.get("a_term", "")
         c_term = row.get("c_term", "")
 
-        ab_abstracts = row.get("ab_pmid_intersection", "")
-        bc_abstracts = row.get("bc_pmid_intersection", "")
+        ab_abstracts = row.get("ab_abstracts", "")
+        bc_abstracts = row.get("bc_abstracts", "")
     elif relationship_type == "A_C":
         a_term = row.get("a_term", "")
         c_term = row.get("c_term", "")
@@ -170,14 +185,14 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
 
         ab_abstracts = ""  # Not used for A-C relationship
         bc_abstracts = ""  # Not used for A-C relationship
-        ac_abstracts = row.get("ac_pmid_intersection", "")
+        ac_abstracts = row.get("ac_abstracts", "")
     elif relationship_type == "A_B":
         if config.is_dch:
             # DCH: direct comparison, use consolidated text from row if provided
             a_term = ""
             b_term = ""
             c_term = ""
-            ab_abstracts = row.get("ab_pmid_intersection", "")
+            ab_abstracts = row.get("ab_abstracts", "")
             bc_abstracts = ""
             ac_abstracts = ""
         else:
@@ -186,7 +201,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             b_term = row.get("b_term", "")
             c_term = ""  # Not used for A-B relationship
 
-            ab_abstracts = row.get("ab_pmid_intersection", "")
+            ab_abstracts = row.get("ab_abstracts", "")
             bc_abstracts = ""  # Not used
             ac_abstracts = ""  # Not used
     
@@ -207,8 +222,6 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
             expected_count = row.get("expected_per_abstract_count")
         else:
             expected_count = (len(ab_abstracts) if isinstance(ab_abstracts, list) else 0)
-    else:
-        expected_count = None
 
     # Define URLs based on relationship type
     if relationship_type == "A_B_C":
@@ -254,7 +267,6 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         consolidated_abstracts = ac_abstracts
     elif relationship_type == "A_B":
         consolidated_abstracts = ab_abstracts
-    logger.info(f" IN PERFORM ANALYSIS   Consolidated abstracts: {consolidated_abstracts}")
     
 
     try:
@@ -265,11 +277,7 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         logger.debug(f"B term: {b_term}")
         
         logger.debug(f"C term: {c_term}")
-        # Strip pipes right before LLM calling
-        if not config.is_dch:
-            a_term = strip_pipe(a_term)
-            b_term = strip_pipe(b_term)
-        # else: b_term already set from row.get() above, no need to fetch again
+        # Terms are already cleaned in process_single_row() before being stored in row
         result, prompt_text = analyze_abstract_with_frontier_LLM(
             a_term=a_term,
             b_term=b_term,
@@ -307,24 +315,13 @@ def analyze_abstract_with_frontier_LLM(
         logger.error("A term is empty.")
         return [SCORE_NA_RESPONSE], ""
 
-    # Initialize client based on model type
-    if config.model == "r1":
-        api_key = config.secrets["DEEPSEEK_API_KEY"]
-        if not api_key:
-            raise ValueError("Deepseek API key is not set.")
-        client = openai.OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
-    else:
-        api_key = config.secrets["OPENAI_API_KEY"]
-        if not api_key:
-            raise ValueError("OpenAI API key is not set.")
-        client = openai.OpenAI(api_key=api_key)
+    # Use pre-initialized LLM client from config
+    client = config.llm_client
 
     responses = []
     prompt_text = ""
 
-    #strip pipe from hypothesis1 and hypothesis2
-    hypothesis1 = strip_pipe(hypothesis1)
-    hypothesis2 = strip_pipe(hypothesis2)
+    # Hypotheses are already cleaned (strip_pipe applied to terms before formatting in relevance.py)
     prompt_text = generate_prompt(
         a_term=a_term,
         b_term=b_term,
@@ -358,7 +355,7 @@ def analyze_abstract_with_frontier_LLM(
         config,
         expected_per_abstract_count=final_expected_count,
     )
-    logger.info(f" IN ANALYZE ABSTRACT   Response: {response}")
+    logger.debug(f" IN ANALYZE ABSTRACT   Response: {response}")
     if response:
         responses.append(response)
     logger.debug(f" IN ANALYZE ABSTRACT   Responses: {responses}")
@@ -382,15 +379,13 @@ def generate_prompt(
         if not (hypothesis1 and hypothesis2):
             logger.error("DCH requires hypothesis1 and hypothesis2.")
             return ""
-        h1 = hypothesis1
-        h2 = hypothesis2
         prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
         if not prompt_function:
             logger.error("Prompt function for DCH not found.")
             return ""
         return prompt_function(
-            hypothesis_1=h1,
-            hypothesis_2=h2,
+            hypothesis_1=hypothesis1,
+            hypothesis_2=hypothesis2,
             consolidated_abstracts=content,
         )
     elif config.is_km_with_gpt:
@@ -469,8 +464,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         system_instructions = prompts_module.skim_with_gpt_system_instructions()
         irrelevant_label = "inconclusive"
     else:
-        system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
-        irrelevant_label = "neither"
+        raise ValueError(f"Unknown job type: {config.job_type}")
 
     messages = [
         {"role": "system", "content": system_instructions},
@@ -498,7 +492,21 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
 
     for _ in range(1, max_retries + 1):
         try:
+            # Time the API call
+            api_start_time = time.time()
             resp = client.chat.completions.create(**params)
+            api_duration = time.time() - api_start_time
+            
+            # Extract token usage and log timing
+            total_tokens = resp.usage.total_tokens if hasattr(resp, 'usage') and resp.usage else 'N/A'
+            model_name = params.get('model', 'unknown')
+            abstracts_count = expected_per_abstract_count if expected_per_abstract_count else 'N/A'
+            
+            config.logger.info(
+                f"OpenAI API call completed in {api_duration:.2f}s "
+                f"(model={model_name}, abstracts={abstracts_count}, tokens={total_tokens})"
+            )
+            
             content = resp.choices[0].message.content
             if not content:
                 raise ValueError("Empty response content from API.")
@@ -525,7 +533,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 for tk in ["support_H1","support_H2","both","neither_or_inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
-            elif config.is_km_with_gpt or config.is_skim_with_gpt:
+            else:
                 for tk in ["support","refute","inconclusive"]:
                     if tk not in tallies:
                         raise ValueError(f"Missing required tally '{tk}' in model output.")
