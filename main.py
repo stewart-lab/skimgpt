@@ -216,7 +216,7 @@ def handle_cost_estimation(config, combined_df: pd.DataFrame, output_directory: 
 
 def run_relevance_filtering(combined_tsv_path: Path, config, logger):
     """Run relevance filtering directly."""
-    from src.relevance import run_relevance_analysis
+    from src.relevance_triton import run_relevance_analysis
     
     logger.info("Running relevance filtering...")
     try:

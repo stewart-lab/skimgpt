@@ -62,7 +62,7 @@ Documentation = "https://github.com/stewart-lab/skimgpt#readme"
 "Bug Tracker" = "https://github.com/stewart-lab/skimgpt/issues"
 
 [project.scripts]
-skimgpt-relevance = "src.relevance:main"
+skimgpt-relevance = "src.relevance_chtc:main"
 skimgpt-main = "main:main"
 
 [tool.setuptools]
