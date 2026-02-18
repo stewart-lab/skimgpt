@@ -6,16 +6,22 @@ import os
 import socket
 import subprocess
 import time
-import vllm
 from itertools import chain
 import random
-import torch
 from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
 )
+
+# vllm and torch are imported lazily inside main() so that GPU environment
+# variables (especially CUDA_VISIBLE_DEVICES) can be configured before CUDA
+# initializes.  Importing them at module level causes CUDA to read the env
+# immediately, which fails when HTCondor sets CUDA_VISIBLE_DEVICES to a GPU
+# UUID that the container runtime cannot resolve.
+vllm = None   # populated in main()
+torch = None  # populated in main()
 
 
 def convert_gpu_uuid_to_device_id(gpu_uuid):
@@ -603,74 +609,80 @@ def main():
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
+    # ── Configure GPU environment BEFORE importing torch/vllm ──────────────
+    # CUDA reads CUDA_VISIBLE_DEVICES on first import of torch.  If HTCondor
+    # set it to a GPU UUID the container runtime cannot resolve, CUDA init
+    # fails and vLLM reports "No supported device detected."  We must fix env
+    # vars first, then import.
     dynamic_max_tokens = 4000
 
-    # Configure GPU environment before vLLM model initialization
-    try:
-        os.environ['VLLM_NO_USAGE_STATS'] = '1'
-        os.environ['DO_NOT_TRACK'] = '1'
+    logger.info("Configuring GPU environment for containerized execution...")
 
-        logger.info("Configuring PyTorch environment for containerized execution...")
-        
-        os.environ['TORCH_COMPILE_DISABLE'] = '1'
-        os.environ['TORCHINDUCTOR_DISABLE'] = '1'
-        
-        # Set cache directories to current working directory (writable)
-        current_dir = os.getcwd()
-        os.environ['TORCH_HOME'] = current_dir
-        os.environ['TORCHINDUCTOR_CACHE_DIR'] = os.path.join(current_dir, 'torch_cache')
-        os.environ['TRITON_CACHE_DIR'] = os.path.join(current_dir, 'triton_cache')
-        
-        # Disable other PyTorch features that might cause issues in containerized environments
-        os.environ['PYTORCH_DISABLE_DISTRIBUTED_SAMPLING'] = '1'
-        os.environ['NCCL_DISABLE_WARN'] = '1'
-        
-        # vLLM-specific environment configurations
-        os.environ['VLLM_DISABLE_CUSTOM_ALL_REDUCE'] = '1'
-        os.environ['VLLM_USE_TRITON_FLASH_ATTN'] = '0'
-        os.environ['VLLM_ALLOW_LONG_MAX_MODEL_LEN'] = '1'
-        
-        # Dynamically estimate max_num_batched_tokens based on available memory
-        dynamic_max_tokens = estimate_max_batched_tokens(
-            seq_len=4000,
-            gpu_memory_util=0.8,
-            token_mem_mb=0.31,  # ~0.31 MB per token for Phi-3-mini KV-cache
-            weight_mem_gib=7.2,  # ~7.2 GiB weights for Phi-3-mini
-            config=config
+    # Convert any GPU UUIDs in CUDA_VISIBLE_DEVICES to numeric IDs (Python
+    # fallback in case run.sh conversion was skipped or this is run outside
+    # HTCondor).
+    cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
+    logger.info(f"CUDA_VISIBLE_DEVICES before fixup: {cuda_devices!r}")
+    if cuda_devices and not cuda_devices.replace(',', '').replace(' ', '').isdigit():
+        converted_devices = []
+        for dev in cuda_devices.split(','):
+            dev = dev.strip()
+            if dev.startswith('GPU-'):
+                numeric_id = convert_gpu_uuid_to_device_id(dev)
+                logger.info(f"Converted GPU UUID {dev} -> device {numeric_id}")
+                converted_devices.append(str(numeric_id))
+            else:
+                converted_devices.append(dev)
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
+        logger.info(f"CUDA_VISIBLE_DEVICES after fixup: {os.environ['CUDA_VISIBLE_DEVICES']}")
+
+    os.environ['VLLM_NO_USAGE_STATS'] = '1'
+    os.environ['DO_NOT_TRACK'] = '1'
+    os.environ['TORCH_COMPILE_DISABLE'] = '1'
+    os.environ['TORCHINDUCTOR_DISABLE'] = '1'
+
+    current_dir = os.getcwd()
+    os.environ['TORCH_HOME'] = current_dir
+    os.environ['TORCHINDUCTOR_CACHE_DIR'] = os.path.join(current_dir, 'torch_cache')
+    os.environ['TRITON_CACHE_DIR'] = os.path.join(current_dir, 'triton_cache')
+
+    os.environ['PYTORCH_DISABLE_DISTRIBUTED_SAMPLING'] = '1'
+    os.environ['NCCL_DISABLE_WARN'] = '1'
+
+    os.environ['VLLM_DISABLE_CUSTOM_ALL_REDUCE'] = '1'
+    os.environ['VLLM_USE_TRITON_FLASH_ATTN'] = '0'
+    os.environ['VLLM_ALLOW_LONG_MAX_MODEL_LEN'] = '1'
+
+    logger.info("GPU environment configured, now importing torch and vllm...")
+
+    # ── Lazy-import torch and vllm AFTER env is clean ────────────────────
+    global torch, vllm
+    import torch as _torch   # noqa: E402
+    import vllm as _vllm     # noqa: E402
+    torch = _torch
+    vllm = _vllm
+
+    logger.info(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+    logger.info(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
+
+    if not torch.cuda.is_available():
+        logger.error(
+            "No CUDA device available after environment fixup. "
+            f"CUDA_VISIBLE_DEVICES={os.getenv('CUDA_VISIBLE_DEVICES', '')!r}"
         )
-        logger.info(f"Dynamic max_num_batched_tokens estimated: {dynamic_max_tokens}")
-        
-        logger.info("PyTorch and vLLM environment configured for containerized execution")
-        
-        # Set environment variables to handle GPU device ID issues
-        if torch.cuda.is_available():
-            cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
-            logger.info(f"Original CUDA_VISIBLE_DEVICES: {cuda_devices}")
-            
-            if cuda_devices and not cuda_devices.replace(',', '').isdigit():
-                # Contains UUIDs, need to convert
-                device_list = [d.strip() for d in cuda_devices.split(',') if d.strip()]
-                converted_devices = []
-                
-                for device in device_list:
-                    if device.startswith('GPU-'):
-                        # Convert UUID to numeric ID
-                        numeric_id = convert_gpu_uuid_to_device_id(device)
-                        logger.info(f"Converted GPU UUID {device} to device ID {numeric_id}")
-                        converted_devices.append(str(numeric_id))
-                    else:
-                        converted_devices.append(device)
-                
-                # Set the converted device list
-                new_cuda_devices = ','.join(converted_devices)
-                os.environ['CUDA_VISIBLE_DEVICES'] = new_cuda_devices
-                logger.info(f"Updated CUDA_VISIBLE_DEVICES: {new_cuda_devices}")
-        
-    except Exception as e:
-        logger.error(f"Error configuring GPU environment: {str(e)}")
-        logger.warning("Proceeding with default GPU configuration")
+        raise RuntimeError("CUDA is not available — cannot run vLLM without a GPU")
 
-    # Model setup and inference (single, non-defensive initialisation)
+    # Dynamically estimate max_num_batched_tokens based on available memory
+    dynamic_max_tokens = estimate_max_batched_tokens(
+        seq_len=4000,
+        gpu_memory_util=0.8,
+        token_mem_mb=0.31,
+        weight_mem_gib=7.2,
+        config=config
+    )
+    logger.info(f"Dynamic max_num_batched_tokens estimated: {dynamic_max_tokens}")
+
+    # ── Initialize vLLM model ────────────────────────────────────────────
     logger.info("Initializing vLLM model …")
     try:
         model = vllm.LLM(
@@ -684,7 +696,6 @@ def main():
         )
         logger.info("Successfully initialized vLLM model")
     except Exception as e:
-        # Fail fast – we no longer attempt multiple fallbacks
         logger.error(f"Failed to initialize vLLM model: {e}")
         raise
 
