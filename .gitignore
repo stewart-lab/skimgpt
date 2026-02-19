@@ -13,4 +13,5 @@ skimgpt_visualizer.py
 run_*
 .DS_Store
 mcp_server/
-
+config_copy.json
+config_copy2.json
