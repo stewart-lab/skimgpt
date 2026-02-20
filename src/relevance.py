@@ -1,28 +1,7 @@
 from __future__ import annotations
-import ast
-import pandas as pd
-import argparse
 import os
-import socket
+import sys
 import subprocess
-import time
-from itertools import chain
-import random
-from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
-from src.pubmed_fetcher import PubMedFetcher
-from src.classifier import (
-    calculate_relevance_ratios,
-    process_single_row,
-)
-
-# vllm and torch are imported lazily inside main() so that GPU environment
-# variables (especially CUDA_VISIBLE_DEVICES) can be configured before CUDA
-# initializes.  Importing them at module level causes CUDA to read the env
-# immediately, which fails when HTCondor sets CUDA_VISIBLE_DEVICES to a GPU
-# UUID that the container runtime cannot resolve.
-vllm = None   # populated in main()
-torch = None  # populated in main()
-
 
 def convert_gpu_uuid_to_device_id(gpu_uuid):
     """Convert GPU UUID to numeric device ID for vLLM compatibility"""
@@ -53,6 +32,50 @@ def convert_gpu_uuid_to_device_id(gpu_uuid):
         pass
     
     return gpu_uuid  # Return original if conversion fails
+
+# ── IMMEDIATE GPU FIXUP ───────────────────────────────────────────────────
+# We MUST fix CUDA_VISIBLE_DEVICES before ANY other imports (like pandas/numpy)
+# touch the CUDA runtime.
+cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
+if cuda_devices and not cuda_devices.replace(',', '').replace(' ', '').isdigit():
+    converted_devices = []
+    for dev in cuda_devices.split(','):
+        dev = dev.strip()
+        if dev.startswith('GPU-'):
+            numeric_id = convert_gpu_uuid_to_device_id(dev)
+            print(f"BOOTSTRAP: Converted GPU UUID {dev} -> device {numeric_id}", file=sys.stderr)
+            converted_devices.append(str(numeric_id))
+        else:
+            converted_devices.append(dev)
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
+    print(f"BOOTSTRAP: Updated CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}", file=sys.stderr)
+
+# Essential vLLM/PyTorch flags to set early
+os.environ.setdefault('VLLM_NO_USAGE_STATS', '1')
+os.environ.setdefault('DO_NOT_TRACK', '1')
+os.environ.setdefault('TORCH_COMPILE_DISABLE', '1')
+os.environ.setdefault('TORCHINDUCTOR_DISABLE', '1')
+# ──────────────────────────────────────────────────────────────────────────
+
+import ast
+import pandas as pd
+import argparse
+import socket
+import time
+from itertools import chain
+import random
+from src.utils import Config, RaggedTensor, sanitize_term_for_filename, strip_pipe, normalize_entries, write_to_json, PMID_PATTERN, extract_pmid
+from src.pubmed_fetcher import PubMedFetcher
+from src.classifier import (
+    calculate_relevance_ratios,
+    process_single_row,
+)
+
+# vllm and torch are imported lazily inside main() so that GPU environment
+# variables (especially CUDA_VISIBLE_DEVICES) can be configured before CUDA
+# initializes.  
+vllm = None   # populated in main()
+torch = None  # populated in main()
 
 
 def getHypothesis(
@@ -609,37 +632,10 @@ def main():
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    # ── Configure GPU environment BEFORE importing torch/vllm ──────────────
-    # CUDA reads CUDA_VISIBLE_DEVICES on first import of torch.  If HTCondor
-    # set it to a GPU UUID the container runtime cannot resolve, CUDA init
-    # fails and vLLM reports "No supported device detected."  We must fix env
-    # vars first, then import.
-    dynamic_max_tokens = 4000
-
-    logger.info("Configuring GPU environment for containerized execution...")
-
-    # Convert any GPU UUIDs in CUDA_VISIBLE_DEVICES to numeric IDs (Python
-    # fallback in case run.sh conversion was skipped or this is run outside
-    # HTCondor).
-    cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
-    logger.info(f"CUDA_VISIBLE_DEVICES before fixup: {cuda_devices!r}")
-    if cuda_devices and not cuda_devices.replace(',', '').replace(' ', '').isdigit():
-        converted_devices = []
-        for dev in cuda_devices.split(','):
-            dev = dev.strip()
-            if dev.startswith('GPU-'):
-                numeric_id = convert_gpu_uuid_to_device_id(dev)
-                logger.info(f"Converted GPU UUID {dev} -> device {numeric_id}")
-                converted_devices.append(str(numeric_id))
-            else:
-                converted_devices.append(dev)
-        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
-        logger.info(f"CUDA_VISIBLE_DEVICES after fixup: {os.environ['CUDA_VISIBLE_DEVICES']}")
-
-    os.environ['VLLM_NO_USAGE_STATS'] = '1'
-    os.environ['DO_NOT_TRACK'] = '1'
-    os.environ['TORCH_COMPILE_DISABLE'] = '1'
-    os.environ['TORCHINDUCTOR_DISABLE'] = '1'
+    # ── Configure GPU environment before import ──────────────────────────────
+    # Much of this is now done at module-level "bootstrap" to ensure
+    # environment is locked before any other heavy deps are imported.
+    logger.info("Verifying GPU environment and importing torch/vllm...")
 
     current_dir = os.getcwd()
     os.environ['TORCH_HOME'] = current_dir
@@ -653,7 +649,7 @@ def main():
     os.environ['VLLM_USE_TRITON_FLASH_ATTN'] = '0'
     os.environ['VLLM_ALLOW_LONG_MAX_MODEL_LEN'] = '1'
 
-    logger.info("GPU environment configured, now importing torch and vllm...")
+    logger.info("Now importing torch and vllm...")
 
     # ── Lazy-import torch and vllm AFTER env is clean ────────────────────
     global torch, vllm

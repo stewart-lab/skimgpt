@@ -105,9 +105,13 @@ def flatten_and_cleanup(parent_dir):
             continue
         inner = os.path.join(cy_path, "output")
         if os.path.isdir(inner):
-            subs = [d for d in os.listdir(inner) if os.path.isdir(os.path.join(inner, d))]
+            # To avoid collisions with an 'output' folder nested inside,
+            # we rename the intermediate 'output' folder before flattening.
+            inner_tmp = inner + "_tmp"
+            os.rename(inner, inner_tmp)
+            subs = [d for d in os.listdir(inner_tmp) if os.path.isdir(os.path.join(inner_tmp, d))]
             if subs:
-                real = os.path.join(inner, subs[0])
+                real = os.path.join(inner_tmp, subs[0])
                 for item in os.listdir(real):
                     src = os.path.join(real, item)
                     dst = os.path.join(cy_path, item)
@@ -116,8 +120,9 @@ def flatten_and_cleanup(parent_dir):
                             shutil.rmtree(dst)
                         else:
                             os.remove(dst)
-                    shutil.move(src, dst)
-            shutil.rmtree(inner)
+                    if os.path.exists(src):
+                        shutil.move(src, dst)
+            shutil.rmtree(inner_tmp)
         for junk in ("src", "token", "secrets.json"):
             p = os.path.join(cy_path, junk)
             if os.path.isdir(p):
