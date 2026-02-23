@@ -394,8 +394,10 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     if config.is_dch:
         # Build direct comparison hypotheses and provide consolidated text content
-        # Preserve pipes in terms for relevance; canonicalization happens later
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
+        # Strip pipes from individual terms BEFORE formatting hypotheses
+        a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
+        b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
+        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
         hyp2 = hypotheses[1]

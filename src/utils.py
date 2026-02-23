@@ -187,7 +187,7 @@ def strip_pipe(term: str) -> str:
     # Simple case: no pipe separator
     if '|' not in term:
         return ' '.join(term.split())
-    
+
     # Extract first non-empty option from pipe-separated list
     for part in term.split('|'):
         cleaned_part = part.strip()
