@@ -1,7 +1,65 @@
 from __future__ import annotations
+import os
+import sys
+import subprocess
+
+def convert_gpu_uuid_to_device_id(gpu_uuid):
+    """Convert GPU UUID to numeric device ID for vLLM compatibility"""
+    try:
+        # Get GPU information from nvidia-smi
+        result = subprocess.run([
+            'nvidia-smi', '--query-gpu=uuid,index', 
+            '--format=csv,noheader,nounits'
+        ], capture_output=True, text=True, check=True)
+        
+        for line in result.stdout.strip().split('\n'):
+            if not line.strip():
+                continue
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 2:
+                uuid_part, index_part = parts[0], parts[1]
+                # Handle different UUID formats
+                if gpu_uuid in uuid_part or uuid_part.endswith(gpu_uuid) or gpu_uuid.startswith(uuid_part.split('-')[0]):
+                    return index_part
+        
+        # If not found, try to extract numeric suffix from UUID
+        if '-' in gpu_uuid:
+            suffix = gpu_uuid.split('-')[-1]
+            if suffix.isdigit():
+                return suffix
+                
+    except (subprocess.SubprocessError, subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    return gpu_uuid  # Return original if conversion fails
+
+# ── IMMEDIATE GPU FIXUP ───────────────────────────────────────────────────
+# We MUST fix CUDA_VISIBLE_DEVICES before ANY other imports (like pandas/numpy)
+# touch the CUDA runtime.
+cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
+if cuda_devices and not cuda_devices.replace(',', '').replace(' ', '').isdigit():
+    converted_devices = []
+    for dev in cuda_devices.split(','):
+        dev = dev.strip()
+        if dev.startswith('GPU-'):
+            numeric_id = convert_gpu_uuid_to_device_id(dev)
+            print(f"BOOTSTRAP: Converted GPU UUID {dev} -> device {numeric_id}", file=sys.stderr)
+            converted_devices.append(str(numeric_id))
+        else:
+            converted_devices.append(dev)
+    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
+    print(f"BOOTSTRAP: Updated CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}", file=sys.stderr)
+
+# Essential vLLM/PyTorch flags to set early
+os.environ.setdefault('VLLM_NO_USAGE_STATS', '1')
+os.environ.setdefault('DO_NOT_TRACK', '1')
+os.environ.setdefault('TORCH_COMPILE_DISABLE', '1')
+os.environ.setdefault('TORCHINDUCTOR_DISABLE', '1')
+# ──────────────────────────────────────────────────────────────────────────
+
 import ast
 import pandas as pd
-import os
+import argparse
 import socket
 import time
 from itertools import chain
@@ -12,7 +70,12 @@ from src.classifier import (
     calculate_relevance_ratios,
     process_single_row,
 )
-from src.triton_client import TritonClient
+
+# vllm and torch are imported lazily inside main() so that GPU environment
+# variables (especially CUDA_VISIBLE_DEVICES) can be configured before CUDA
+# initializes.  
+vllm = None   # populated in main()
+torch = None  # populated in main()
 
 
 def getHypothesis(
@@ -82,53 +145,11 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def gen(
-    prompts: RaggedTensor, model: TritonClient, logger=None,
-    max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
+    prompts: RaggedTensor, model: any, sampling_config: any
 ) -> RaggedTensor:
-    """Generate outputs using Triton client batch inference with configurable parameters.
-    
-    Args:
-        prompts: RaggedTensor containing input prompts
-        model: TritonClient instance for inference (with pre-configured sampling parameters)
-        logger: Logger instance for debugging
-        max_workers: Maximum concurrent requests (default: None = use client default)
-        show_progress: Show progress bar during inference (default: False)
-        batch_chunk_size: Process large batches in chunks (default: None = no chunking)
-    
-    Returns:
-        RaggedTensor containing model outputs
-    """
-    # Debug: log first few prompts
-    if logger:
-        logger.info(f"DEBUG gen(): Number of prompts: {len(prompts.data)}")
-        if len(prompts.data) > 0:
-            logger.info(f"DEBUG gen(): First prompt (truncated): {prompts.data[0][:300]}...")
-            logger.info(f"DEBUG gen(): Model sampling params - temperature: {model.temperature}, "
-                       f"top_p: {model.top_p}, max_tokens: {model.max_tokens}")
-        if max_workers:
-            logger.info(f"DEBUG gen(): Using max_workers={max_workers}")
-        if batch_chunk_size:
-            logger.info(f"DEBUG gen(): Using batch_chunk_size={batch_chunk_size}")
-    
-    batch_results = model.generate_batch(
-        text_inputs=prompts.data,
-        max_workers=max_workers,
-        show_progress=show_progress,
-        batch_chunk_size=batch_chunk_size
-    )
-    
-    # Debug: log first few results and check for errors
-    if logger:
-        logger.info(f"DEBUG gen(): Number of results: {len(batch_results)}")
-        error_count = sum(1 for r in batch_results if "error" in r)
-        if error_count > 0:
-            logger.warning(f"DEBUG gen(): {error_count}/{len(batch_results)} requests failed")
-        if len(batch_results) > 0:
-            logger.info(f"DEBUG gen(): First result: {batch_results[0]}")
-    
+    generated = model.generate(prompts.data, sampling_params=sampling_config)
     outputs = RaggedTensor(
-        [result.get("text_output", "") for result in batch_results], 
-        prompts.break_point
+        [output.outputs[0].text for output in generated], prompts.break_point
     )
     return outputs
 
@@ -155,48 +176,23 @@ def postProcess(
     flat_hypotheses = hypotheses.data.copy() if hypotheses.data else []
 
     abstracts.reshape(shape)
-    
-    logger = config.logger
-    logger.info(f"Processing {len(outputs.data)} abstracts for {terms} relationship")
 
     if not config.debug:
-        # Non-debug mode: simple evaluation
-        evaluated_results = []
-        for idx, output in enumerate(outputs.data):
-            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
-            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
-            result = safe_eval(output, idx, abstract, hypothesis, 0, logger)
-            evaluated_results.append(result)
-            
-            # Log each evaluation
-            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
-            logger.debug(f"[{terms}] Abstract {idx}: {relevance_status}")
-            logger.debug(f"  Model output: '{output.strip()}'")
-            logger.debug(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
-            logger.debug(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
-        
-        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
+        answer_masks = RaggedTensor(
+            [safe_eval(output, idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "", 
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger) 
+             for idx, output in enumerate(outputs.data)], 
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
         abstracts.applyFilter(answer_masks)
     else:
-        # Debug mode: evaluation with chain-of-thought
-        evaluated_results = []
-        for idx, answer in enumerate(outputs.data):
-            abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
-            hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
-            first_char = answer[0] if answer else ""
-            result = safe_eval(first_char, idx, abstract, hypothesis, 0, logger)
-            evaluated_results.append(result)
-            
-            # Log each evaluation with full answer (CoT)
-            relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
-            logger.info(f"[{terms}] Abstract {idx}: {relevance_status}")
-            logger.info(f"  First char: '{first_char}'")
-            logger.info(f"  Full answer: {answer[:500]}..." if len(answer) > 500 else f"  Full answer: {answer}")
-            logger.info(f"  Hypothesis: {hypothesis[:150]}..." if len(hypothesis) > 150 else f"  Hypothesis: {hypothesis}")
-            logger.info(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
-        
-        answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
+        answer_masks = RaggedTensor(
+            [safe_eval(answer[0] if answer else "", idx, flat_abstracts[idx] if idx < len(flat_abstracts) else "",
+                       flat_hypotheses[idx] if idx < len(flat_hypotheses) else "", 0, config.logger)
+             for idx, answer in enumerate(outputs.data)],
+            outputs.break_point
+        )
         answer_masks.reshape(shape)
         cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
@@ -209,41 +205,18 @@ def postProcess(
             out_df[f"{terms}_mask"] = answer_masks.data
             out_df[f"{terms}_cot"] = cot.data
             out_df[f"{terms}_hypothesis"] = hypotheses.data
-        
-        # In debug mode, still filter abstracts for downstream processing
-        # The mask is saved separately for debugging purposes
-        abstracts.applyFilter(answer_masks)
 
     out_df[f"{terms}_mask"] = answer_masks.data
-    out_df[f"{terms}_abstracts"] = abstracts.data
-    
-    # Log filtering statistics - flatten the data if it's nested (after reshape)
-    def flatten_if_needed(data):
-        """Flatten nested lists into a single list"""
-        if data and isinstance(data[0], list):
-            return [item for sublist in data for item in sublist]
-        return data
-    
-    flat_masks = flatten_if_needed(answer_masks.data)
-    total_abstracts = len(flat_masks)
-    relevant_count = sum(flat_masks)
-    filtered_count = total_abstracts - relevant_count
-    logger.info(f"[{terms}] Filtering summary: {relevant_count}/{total_abstracts} abstracts marked RELEVANT, {filtered_count} filtered out")
-    
-    # In debug mode, abstracts aren't filtered in-place, so we need to log which ones will be excluded
-    if config.debug:
-        excluded_indices = [idx for idx, mask in enumerate(flat_masks) if mask == 0]
-        if excluded_indices:
-            logger.info(f"[{terms}] The following {len(excluded_indices)} abstract indices were marked NOT RELEVANT and should be excluded from sampling: {excluded_indices[:20]}{'...' if len(excluded_indices) > 20 else ''}")
+    out_df[f"{terms}_pmid_intersection"] = abstracts.data
 
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
     """Process dataframe with optimizations and filtering."""
     logger = config.logger
     columns_to_process = [col for col in [
-        "ab_abstracts",
-        "bc_abstracts",
-        "ac_abstracts"
+        "ab_pmid_intersection",
+        "bc_pmid_intersection",
+        "ac_pmid_intersection"
     ] if col in out_df.columns]
     
     num_intersections = len(columns_to_process)
@@ -309,16 +282,6 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     total1 = len(list1)
     total2 = len(list2)
-    
-    # Log PMIDs in the sampling pool
-    pool_pmids1 = [extract_pmid(abstract) for abstract in list1]
-    pool_pmids2 = [extract_pmid(abstract) for abstract in list2]
-    
-    logger.info(f"Sampling pool: Candidate 1 has {total1} deduplicated abstracts")
-    logger.info(f"  Candidate 1 PMIDs in pool: {pool_pmids1[:20]}{'...' if len(pool_pmids1) > 20 else ''}")
-    logger.info(f"Sampling pool: Candidate 2 has {total2} deduplicated abstracts")
-    logger.info(f"  Candidate 2 PMIDs in pool: {pool_pmids2[:20]}{'...' if len(pool_pmids2) > 20 else ''}")
-    
     logger.debug(f"entities_in_candidate1: {total1}")
     logger.debug(f"entities_in_candidate2: {total2}")
     total = total1 + total2
@@ -393,20 +356,9 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     # Perform sampling
     sampled1 = random.sample(list1, n1) if n1 > 0 else []
     sampled2 = random.sample(list2, n2) if n2 > 0 else []
-    
-    # Extract PMIDs from sampled abstracts for logging
-    sampled_pmids1 = [extract_pmid(abstract) for abstract in sampled1]
-    sampled_pmids2 = [extract_pmid(abstract) for abstract in sampled2]
-    
-    logger.info(f"Sampling: Selected {n1}/{total1} abstracts from candidate 1")
-    logger.info(f"  Candidate 1 PMIDs sampled: {sampled_pmids1[:10]}{'...' if len(sampled_pmids1) > 10 else ''}")
-    logger.info(f"Sampling: Selected {n2}/{total2} abstracts from candidate 2")
-    logger.info(f"  Candidate 2 PMIDs sampled: {sampled_pmids2[:10]}{'...' if len(sampled_pmids2) > 10 else ''}")
-    
     logger.debug(f"sampled1: len {len(sampled1)} {sampled1}")
     logger.debug(f"sampled2: len {len(sampled2)} {sampled2}")
     sampled_abstracts = sampled1 + sampled2
-    logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({n1} from candidate1 + {n2} from candidate2)")
     logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
 
     if sampled_abstracts:
@@ -428,7 +380,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
     logger.info(f"Processing {total_rows} results...")
 
     # Determine output directory based on iteration
-    output_base_dir = config.km_output_dir
+    output_base_dir = "output"
     
     # If we're in an iteration, use the iteration subdirectory
     if config.iterations and config.current_iteration > 0:
@@ -442,10 +394,8 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
 
     if config.is_dch:
         # Build direct comparison hypotheses and provide consolidated text content
-        # Strip pipes from individual terms BEFORE formatting hypotheses
-        a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
-        b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
+        # Preserve pipes in terms for relevance; canonicalization happens later
+        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(out_df['a_term'], out_df['b_term'])]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
         hyp2 = hypotheses[1]
@@ -453,33 +403,17 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.debug(f"hyp2: {hyp2}")
 
         # Consolidate abstracts/text from both candidate rows (if present)
-        v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
-        v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
-        
-        # Flatten if needed (abstracts might be nested after RaggedTensor reshape)
-        def flatten_if_nested(data):
-            if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-                return [item for sublist in data for item in sublist]
-            return data
-        
-        v1_all = flatten_if_nested(v1_all_raw)
-        v2_all = flatten_if_nested(v2_all_raw)
-        
-        # Abstracts are now already filtered in postProcess (even in debug mode)
-        # so we can use them directly
-        v1 = v1_all
-        v2 = v2_all
-        logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
-        logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
+        v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
+        v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
 
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
 
-        # Store hypotheses (already cleaned via strip_pipe on individual terms)
+        # Store canonical (pipe-stripped) hypotheses in final JSON for DCH
         dch_row = {
-            "hypothesis1": hyp1,
-            "hypothesis2": hyp2,
-            "ab_abstracts": consolidated_abstracts,
+            "hypothesis1": strip_pipe(hyp1),
+            "hypothesis2": strip_pipe(hyp2),
+            "ab_pmid_intersection": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
         }
@@ -543,20 +477,68 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
             write_to_json([result_dict], output_json, output_base_dir, config)
 
 
+def estimate_max_batched_tokens(seq_len: int = 4000,
+                               gpu_memory_util: float = 0.8,
+                               token_mem_mb: float = 0.5,
+                               weight_mem_gib: float = 8.0, config: Config = None) -> int:
+    """Estimate max_num_batched_tokens for vLLM based on available GPU memory.
 
-
-def run_relevance_analysis(config: Config, km_output_path: str) -> None:
-    """Run relevance analysis on the provided TSV file.
-    
     Args:
-        config: Initialized Config object
-        km_output_path: Path to the TSV file to process
+        seq_len: Target tokens per sequence (context length).
+        gpu_memory_util: Fraction of total GPU memory vLLM is allowed to use.
+            Phi-3-mini a more accurate value is ~0.31 MB).
+        weight_mem_gib: Estimated memory footprint of model weights (GiB).
+            For Phi-3-mini the weight footprint is ~7.2 GiB.
+    Returns:
+        An integer suitable for vLLM's ``max_num_batched_tokens`` parameter.
     """
+    try:
+        config.logger.info(f"device count: {torch.cuda.device_count()}")
+        prop = torch.cuda.get_device_properties(0)
+        total_gib = prop.total_memory / (1024 ** 3)
+        # Memory budget for KV cache under gpu_memory_utilisation
+        avail_gib = total_gib * gpu_memory_util - weight_mem_gib
+        if avail_gib <= 0:
+            return seq_len
+        # Convert per-token MB to GiB
+        token_mem_gib = token_mem_mb / 1024
+        tokens_budget = int(avail_gib / token_mem_gib)
+        # Round down to nearest multiple of seq_len
+        max_tokens = max(seq_len, (tokens_budget // seq_len) * seq_len)
+        return max_tokens
+    except Exception:
+        # In case of any error fall back to seq_len
+        return seq_len
+
+
+def main():
+
+    if 'TRANSFORMERS_CACHE' in os.environ:
+        os.environ.setdefault('HF_HOME', os.environ['TRANSFORMERS_CACHE'])
+        os.environ.pop('TRANSFORMERS_CACHE', None)
     
+    # Parse arguments FIRST
+    parser = argparse.ArgumentParser(description="kmGPT relevance analysis (vLLM fine-tuned phi-3 mini)")
+    parser.add_argument(
+        "--km_output",
+        type=str,
+        required=True,
+        help="Tsv file to run relevance filtering on.",
+    )
+    parser.add_argument(
+        "--config", type=str, required=True, help="Config file for kmGPT run."
+    )
+    parser.add_argument(
+        "--secrets", type=str, required=True, help="Secrets file for kmGPT run."
+    )  
+    args = parser.parse_args()
+    
+    # THEN create Config
+    config = Config(args.config)  # Pass config path from arguments
     logger = config.logger
     logger.debug(f"config: {config}")
-    logger.debug(f"km_output_path: {km_output_path}")
-    config.load_km_output(km_output_path)   
+    logger.debug(f"args.km_output: {args.km_output}")
+    config.load_km_output(args.km_output)   
     start_time = time.time()
     logger.info("Starting relevance analysis...")
     
@@ -650,49 +632,78 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     
     # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
 
-    # Initialize Triton client for inference
-    logger.info("Initializing Triton client for remote inference...")
-    try:
-        # Initialize with configuration from relevance_filter section, including sampling parameters
-        model = TritonClient(
-            server_url=config.filter_config.get("SERVER_URL"),
-            model_name=config.filter_config.get("MODEL_NAME"),
-            temperature=config.filter_config["TEMPERATURE"],
-            top_p=config.filter_config["TOP_P"],
-            max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
+    # ── Configure GPU environment before import ──────────────────────────────
+    # Much of this is now done at module-level "bootstrap" to ensure
+    # environment is locked before any other heavy deps are imported.
+    logger.info("Verifying GPU environment and importing torch/vllm...")
+
+    current_dir = os.getcwd()
+    os.environ['TORCH_HOME'] = current_dir
+    os.environ['TORCHINDUCTOR_CACHE_DIR'] = os.path.join(current_dir, 'torch_cache')
+    os.environ['TRITON_CACHE_DIR'] = os.path.join(current_dir, 'triton_cache')
+
+    os.environ['PYTORCH_DISABLE_DISTRIBUTED_SAMPLING'] = '1'
+    os.environ['NCCL_DISABLE_WARN'] = '1'
+
+    os.environ['VLLM_DISABLE_CUSTOM_ALL_REDUCE'] = '1'
+    os.environ['VLLM_USE_TRITON_FLASH_ATTN'] = '0'
+    os.environ['VLLM_ALLOW_LONG_MAX_MODEL_LEN'] = '1'
+
+    logger.info("Now importing torch and vllm...")
+
+    # ── Lazy-import torch and vllm AFTER env is clean ────────────────────
+    global torch, vllm
+    import torch as _torch   # noqa: E402
+    import vllm as _vllm     # noqa: E402
+    torch = _torch
+    vllm = _vllm
+
+    logger.info(f"torch.cuda.is_available(): {torch.cuda.is_available()}")
+    logger.info(f"torch.cuda.device_count(): {torch.cuda.device_count()}")
+
+    if not torch.cuda.is_available():
+        logger.error(
+            "No CUDA device available after environment fixup. "
+            f"CUDA_VISIBLE_DEVICES={os.getenv('CUDA_VISIBLE_DEVICES', '')!r}"
         )
-        
-        # Check server health
-        if not model.check_server_health():
-            logger.error(f"Triton server at {model.server_url} is not ready")
-            raise RuntimeError(f"Triton server at {model.server_url} is not responding")
-        
-        logger.info(f"Successfully connected to Triton server at {model.server_url}")
-        logger.info(f"Using model: {model.model_name}")
+        raise RuntimeError("CUDA is not available — cannot run vLLM without a GPU")
+
+    # Dynamically estimate max_num_batched_tokens based on available memory
+    dynamic_max_tokens = estimate_max_batched_tokens(
+        seq_len=4000,
+        gpu_memory_util=0.8,
+        token_mem_mb=0.31,
+        weight_mem_gib=7.2,
+        config=config
+    )
+    logger.info(f"Dynamic max_num_batched_tokens estimated: {dynamic_max_tokens}")
+
+    # ── Initialize vLLM model ────────────────────────────────────────────
+    logger.info("Initializing vLLM model …")
+    try:
+        model = vllm.LLM(
+            model=config.filter_config["MODEL"],
+            max_model_len=4000,
+            max_num_batched_tokens=dynamic_max_tokens,
+            gpu_memory_utilization=0.8,
+            enforce_eager=True,
+            disable_custom_all_reduce=True,
+            trust_remote_code=False,
+        )
+        logger.info("Successfully initialized vLLM model")
     except Exception as e:
-        logger.error(f"Failed to initialize Triton client: {e}")
+        logger.error(f"Failed to initialize vLLM model: {e}")
         raise
-    
-    # Get optional performance tuning parameters from config
-    max_workers = config.global_settings.get("TRITON_MAX_WORKERS", None)
-    if max_workers:
-        max_workers = int(max_workers)
-        logger.info(f"Using configured max_workers={max_workers} for Triton inference")
-    
-    show_progress = config.global_settings.get("TRITON_SHOW_PROGRESS", False)
-    if isinstance(show_progress, str):
-        show_progress = show_progress.lower() in ("true", "1", "yes")
-    
-    batch_chunk_size = config.global_settings.get("TRITON_BATCH_CHUNK_SIZE", None)
-    if batch_chunk_size:
-        batch_chunk_size = int(batch_chunk_size)
-        logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
+
+    sampling_config = vllm.SamplingParams(
+        temperature=config.filter_config["TEMPERATURE"],
+        top_k=config.filter_config["TOP_K"],
+        top_p=config.filter_config["TOP_P"],
+        max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
+    )
 
     prompts = getPrompts(abstracts, all_hypotheses)
-    answers = gen(prompts, model, logger, 
-                  max_workers=max_workers,
-                  show_progress=show_progress,
-                  batch_chunk_size=batch_chunk_size)
+    answers = gen(prompts, model, sampling_config)
 
     defaults = 3 * [RaggedTensor([])]
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
@@ -710,10 +721,8 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
             postProcess(
                     config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
                 )
-    
-    # Skip process_dataframe for DCH mode - sampling handles context window sizing
-    if not config.is_dch:
-        out_df = process_dataframe(out_df, config, pubmed_fetcher)
+        
+    out_df = process_dataframe(out_df, config, pubmed_fetcher)
 
     # Save the initial processed dataframe
     initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
@@ -770,3 +779,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     end_time = time.time()
     elapsed_time = end_time - start_time
     logger.info(f"Relevance analysis completed in {elapsed_time:.2f} seconds")
+
+
+if __name__ == "__main__":
+    main()

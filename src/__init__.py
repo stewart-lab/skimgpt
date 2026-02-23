@@ -28,7 +28,8 @@ _EXPOSED = {
     "pubmed_fetcher",    # needs BioPython – container provides it
     "prompt_library",    # no heavy deps
     "scoring_guidelines",# no heavy deps
-    "relevance",         # vLLM / torch – GPU container only
+    "relevance_triton",  # Triton remote inference (with CHTC fallback)
+    "relevance_chtc",    # vLLM / torch – GPU container only (standalone for CHTC jobs)
 }
 
 __all__ = list(_EXPOSED)
