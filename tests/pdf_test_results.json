@@ -1,0 +1,19 @@
+{
+  "sample_size": 200,
+  "oa_api": {
+    "pdf_only": 200,
+    "xml_available": 0,
+    "both": 0,
+    "neither": 0,
+    "total": 200
+  },
+  "xml_spot_check": {
+    "has_body": 20,
+    "no_body": 0,
+    "error": 0,
+    "restricted": 0,
+    "total": 20
+  },
+  "needs_pdf_parser": true,
+  "pdf_only_pct": 100.0
+}
