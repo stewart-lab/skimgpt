@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import json
 import os
-import logging  
+import logging
 import re
 import openai
 
@@ -14,10 +14,10 @@ PMID_PATTERN = re.compile(r"PMID:\s*(\d+)")
 
 def extract_pmid(text: str) -> str:
     """Extract the first PMID from text.
-    
+
     Args:
         text: String containing PMID reference
-        
+
     Returns:
         First PMID number as string, or empty string if not found
     """
@@ -27,10 +27,10 @@ def extract_pmid(text: str) -> str:
 
 def extract_pmids(text: str) -> list:
     """Extract all PMIDs from text.
-    
+
     Args:
         text: String containing PMID references
-        
+
     Returns:
         List of PMID numbers as strings
     """
@@ -150,10 +150,10 @@ class RaggedTensor:
 
 def strip_pipe(term: str) -> str:
     """Collapse pipe-separated synonyms to the first option with robust handling.
-    
+
     This function takes pipe-separated alternatives and returns only the first option,
     while preserving the overall structure and context of the text.
-    
+
     Examples:
         "cancer|tumor" -> "cancer"
         "lung cancer|lung tumor|pulmonary cancer" -> "lung cancer"
@@ -165,10 +165,10 @@ def strip_pipe(term: str) -> str:
         "  " -> ""
         "term1||term2" -> "term1"
         "|term1|term2" -> "term1"
-    
+
     Args:
         term: String that may contain pipe-separated alternatives, or None
-        
+
     Returns:
         String with only the first option from each pipe-separated group,
         with normalized whitespace. Returns empty string for None or empty inputs.
@@ -176,37 +176,37 @@ def strip_pipe(term: str) -> str:
     # Handle None and non-string inputs
     if term is None:
         return ""
-    
+
     if not isinstance(term, str):
         term = str(term)
-    
+
     # Normalize whitespace and check if empty
     term = term.strip()
     if not term:
         return ""
-    
+
     # Simple case: no pipe separator
-    if '|' not in term:
-        return ' '.join(term.split())
-    
+    if "|" not in term:
+        return " ".join(term.split())
+
     # Extract first non-empty option from pipe-separated list
-    for part in term.split('|'):
+    for part in term.split("|"):
         cleaned_part = part.strip()
         if cleaned_part:
             # Normalize internal whitespace and return
-            return ' '.join(cleaned_part.split())
-    
+            return " ".join(cleaned_part.split())
+
     # All parts were empty
     return ""
 
 
 def clean_term_for_display(term: str) -> str:
     """Clean a term for display and LLM processing by removing search operators.
-    
+
     This function removes both pipe separators (keeping only the first synonym)
     and ampersands (replacing with spaces) to create clean, human-readable terms
     suitable for display in output JSON and prompts sent to LLMs.
-    
+
     Examples:
         "cardiovascular&disease" -> "cardiovascular disease"
         "hormone&therapy|HT|hormone replacement therapy" -> "hormone therapy"
@@ -214,33 +214,33 @@ def clean_term_for_display(term: str) -> str:
         "lung&cancer|lung&tumor" -> "lung cancer"
         None -> ""
         "" -> ""
-    
+
     Args:
         term: String that may contain pipes and/or ampersands, or None
-        
+
     Returns:
-        Clean string with pipes collapsed to first option and ampersands 
+        Clean string with pipes collapsed to first option and ampersands
         replaced with spaces. Returns empty string for None or empty inputs.
     """
     # First strip pipes (keeps only first synonym)
     term = strip_pipe(term)
-    
+
     # Then replace ampersands with spaces
     if term:
         term = term.replace("&", " ")
         # Normalize whitespace after replacement
-        term = ' '.join(term.split())
-    
+        term = " ".join(term.split())
+
     return term
 
 
 def apply_a_term_suffix(a_term: str, config: Config) -> str:
     """Apply configured A_TERM_SUFFIX to the given term if configured.
-    
+
     Args:
         a_term: The A term to potentially modify
         config: Config object containing global_settings
-        
+
     Returns:
         The a_term with suffix appended if configured, otherwise unchanged
     """
@@ -288,8 +288,10 @@ def normalize_entries(value):
         if not text:
             continue
 
-        if '===END OF ABSTRACT===' in text:
-            parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
+        if "===END OF ABSTRACT===" in text:
+            parts = [
+                p.strip() for p in text.split("===END OF ABSTRACT===") if p.strip()
+            ]
             # Re-append sentinel to each piece to preserve downstream expectations
             segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
         else:
@@ -300,10 +302,11 @@ def normalize_entries(value):
 
 def extract_json_from_markdown(s: str) -> dict:
     """Extract JSON from markdown formatted text.
-    
+
     Finds ```json ... ```; falls back to first {...}
     """
     import re
+
     m = re.search(r"```json\s*(\{.*?\})\s*```", s, flags=re.S)
     if not m:
         m = re.search(r"(\{.*\})", s, flags=re.S)
@@ -314,7 +317,7 @@ def extract_json_from_markdown(s: str) -> dict:
 
 def write_to_json(data, file_path, output_directory, config):
     """Write data to JSON file with sanitized filename.
-    
+
     Args:
         data: Data to write to JSON
         file_path: Base filename for the JSON file
@@ -323,10 +326,16 @@ def write_to_json(data, file_path, output_directory, config):
     """
     logger = config.logger
     # Sanitize file_path by replacing ',', '[', ']', and ' ' with '_'
-    file_path = file_path.replace(",", "_").replace("[", "_").replace("]", "_").replace(" ", "_").replace("'", "_")
+    file_path = (
+        file_path.replace(",", "_")
+        .replace("[", "_")
+        .replace("]", "_")
+        .replace(" ", "_")
+        .replace("'", "_")
+    )
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
-        
+
     file_path = os.path.join(output_directory, file_path)
     logger.debug(f" IN WRITE TO JSON   File path: {file_path}")
     with open(file_path, "w") as outfile:
@@ -336,62 +345,68 @@ def write_to_json(data, file_path, output_directory, config):
 class Config:
     def __init__(self, config_path: str):
         self.job_config_path = config_path
-        
+
         with open(self.job_config_path, "r") as config_file:
             self.job_config = json.load(config_file)
         self.global_settings = self.job_config["GLOBAL_SETTINGS"]
-        
+
         # Add API configuration first
         # Backwards compatibility: if MODEL is present but EVAL_MODEL/FULL_TEXT_MODEL are not, use MODEL
-        self.model = self.global_settings.get("MODEL") # Legacy support
+        self.model = self.global_settings.get("MODEL")  # Legacy support
         self.eval_model = self.global_settings.get("EVAL_MODEL", self.model)
-        self.full_text_model = self.global_settings.get("FULL_TEXT_MODEL", "gemini-3-flash-preview")
-        
+        self.full_text_model = self.global_settings.get(
+            "FULL_TEXT_MODEL", "gemini-3-flash-preview"
+        )
+        self.use_hyp_for_figs = self.global_settings.get("USE_HYP_FOR_FIGS", True)
+
         self.max_retries = self.global_settings["MAX_RETRIES"]
         self.retry_delay = self.global_settings["RETRY_DELAY"]
-        
+
         self.log_level_str = self.global_settings.get("LOG_LEVEL", "INFO").upper()
         self.logger = self.setup_logger()
 
         self.secrets_path = os.path.join(os.path.dirname(config_path), "secrets.json")
         if not os.path.exists(self.secrets_path):
             self.create_secrets_file()
-            
+
         self.secrets = self.load_secrets()
         self.validate_secrets()
-        
+
         # Initialize client for EVAL model (Classifier)
         self.llm_client = None
         if self.eval_model:
             if "gemini" in self.eval_model:
-                 # If eval model is Gemini (rare, but supported via env var mostly)
-                 os.environ["GEMINI_API_KEY"] = self.secrets.get("GEMINI_API_KEY", "")
-                 self.logger.debug("Configured for Gemini Eval - GEMINI_API_KEY set in env")
+                # If eval model is Gemini (rare, but supported via env var mostly)
+                os.environ["GEMINI_API_KEY"] = self.secrets.get("GEMINI_API_KEY", "")
+                self.logger.debug(
+                    "Configured for Gemini Eval - GEMINI_API_KEY set in env"
+                )
             else:
                 is_deepseek = self.eval_model == "r1"
                 key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
                 api_key = self.secrets.get(key_name)
-                
+
                 if api_key:
                     client_kwargs = {"api_key": api_key}
                     if is_deepseek:
                         client_kwargs["base_url"] = "https://api.deepseek.com/v1"
-                    
+
                     self.llm_client = openai.OpenAI(**client_kwargs)
-                    self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client for eval_model: {self.eval_model}")
-                    
+                    self.logger.debug(
+                        f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client for eval_model: {self.eval_model}"
+                    )
+
         # Setup Gemini env var if full_text_model uses it
         if "gemini" in self.full_text_model:
-             gemini_key = self.secrets.get("GEMINI_API_KEY")
-             if gemini_key:
-                 os.environ["GEMINI_API_KEY"] = gemini_key
+            gemini_key = self.secrets.get("GEMINI_API_KEY")
+            if gemini_key:
+                os.environ["GEMINI_API_KEY"] = gemini_key
 
-        
         self.km_output_dir = None
         self.km_output_base_name = None
         self.filtered_tsv_name = None
         self.debug_tsv_name = None
-        
+
         # Hypotheses and job settings should be loaded BEFORE term lists
         self.km_hypothesis = self.job_config["KM_hypothesis"]
         self.skim_hypotheses = self.job_config["SKIM_hypotheses"]
@@ -401,8 +416,12 @@ class Config:
         self.debug = self.filter_config["DEBUG"]
         self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.post_n = self.global_settings["POST_N"]
-        self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
-        self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
+        self.top_n_articles_most_cited = self.global_settings[
+            "TOP_N_ARTICLES_MOST_CITED"
+        ]
+        self.top_n_articles_most_recent = self.global_settings[
+            "TOP_N_ARTICLES_MOST_RECENT"
+        ]
         self.outdir_suffix = self.global_settings["OUTDIR_SUFFIX"]
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         self.iterations = self.global_settings.get("iterations", False)
@@ -410,43 +429,47 @@ class Config:
         self.temperature = self.filter_config["TEMPERATURE"]
         self.top_p = self.filter_config["TOP_P"]
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
-        
+
         # Validate configuration settings
         self._validate_job_settings()
         self._validate_relevance_filter_settings()
-        
+
     def _validate_job_settings(self):
         """Validate job-specific settings for conflicts"""
         # Check for mutually exclusive settings in km_with_gpt
         if self.is_km_with_gpt:
-            position_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("position", False)
-            is_dch_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
-            
+            position_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"][
+                "km_with_gpt"
+            ].get("position", False)
+            is_dch_enabled = self.job_config["JOB_SPECIFIC_SETTINGS"][
+                "km_with_gpt"
+            ].get("is_dch", False)
+
             if position_enabled and is_dch_enabled:
                 raise ValueError(
                     "Configuration error: 'position' and 'is_dch' cannot both be true. "
                     "Position mode pairs terms by index (A1-B1, A2-B2), while DCH mode "
                     "compares exactly 2 B terms against each A term. Please set one to false."
                 )
-    
+
     def _validate_relevance_filter_settings(self):
         """Validate required relevance filter settings for Triton inference"""
         required_params = {
             "TEMPERATURE": self.temperature,
             "TOP_P": self.top_p,
-            "MAX_COT_TOKENS": self.max_cot_tokens
+            "MAX_COT_TOKENS": self.max_cot_tokens,
         }
-        
+
         missing = [name for name, value in required_params.items() if value is None]
         if missing:
             raise ValueError(
                 f"Missing required relevance_filter parameters in config.json: {', '.join(missing)}"
             )
-        
+
     def load_km_output(self, km_output_path: str):
         """Load TSV data directly from file path"""
-        self.data = pd.read_csv(km_output_path, sep='\t')
-        
+        self.data = pd.read_csv(km_output_path, sep="\t")
+
         # Configure output paths
         self.km_output_dir = os.path.dirname(km_output_path)
         self.km_output_base_name = os.path.splitext(os.path.basename(km_output_path))[0]
@@ -489,19 +512,21 @@ class Config:
         """Add file handler to logger after output directory is known"""
         # Use provided output directory or default to km_output_dir
         log_dir = output_dir if output_dir else self.km_output_dir
-        
+
         if log_dir:
             # Remove existing file handlers to avoid duplicate logging
             for handler in self.logger.handlers[:]:
                 if isinstance(handler, logging.FileHandler):
                     self.logger.removeHandler(handler)
-                    
+
             log_file = os.path.join(log_dir, "SKiM-GPT.log")
             file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            ))
+            file_handler.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S",
+                )
+            )
             self.logger.addHandler(file_handler)
 
     def setup_logger(self) -> logging.Logger:
@@ -509,48 +534,48 @@ class Config:
         logger = logging.getLogger("SKiM-GPT")
         logger.setLevel(getattr(logging, self.log_level_str, logging.INFO))
         logger.propagate = False
-        
+
         # Clear existing handlers
         if logger.handlers:
             logger.handlers = []
 
         # Define a more detailed formatter that includes function and file information
         detailed_formatter = logging.Formatter(
-            '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
-        
+
         # Console handler only initially
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(detailed_formatter)
         logger.addHandler(console_handler)
-        
+
         return logger
 
     def __getstate__(self):
         """Prepare Config for pickling - exclude unpicklable objects"""
         state = self.__dict__.copy()
         # Remove unpicklable objects (logger has thread locks, llm_client has connections)
-        state['logger'] = None
-        state['llm_client'] = None
+        state["logger"] = None
+        state["llm_client"] = None
         return state
 
     def __setstate__(self, state):
         """Restore Config after unpickling - reconstruct unpicklable objects"""
         self.__dict__.update(state)
-        
+
         # Reconstruct logger
         self.logger = self.setup_logger()
-        
+
         # Reconstruct OpenAI/DeepSeek client
         is_deepseek = self.model == "r1"
         key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
         api_key = self.secrets[key_name]
-        
+
         client_kwargs = {"api_key": api_key}
         if is_deepseek:
             client_kwargs["base_url"] = "https://api.deepseek.com/v1"
-        
+
         self.llm_client = openai.OpenAI(**client_kwargs)
 
     def _load_term_lists(self):
@@ -566,11 +591,11 @@ class Config:
         job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["skim_with_gpt"]
         self.logger.debug(f"Loading skim terms for {self.job_type}")
         self.logger.debug(f"Job settings: {job_settings}")
-        
+
         # Load C terms
         c_terms_file = job_settings["C_TERMS_FILE"]
         self.c_terms = self._read_terms_from_file(c_terms_file)
-        
+
         # Load B terms
         b_terms_file = job_settings["B_TERMS_FILE"]
         self.b_terms = self._read_terms_from_file(b_terms_file)
@@ -585,7 +610,7 @@ class Config:
     def _load_km_terms(self):
         """Load terms for km_with_gpt job type (supports DCH via is_dch flag)"""
         job_settings = self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]
-        
+
         # Load A terms
         if job_settings.get("A_TERM_LIST", False):
             a_terms_file = job_settings["A_TERMS_FILE"]
@@ -596,7 +621,7 @@ class Config:
         # Load B terms for KM workflow
         b_terms_file = job_settings["B_TERMS_FILE"]
         self.b_terms = self._read_terms_from_file(b_terms_file)
-        
+
         # DCH validation: must have exactly two B terms
         if self.is_dch:
             if len(self.b_terms) != 2:
@@ -635,16 +660,16 @@ class Config:
         if self.job_type == "skim_with_gpt":
             return {
                 "ab": self.job_specific_settings["ab_fet_threshold"],
-                "bc": self.job_specific_settings["bc_fet_threshold"]
+                "bc": self.job_specific_settings["bc_fet_threshold"],
             }
         else:
-            return {
-                "ab": self.job_specific_settings["ab_fet_threshold"]
-            }
+            return {"ab": self.job_specific_settings["ab_fet_threshold"]}
 
     @property
     def censor_year_upper(self):
-        return self.job_specific_settings.get("censor_year_upper", self.job_specific_settings.get("censor_year", 2024))
+        return self.job_specific_settings.get(
+            "censor_year_upper", self.job_specific_settings.get("censor_year", 2024)
+        )
 
     @property
     def censor_year_lower(self):
@@ -664,12 +689,19 @@ class Config:
     @property
     def is_dch(self):
         """Check if in DCH (direct comparison hypothesis) mode"""
-        return self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
+        return self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"][
+            "km_with_gpt"
+        ].get("is_dch", False)
 
     @property
     def full_text(self):
         """Check if full-text fetching from PMC is enabled"""
-        return self.global_settings.get("full_text", False)
+        return self.global_settings.get("FULL_TEXT", False)
+
+    @property
+    def use_hypothesis_for_figures(self):
+        """Check if figure analysis should include the per-PMID hypothesis."""
+        return bool(self.use_hyp_for_figs)
 
     def create_secrets_file(self):
         """Create secrets.json from environment variables if missing"""
@@ -677,34 +709,36 @@ class Config:
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
             "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY"),
-            "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY")
+            "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
         }
-        
+
         # Only check for required keys based on model
         required_keys = ["PUBMED_API_KEY"]
-        
+
         # Check eval_model requirements
         if self.eval_model == "r1":
             required_keys.append("DEEPSEEK_API_KEY")
-        elif self.eval_model and "gemini" in self.eval_model: # Check if model name implies gemini
+        elif (
+            self.eval_model and "gemini" in self.eval_model
+        ):  # Check if model name implies gemini
             required_keys.append("GEMINI_API_KEY")
-        elif self.eval_model: # Default to OpenAI if not special
+        elif self.eval_model:  # Default to OpenAI if not special
             required_keys.append("OPENAI_API_KEY")
 
         # Check full_text_model requirements
         if self.full_text_model and "gemini" in self.full_text_model:
-             if "GEMINI_API_KEY" not in required_keys:
-                 required_keys.append("GEMINI_API_KEY")
-        
+            if "GEMINI_API_KEY" not in required_keys:
+                required_keys.append("GEMINI_API_KEY")
+
         missing = [k for k in required_keys if not secrets.get(k)]
         if missing:
             raise ValueError(
                 f"Cannot create secrets.json - missing environment variables: {', '.join(missing)}"
             )
-        
+
         with open(self.secrets_path, "w") as f:
             json.dump(secrets, f, indent=2)
-        
+
         os.chmod(self.secrets_path, 0o600)  # Restrict permissions
         self.logger.info(f"Created secrets file at {self.secrets_path}")
 
@@ -721,37 +755,40 @@ class Config:
     def validate_secrets(self):
         """Validate required secrets exist"""
         required = ["PUBMED_API_KEY"]
-        
+
         if self.eval_model == "r1":
             required.append("DEEPSEEK_API_KEY")
         elif self.eval_model and "gemini" in self.eval_model:
             required.append("GEMINI_API_KEY")
         elif self.eval_model:
             required.append("OPENAI_API_KEY")
-            
+
         if self.full_text_model and "gemini" in self.full_text_model:
-             if "GEMINI_API_KEY" not in required:
-                 required.append("GEMINI_API_KEY")
-        
+            if "GEMINI_API_KEY" not in required:
+                required.append("GEMINI_API_KEY")
+
         missing = [key for key in required if not self.secrets.get(key)]
         if missing:
-            raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")
-
+            raise ValueError(
+                f"Missing secrets in {self.secrets_path}: {', '.join(missing)}"
+            )
 
     def set_iteration(self, iteration_number: int):
         """Set the current iteration and update output paths accordingly"""
         self.current_iteration = iteration_number
         # Update output paths for this iteration
         self._update_output_paths_for_iteration()
-        
+
     def _update_output_paths_for_iteration(self):
         """Update output paths based on current iteration"""
         if self.iterations and self.km_output_dir and self.current_iteration > 0:
             # Create iteration-specific output directory
-            iteration_dir = os.path.join(self.km_output_dir, f"iteration_{self.current_iteration}")
+            iteration_dir = os.path.join(
+                self.km_output_dir, f"iteration_{self.current_iteration}"
+            )
             if not os.path.exists(iteration_dir):
                 os.makedirs(iteration_dir)
-                
+
             # Update file paths to use iteration-specific directory
             self.filtered_tsv_name = os.path.join(
                 iteration_dir, f"filtered_{self.km_output_base_name}.tsv"
@@ -759,7 +796,7 @@ class Config:
             self.debug_tsv_name = os.path.join(
                 iteration_dir, f"debug_{self.km_output_base_name}.tsv"
             )
-            
+
             # Update logger with new file handler for this iteration
             self.add_file_handler(iteration_dir)
         else:
@@ -770,7 +807,6 @@ class Config:
             self.debug_tsv_name = os.path.join(
                 self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
             )
-            
+
             # Update logger with new file handler for the base directory
             self.add_file_handler(self.km_output_dir)
-            

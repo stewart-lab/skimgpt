@@ -1,10 +1,12 @@
 import src.scoring_guidelines as sg
 from src.utils import extract_pmids as _extract_pmids
 
+
 def extract_pmids(consolidated_abstracts):
     pmids = _extract_pmids(consolidated_abstracts)
     pmid_list = ", ".join(pmids) if pmids else "None found"
     return pmid_list
+
 
 def km_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts):
     pmid_list = extract_pmids(consolidated_abstracts)
@@ -40,6 +42,7 @@ Output policy:
 {km_with_gpt_json_schema()}
 """
 
+
 def km_with_gpt_direct_comp(hypothesis_1, hypothesis_2, consolidated_abstracts):
     pmid_list = extract_pmids(consolidated_abstracts)
 
@@ -68,6 +71,7 @@ Output policy:
 - JSON schema (for reference; do not print this schema):
 {km_with_gpt_direct_comp_json_schema()}
 """
+
 
 def skim_with_gpt_ac(a_term, hypothesis_template, consolidated_abstracts, c_term):
     pmid_list = extract_pmids(consolidated_abstracts)
@@ -391,49 +395,67 @@ Output policy:
 
 def km_with_gpt_direct_comp_json_schema():
     return {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "per_abstract": {
-            "type": "array",
-            "items": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "per_abstract": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                        "label": {
+                            "type": "string",
+                            "enum": [
+                                "supports_H1",
+                                "supports_H2",
+                                "both",
+                                "neither",
+                                "inconclusive",
+                            ],
+                        },
+                        "evidence": {
+                            "type": "array",
+                            "items": {"type": "string", "maxLength": 300},
+                        },
+                    },
+                    "required": ["pmid", "label"],
+                },
+            },
+            "score_rationale": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Evidence-based rationale with PMIDs, e.g., 'Two RCTs report X (PMID: 123, 456)' that uses the scoring guidelines to justify the score.",
+                },
+                "minItems": 1,
+                "maxItems": 6,
+            },
+            "tallies": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
-                    "label": {
-                        "type": "string",
-                        "enum": ["supports_H1","supports_H2","both","neither","inconclusive"]
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
+                    "support_H1": {"type": "integer", "minimum": 0},
+                    "support_H2": {"type": "integer", "minimum": 0},
+                    "both": {"type": "integer", "minimum": 0},
+                    "neither_or_inconclusive": {"type": "integer", "minimum": 0},
                 },
-                "required": ["pmid","label"]
-            }
-        },
-        "score_rationale": {
-            "type": "array",
-            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs, e.g., 'Two RCTs report X (PMID: 123, 456)' that uses the scoring guidelines to justify the score."},
-            "minItems": 1,
-            "maxItems": 6
-        },
-        "tallies": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "support_H1": {"type": "integer", "minimum": 0},
-                "support_H2": {"type": "integer", "minimum": 0},
-                "both": {"type": "integer", "minimum": 0},
-                "neither_or_inconclusive": {"type": "integer", "minimum": 0}
+                "required": [
+                    "support_H1",
+                    "support_H2",
+                    "both",
+                    "neither_or_inconclusive",
+                ],
             },
-            "required": ["support_H1","support_H2","both","neither_or_inconclusive"]
+            "score": {"type": "number", "minimum": 0, "maximum": 100},
+            "decision": {
+                "type": "string",
+                "enum": ["H1", "H2", "tie", "insufficient_evidence"],
+            },
         },
-        "score": {"type": "number", "minimum": 0, "maximum": 100},
-        "decision": {"type": "string", "enum": ["H1","H2","tie","insufficient_evidence"]}
-    },
-    "required": ["per_abstract","score_rationale","tallies","score","decision"]
+        "required": ["per_abstract", "score_rationale", "tallies", "score", "decision"],
     }
 
 
@@ -454,48 +476,55 @@ Rules:
 
 def km_with_gpt_json_schema():
     return {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "per_abstract": {
-            "type": "array",
-            "items": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "per_abstract": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                        "label": {
+                            "type": "string",
+                            "enum": ["supports", "refutes", "inconclusive"],
+                        },
+                        "evidence": {
+                            "type": "array",
+                            "items": {"type": "string", "maxLength": 300},
+                        },
+                    },
+                    "required": ["pmid", "label"],
+                },
+            },
+            "score_rationale": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score.",
+                },
+                "minItems": 1,
+                "maxItems": 6,
+            },
+            "tallies": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
-                    "label": {
-                        "type": "string",
-                        "enum": ["supports","refutes","inconclusive"]
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
+                    "support": {"type": "integer", "minimum": 0},
+                    "refute": {"type": "integer", "minimum": 0},
+                    "inconclusive": {"type": "integer", "minimum": 0},
                 },
-                "required": ["pmid","label"]
-            }
-        },
-        "score_rationale": {
-            "type": "array",
-            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score."},
-            "minItems": 1,
-            "maxItems": 6
-        },
-        "tallies": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "support": {"type": "integer", "minimum": 0},
-                "refute": {"type": "integer", "minimum": 0},
-                "inconclusive": {"type": "integer", "minimum": 0}
+                "required": ["support", "refute", "inconclusive"],
             },
-            "required": ["support","refute","inconclusive"]
+            "score": {"type": "number", "minimum": -2, "maximum": 2},
+            "decision": {
+                "type": "string",
+                "enum": ["supports", "refutes", "insufficient_evidence"],
+            },
         },
-        "score": {"type": "number", "minimum": -2, "maximum": 2},
-        "decision": {"type": "string", "enum": ["supports","refutes","insufficient_evidence"]}
-    },
-    "required": ["per_abstract","score_rationale","tallies","score","decision"]
+        "required": ["per_abstract", "score_rationale", "tallies", "score", "decision"],
     }
 
 
@@ -516,48 +545,55 @@ Rules:
 
 def skim_with_gpt_json_schema():
     return {
-    "type": "object",
-    "additionalProperties": False,
-    "properties": {
-        "per_abstract": {
-            "type": "array",
-            "items": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "per_abstract": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                        "label": {
+                            "type": "string",
+                            "enum": ["supports", "refutes", "inconclusive"],
+                        },
+                        "evidence": {
+                            "type": "array",
+                            "items": {"type": "string", "maxLength": 300},
+                        },
+                    },
+                    "required": ["pmid", "label"],
+                },
+            },
+            "score_rationale": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score.",
+                },
+                "minItems": 1,
+                "maxItems": 6,
+            },
+            "tallies": {
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
-                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
-                    "label": {
-                        "type": "string",
-                        "enum": ["supports","refutes","inconclusive"]
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
+                    "support": {"type": "integer", "minimum": 0},
+                    "refute": {"type": "integer", "minimum": 0},
+                    "inconclusive": {"type": "integer", "minimum": 0},
                 },
-                "required": ["pmid","label"]
-            }
-        },
-        "score_rationale": {
-            "type": "array",
-            "items": {"type": "string", "maxLength": 1000, "description": "Evidence-based rationale with PMIDs that uses the scoring guidelines to justify the score."},
-            "minItems": 1,
-            "maxItems": 6
-        },
-        "tallies": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "support": {"type": "integer", "minimum": 0},
-                "refute": {"type": "integer", "minimum": 0},
-                "inconclusive": {"type": "integer", "minimum": 0}
+                "required": ["support", "refute", "inconclusive"],
             },
-            "required": ["support","refute","inconclusive"]
+            "score": {"type": "number", "minimum": -2, "maximum": 2},
+            "decision": {
+                "type": "string",
+                "enum": ["supports", "refutes", "insufficient_evidence"],
+            },
         },
-        "score": {"type": "number", "minimum": -2, "maximum": 2},
-        "decision": {"type": "string", "enum": ["supports","refutes","insufficient_evidence"]}
-    },
-    "required": ["per_abstract","score_rationale","tallies","score","decision"]
+        "required": ["per_abstract", "score_rationale", "tallies", "score", "decision"],
     }
 
 
@@ -575,8 +611,18 @@ Rules:
 - The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
 
-def get_transcription_prompt():
-    return """
+
+def get_transcription_prompt(hypothesis: str):
+    if hypothesis != "":
+        hypothesis_prompt = (
+            f" Keep in mind the following hypothesis: {hypothesis} and provide information that supports or refutes the hypothesis.  "
+            f"If the information in the image is not relevant to the hypothesis, say so, but still provide a detailed transcription of the image. "
+            f"If the information is relevant to the hypothesis, provide a detailed transcription of the image that supports or refutes the hypothesis."
+        )
+    else:
+        hypothesis_prompt = " Do not analyze or interpret the scientific implications yet, just describe what is visually present."
+
+    prompt_prefix = """    
     You are an expert scientific image transcriber. Your task is to transcribe the content of this scientific figure.
     
     Instructions:
@@ -586,5 +632,7 @@ def get_transcription_prompt():
     4. If it's a chart, estimate the values of data points.
     5. If it's a blot or microscopy image, describe the key observations.
     6. Provide a detailed, structured transcription that captures all scientific information in the image.
-    7. Do not analyze or interpret the scientific implications yet, just describe what is visually present.
+    7. 
     """
+    prompt = prompt_prefix + hypothesis_prompt
+    return prompt

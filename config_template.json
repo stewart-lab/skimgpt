@@ -17,6 +17,8 @@
         "MIN_WORD_COUNT": 98,
         "EVAL_MODEL": "o3",
         "FULL_TEXT_MODEL": "gemini-3-flash-preview",
+        "FULL_TEXT": true,
+        "USE_HYP_FOR_FIGS": true,
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
