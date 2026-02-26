@@ -850,12 +850,12 @@ def _run_chtc_fallback(config: Config, km_output_path: str, logger) -> None:
         output_src_dir.mkdir(parents=True, exist_ok=True)
         output_results_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy relevance_chtc.py as relevance.py (the CHTC Docker entry point)
+        # Copy relevance_chtc.py to the output directory (the CHTC Docker entry point)
         chtc_src = src_dir / "relevance_chtc.py"
-        chtc_dst = output_directory / "relevance.py"
+        chtc_dst = output_directory / "relevance_chtc.py"
         if chtc_src.exists():
             shutil.copy2(str(chtc_src), str(chtc_dst))
-            logger.debug(f"Staged {chtc_src.name} as relevance.py")
+            logger.debug(f"Staged {chtc_src.name}")
         else:
             raise FileNotFoundError(f"Required file {chtc_src} not found")
 

@@ -207,16 +207,16 @@ def postProcess(
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
     out_df[f"{terms}_mask"] = answer_masks.data
-    out_df[f"{terms}_pmid_intersection"] = abstracts.data
+    out_df[f"{terms}_abstracts"] = abstracts.data
 
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
     """Process dataframe with optimizations and filtering."""
     logger = config.logger
     columns_to_process = [col for col in [
-        "ab_pmid_intersection",
-        "bc_pmid_intersection",
-        "ac_pmid_intersection"
+        "ab_abstracts",
+        "bc_abstracts",
+        "ac_abstracts"
     ] if col in out_df.columns]
     
     num_intersections = len(columns_to_process)
@@ -403,8 +403,8 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         logger.debug(f"hyp2: {hyp2}")
 
         # Consolidate abstracts/text from both candidate rows (if present)
-        v1 = out_df.iloc[0].get("ab_pmid_intersection", [])
-        v2 = out_df.iloc[1].get("ab_pmid_intersection", [])
+        v1 = out_df.iloc[0].get("ab_abstracts", [])
+        v2 = out_df.iloc[1].get("ab_abstracts", [])
 
         # Use deduplicated pool sizes from sampling function (pre-trim, cross-row dedup): total1 + total2
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
@@ -413,7 +413,7 @@ def process_results(out_df: pd.DataFrame, config: Config, num_abstracts_fetched:
         dch_row = {
             "hypothesis1": strip_pipe(hyp1),
             "hypothesis2": strip_pipe(hyp2),
-            "ab_pmid_intersection": consolidated_abstracts,
+            "ab_abstracts": consolidated_abstracts,
             "expected_per_abstract_count": expected_count,
             "total_relevant_abstracts": total_relevant_abstracts,
         }
@@ -538,7 +538,15 @@ def main():
     logger = config.logger
     logger.debug(f"config: {config}")
     logger.debug(f"args.km_output: {args.km_output}")
-    config.load_km_output(args.km_output)   
+    km_output_path = args.km_output
+    if os.path.basename(km_output_path) == "files.txt":
+        with open(km_output_path, "r") as f:
+            tsv_filename = f.readline().strip()
+        if tsv_filename:
+            km_output_path = os.path.join(os.path.dirname(km_output_path), tsv_filename)
+            logger.debug(f"Resolved files.txt -> {km_output_path}")
+
+    config.load_km_output(km_output_path)
     start_time = time.time()
     logger.info("Starting relevance analysis...")
     

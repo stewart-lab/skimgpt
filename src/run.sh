@@ -51,5 +51,5 @@ if [ -n "$CUDA_VISIBLE_DEVICES" ]; then
     fi
 fi
 
-# Execute relevance.py with the required arguments
-python relevance.py --km_output "$km_output_file" --config "$config_file" --secrets "$secrets_file"
+# Execute relevance_chtc.py with the required arguments
+python relevance_chtc.py --km_output "$km_output_file" --config "$config_file" --secrets "$secrets_file"
