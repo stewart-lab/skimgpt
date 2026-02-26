@@ -62,47 +62,62 @@ def organize_output(directory: Path):
     
     Structure:
         results/ - Final outputs (JSON results, iteration directories)
-        debug/   - Intermediate files (TSV files, logs)
+        debug/   - Intermediate files (TSV files, logs, stderr, stdout)
         config.json - Kept at top level
+        results.tsv - Kept at top level
     """
     results_dir = directory / "results"
     debug_dir = directory / "debug"
     results_dir.mkdir(parents=True, exist_ok=True)
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Move iteration directories (only from top level)
+    result_patterns = ("_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json")
+
+    # Move iteration directories into results/
     for item in directory.iterdir():
         if item.is_dir() and item.name.startswith("iteration_"):
             dest_path = results_dir / item.name
-            logger.info(f"Moving iteration directory {item} to {dest_path}")
-            shutil.move(str(item), str(dest_path))
-    
-    # Move loose files in the top level directory
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
-    
-    for item in directory.iterdir():
-        if not item.is_file():
+            if dest_path.exists():
+                for src_root, _, src_files in os.walk(str(item)):
+                    rel = os.path.relpath(src_root, str(item))
+                    tgt = dest_path / rel
+                    tgt.mkdir(parents=True, exist_ok=True)
+                    for f in src_files:
+                        shutil.move(os.path.join(src_root, f), str(tgt / f))
+                shutil.rmtree(str(item), ignore_errors=True)
+            else:
+                shutil.move(str(item), str(dest_path))
+            logger.info(f"Moved {item.name} -> results/{item.name}")
+
+    # Walk all directories to process files (skip results/ and debug/)
+    for root, dirs, files in os.walk(str(directory)):
+        abs_root = os.path.abspath(root)
+        if abs_root.startswith(str(results_dir.resolve())) or \
+           abs_root.startswith(str(debug_dir.resolve())):
             continue
-            
-        try:
-            # Check if it's a result JSON file
-            is_result_json = any(item.name.endswith(pattern) for pattern in result_patterns)
-            
-            if is_result_json:
-                shutil.move(str(item), str(results_dir / item.name))
-                logger.info(f"Moved result JSON {item.name} to results/")
-            elif item.name == "no_results.txt":
-                shutil.move(str(item), str(results_dir / item.name))
-            elif item.suffix in (".tsv", ".log"):
-                # Only TSV and log files (removed HTCondor-specific: .err, .sub, .out)
-                shutil.move(str(item), str(debug_dir / item.name))
-                logger.info(f"Moved {item.name} to debug/")
-            elif item.name != "config.json":
-                # Remove any other files that aren't config.json
-                item.unlink()
-        except Exception as e:
-            logger.error(f"Error processing file {item.name}: {str(e)}")
-            continue
+        for f in files:
+            file_path = os.path.join(root, f)
+            try:
+                if any(f.endswith(p) for p in result_patterns):
+                    shutil.move(file_path, str(results_dir / f))
+                elif f == "no_results.txt":
+                    shutil.move(file_path, str(results_dir / f))
+                elif f.endswith((".tsv", ".log", ".err", ".sub", ".out")) and f != "results.tsv":
+                    shutil.move(file_path, str(debug_dir / f))
+                elif f not in ("config.json", "results.tsv"):
+                    os.remove(file_path)
+            except Exception as e:
+                logger.error(f"Error processing file {f}: {str(e)}")
+
+    # Clean up empty directories
+    for root, dirs, files in os.walk(str(directory), topdown=False):
+        for d in dirs:
+            dir_path = os.path.join(root, d)
+            try:
+                if not os.listdir(dir_path):
+                    os.rmdir(dir_path)
+            except Exception:
+                pass
 
 
 def concatenate_tsv_files(tsv_files: List[Path], output_directory: Path, logger) -> Tuple[Path, pd.DataFrame, str]:
