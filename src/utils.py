@@ -392,6 +392,13 @@ class Config:
         self.top_p = self.filter_config["TOP_P"]
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]
         
+        # HTCondor fallback configuration (optional — used when Triton is unavailable)
+        htcondor_config = self.job_config.get("HTCONDOR", {})
+        self.using_htcondor = bool(htcondor_config)
+        self.collector_host = htcondor_config.get("collector_host")
+        self.submit_host = htcondor_config.get("submit_host")
+        self.docker_image = htcondor_config.get("docker_image")
+        
         # Validate configuration settings
         self._validate_job_settings()
         self._validate_relevance_filter_settings()
