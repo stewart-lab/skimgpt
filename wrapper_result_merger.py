@@ -6,6 +6,10 @@ import os
 import re
 import sys
 
+from src.utils import setup_wrapper_logger
+
+logger = logging.getLogger(__name__)
+
 def clean_model_name(s: str) -> str:
     return s.replace('-', '_')
 
@@ -16,25 +20,6 @@ def get_config_info(cfg_path: str):
     model = cfg.get("GLOBAL_SETTINGS", {}).get("MODEL", "model").strip()
     job_set = cfg.get("JOB_SPECIFIC_SETTINGS", {}).get("km_with_gpt", {}).get("is_dch", False)
     return jt, clean_model_name(model), job_set
-
-def setup_logger(parent_dir: str, job_type: str):
-    logger = logging.getLogger("SKiM-GPT-wrapper")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    for h in logger.handlers[:]:
-        logger.removeHandler(h)
-    fmt = "%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
-    fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-
-    return logger
 
 def parse_results_file(fn: str, job_type: str, job_set: bool):
     rows = []
@@ -103,7 +88,7 @@ def parse_results_file(fn: str, job_type: str, job_set: bool):
             rows.append(row)
     return rows
 
-def merge_results(parent_dir: str, logger: logging.Logger):
+def merge_results(parent_dir: str):
     cfg_path  = os.path.join(parent_dir, "config.json")
     job_type, model, job_set = get_config_info(cfg_path)
     
@@ -163,11 +148,11 @@ def main():
     parent_dir = args.parent_dir
     cfg_path   = os.path.join(parent_dir, "config.json")
     job_type, model, job_set = get_config_info(cfg_path)
-    logger = setup_logger(parent_dir, job_type)
+    setup_wrapper_logger(parent_dir, job_type)
     logger.info("Starting wrapper_result_merger")
 
     try:
-        merge_results(parent_dir, logger)
+        merge_results(parent_dir)
     except Exception as e:
         logger.error(f"Merge failed: {e}", exc_info=True)
         sys.exit(1)

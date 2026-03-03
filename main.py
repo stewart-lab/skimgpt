@@ -1,111 +1,131 @@
-from datetime import datetime
-from functools import partial
-from glob import glob
-from src.eval_JSON_results import extract_and_write_scores
-from src.jobs import main_workflow
-from src.utils import Config
-from src.cost_estimator import (
-    calculate_total_cost_and_prompt,
-    KMCostEstimator,
-    SkimCostEstimator,
-    WrapperCostEstimator
-)
 import itertools
+import logging
 import multiprocessing
 import os
-import pandas as pd
 import shutil
 import sys
 import time
+from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-from main_wrapper import setup_logger
+
+import pandas as pd
+
+import src.skim_and_km_api as fastkm
+from src.cost_estimator import KMCostEstimator, SkimCostEstimator
+from src.eval_JSON_results import extract_and_write_scores
+from src.utils import Config, add_file_handler, setup_wrapper_logger
+
+logger = logging.getLogger(__name__)
 
 
-
-
-def initialize_workflow():
-    global logger
-    # Initialize config once so we can get the outdir_suffix
+def initialize_workflow() -> tuple[Config, Path]:
+    """Set up output directory, copy config, and configure logging."""
     config = Config("config.json")
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     base_output_dir = Path("output").resolve()
     base_output_dir.mkdir(parents=True, exist_ok=True)
+
     timestamp_dir_name = f"output_{timestamp}"
-    if config.outdir_suffix != "":
-        timestamp_dir_name = f"{timestamp_dir_name}_{config.outdir_suffix}" 
+    if config.outdir_suffix:
+        timestamp_dir_name = f"{timestamp_dir_name}_{config.outdir_suffix}"
     output_directory = base_output_dir / timestamp_dir_name
     output_directory.mkdir(parents=True, exist_ok=True)
 
-    # Copy config to output directory
+    # Copy config and re-initialize from the output directory copy
     config_path = output_directory / "config.json"
     shutil.copy("config.json", config_path)
-    
-    # Initialize config again, with the new output directory
     config = Config(str(config_path))
-    
-    # Set km_output_dir to enable log file creation
+
+    # Set up file-based logging in the output directory
     config.km_output_dir = str(output_directory)
-    
-    # Call add_file_handler to set up logging to a file in the output directory
-    config.add_file_handler()
-    
-    logger = config.logger
+    add_file_handler(str(output_directory))
 
     logger.info(f"Initializing workflow in {output_directory}")
-    return config, output_directory, logger
+    return config, output_directory
 
 
+def main_workflow(combination: dict, output_dir: str, config: Config) -> str | None:
+    """Dispatch a single term combination to the appropriate workflow."""
+    try:
+        workflow_fn = (
+            fastkm.skim_with_gpt_workflow
+            if config.is_skim_with_gpt
+            else fastkm.km_with_gpt_workflow
+        )
+        return workflow_fn(term=combination, config=config, output_directory=output_dir)
+    except Exception as e:
+        logger.error(f"Workflow failed for {combination}: {e}")
+        return None
 
-def organize_output(directory: Path):
+
+def organize_output(directory: Path) -> None:
     """Organize output files into results and debug directories.
-    
+
     Structure:
         results/ - Final outputs (JSON results, iteration directories)
-        debug/   - Intermediate files (TSV files, logs)
+        debug/   - Intermediate files (TSV files, logs, stderr, stdout)
         config.json - Kept at top level
+        results.tsv - Kept at top level
     """
     results_dir = directory / "results"
     debug_dir = directory / "debug"
     results_dir.mkdir(parents=True, exist_ok=True)
     debug_dir.mkdir(parents=True, exist_ok=True)
 
-    # Move iteration directories (only from top level)
+    RESULT_SUFFIXES = ("_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json")
+    DEBUG_EXTENSIONS = (".tsv", ".log", ".err", ".sub", ".out")
+    TOP_LEVEL_FILES = {"config.json", "results.tsv"}
+
+    # Move iteration directories into results/
     for item in directory.iterdir():
-        if item.is_dir() and item.name.startswith("iteration_"):
-            dest_path = results_dir / item.name
-            logger.info(f"Moving iteration directory {item} to {dest_path}")
+        if not (item.is_dir() and item.name.startswith("iteration_")):
+            continue
+        dest_path = results_dir / item.name
+        if dest_path.exists():
+            # Merge contents into existing destination
+            for src_file in item.rglob("*"):
+                if not src_file.is_file():
+                    continue
+                tgt = dest_path / src_file.relative_to(item)
+                tgt.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src_file), str(tgt))
+            shutil.rmtree(str(item), ignore_errors=True)
+        else:
             shutil.move(str(item), str(dest_path))
-    
-    # Move loose files in the top level directory
-    result_patterns = ["_skim_with_gpt.json", "_km_with_gpt.json", "_km_with_gpt_direct_comp.json"]
-    
-    for item in directory.iterdir():
-        if not item.is_file():
+        logger.info(f"Moved {item.name} -> results/{item.name}")
+
+    # Classify remaining files (skip results/ and debug/ subtrees)
+    skip_prefixes = (str(results_dir.resolve()), str(debug_dir.resolve()))
+    for root, _dirs, files in os.walk(str(directory)):
+        if os.path.abspath(root).startswith(skip_prefixes):
             continue
-            
-        try:
-            # Check if it's a result JSON file
-            is_result_json = any(item.name.endswith(pattern) for pattern in result_patterns)
-            
-            if is_result_json:
-                shutil.move(str(item), str(results_dir / item.name))
-                logger.info(f"Moved result JSON {item.name} to results/")
-            elif item.name == "no_results.txt":
-                shutil.move(str(item), str(results_dir / item.name))
-            elif item.suffix in (".tsv", ".log"):
-                # Only TSV and log files (removed HTCondor-specific: .err, .sub, .out)
-                shutil.move(str(item), str(debug_dir / item.name))
-                logger.info(f"Moved {item.name} to debug/")
-            elif item.name != "config.json":
-                # Remove any other files that aren't config.json
-                item.unlink()
-        except Exception as e:
-            logger.error(f"Error processing file {item.name}: {str(e)}")
-            continue
+        for f in files:
+            file_path = os.path.join(root, f)
+            try:
+                is_result = any(f.endswith(s) for s in RESULT_SUFFIXES) or f == "no_results.txt"
+                is_debug = f.endswith(DEBUG_EXTENSIONS) and f not in TOP_LEVEL_FILES
+
+                if is_result:
+                    shutil.move(file_path, str(results_dir / f))
+                elif is_debug:
+                    shutil.move(file_path, str(debug_dir / f))
+                elif f not in TOP_LEVEL_FILES:
+                    os.remove(file_path)
+            except Exception as e:
+                logger.error(f"Error processing file {f}: {e}")
+
+    # Clean up empty directories (bottom-up)
+    for root, dirs, _files in os.walk(str(directory), topdown=False):
+        for d in dirs:
+            dir_path = Path(root) / d
+            try:
+                dir_path.rmdir()  # only succeeds if empty
+            except OSError:
+                pass
 
 
-def concatenate_tsv_files(tsv_files: List[Path], output_directory: Path, logger) -> Tuple[Path, pd.DataFrame, str]:
+def concatenate_tsv_files(tsv_files: list[Path], output_directory: Path) -> tuple[Path, pd.DataFrame, str]:
     """Concatenate TSV files if multiple exist, or return single file."""
     first_filename = tsv_files[0].name
     job_prefix = first_filename.split("_")[0]
@@ -130,235 +150,198 @@ def concatenate_tsv_files(tsv_files: List[Path], output_directory: Path, logger)
     return combined_tsv_path, combined_df, job_prefix
 
 
-def handle_cost_estimation(config, combined_df: pd.DataFrame, output_directory: Path, logger):
+def _get_cost_estimator(config: Config) -> KMCostEstimator | SkimCostEstimator | None:
+    """Return the appropriate cost estimator for the current job type."""
+    if config.is_km_with_gpt:
+        return KMCostEstimator(config)
+    if config.is_skim_with_gpt:
+        return SkimCostEstimator(config)
+    return None
+
+
+def _get_num_iterations(config: Config) -> int:
+    """Return the effective number of iterations (at least 1)."""
+    if isinstance(config.iterations, int) and config.iterations > 0:
+        return config.iterations
+    return 1
+
+
+def handle_cost_estimation(config: Config, combined_df: pd.DataFrame, output_directory: Path) -> None:
     """Handle cost estimation logic including wrapper handling."""
     logger.info(f"Current job type: {config.job_type}")
-    logger.info("Attempting cost estimation...")
 
-    # Iteration info for cost estimation
-    iterations_info = ""
-    if config.iterations:
-        if isinstance(config.iterations, int) and config.iterations > 0:
-            iterations_info = f" for {config.iterations} iterations"
-        elif isinstance(config.iterations, bool) and config.iterations:
-            iterations_info = " (iterations=True, assuming 1 iteration)"
-    logger.info(f"Calculating cost estimation{iterations_info}...")
+    num_iters = _get_num_iterations(config)
+    logger.info(f"Calculating cost estimation for {num_iters} iteration(s)...")
 
     wrapper_parent = os.getenv("WRAPPER_PARENT_DIR")
-    sentinel = Path(wrapper_parent or "") / ".cost_prompt_done" if wrapper_parent else None
 
-    if wrapper_parent and sentinel and not sentinel.is_file():
-        # --- FIRST wrapper-run only: compute tokens & prompt total cost ---
-        # figure out how many years in the wrapper
-        yrange = os.getenv("CENSOR_YEAR_RANGE", "")
-        yinc = int(os.getenv("CENSOR_YEAR_INCREMENT", "1"))
-        lo, hi = map(int, yrange.split("-"))
-        num_years = len(range(lo, hi + 1, yinc))
-
-        # compute tokens once
-        if config.is_km_with_gpt:
-            input_tokens = KMCostEstimator(config).estimate_input_costs(combined_df)
-            base_est = KMCostEstimator(config)
-        elif config.is_skim_with_gpt:
-            input_tokens = SkimCostEstimator(config).estimate_input_costs(combined_df)
-            base_est = SkimCostEstimator(config)
-        else:
-            input_tokens = 0
-            base_est = None
-
-        # Non-interactive: compute estimate and proceed without prompting
-        
-        # Create sentinel to indicate consent and allow wrapper to launch children
-        try:
-            with open(sentinel, "w") as _f:
-                _f.write("ok\n")
-        except Exception:
-            pass
-
-        # Re-instantiate your wrapper logger
-        wrapper_logger = setup_logger(wrapper_parent, config.job_type)
-
-        # Recompute what you showed the user
-        if base_est:
-            output_tokens = base_est.get_output_tokens()
-            in_cost = base_est._calculate_cost(input_tokens, is_input=True)
-            out_cost = base_est._calculate_cost(output_tokens, is_input=False)
-            cost_per_iter = in_cost + out_cost
-            num_iters = (
-                config.iterations
-                if isinstance(config.iterations, int) and config.iterations > 0
-                else 1
-            )
-            total_cost = cost_per_iter * num_iters * num_years
-
-            wrapper_logger.info(
-                f"Wrapper total estimated cost: ${total_cost:.2f} "
-                f"({num_years} years x {num_iters} iters at ${cost_per_iter:.2f}/iteration)"
-            )
-        else:
-            wrapper_logger.warning(f"Skipping cost estimation for job type: {config.job_type}")
-
-        # Now exit so wrapper can kick off the real parallel runs
-        sys.exit(0)
-
-    elif wrapper_parent:
-        # any subsequent wrapper child sees sentinel → skip any cost logic
-        logger.info("Wrapper run detected; skipping per-run cost estimation")
-
-    else:
-        # Non-interactive mode: compute tokens (for logs) and continue without prompt
-        if config.is_km_with_gpt:
-            _ = KMCostEstimator(config).estimate_input_costs(combined_df)
-        elif config.is_skim_with_gpt:
-            _ = SkimCostEstimator(config).estimate_input_costs(combined_df)
+    if not wrapper_parent:
+        # Standalone mode: compute tokens for logging only
+        estimator = _get_cost_estimator(config)
+        if estimator:
+            estimator.estimate_input_costs(combined_df)
         logger.info("Skipping interactive cost prompt (non-interactive mode)")
+        return
+
+    sentinel = Path(wrapper_parent) / ".cost_prompt_done"
+
+    if sentinel.is_file():
+        # Subsequent wrapper child -- sentinel already exists
+        logger.info("Wrapper run detected; skipping per-run cost estimation")
+        return
+
+    # First wrapper run: compute total cost across all years, then exit
+    yrange = os.getenv("CENSOR_YEAR_RANGE", "")
+    yinc = int(os.getenv("CENSOR_YEAR_INCREMENT", "1"))
+    lo, hi = map(int, yrange.split("-"))
+    num_years = len(range(lo, hi + 1, yinc))
+
+    estimator = _get_cost_estimator(config)
+
+    # Write sentinel so wrapper can launch parallel children
+    sentinel.write_text("ok\n")
+
+    setup_wrapper_logger(wrapper_parent, config.job_type)
+
+    if estimator:
+        input_tokens = estimator.estimate_input_costs(combined_df)
+        output_tokens = estimator.get_output_tokens()
+        in_cost = estimator._calculate_cost(input_tokens, is_input=True)
+        out_cost = estimator._calculate_cost(output_tokens, is_input=False)
+        cost_per_iter = in_cost + out_cost
+        total_cost = cost_per_iter * num_iters * num_years
+
+        logger.info(
+            f"Wrapper total estimated cost: ${total_cost:.2f} "
+            f"({num_years} years x {num_iters} iters at ${cost_per_iter:.2f}/iteration)"
+        )
+    else:
+        logger.warning(f"Skipping cost estimation for job type: {config.job_type}")
+
+    # Exit so wrapper can kick off the real parallel runs
+    sys.exit(0)
 
 
-def run_relevance_filtering(combined_tsv_path: Path, config, logger):
-    """Run relevance filtering directly."""
-    from src.relevance import run_relevance_analysis
-    
+def run_relevance_filtering(combined_tsv_path: Path, config: Config) -> None:
+    """Run relevance filtering via Triton (with automatic CHTC fallback)."""
+    from src.relevance_triton import run_relevance_analysis
+
     logger.info("Running relevance filtering...")
     try:
         run_relevance_analysis(config, str(combined_tsv_path))
         logger.info("Relevance filtering completed successfully")
     except Exception as e:
-        logger.error(f"Error running relevance filtering: {str(e)}", exc_info=True)
+        logger.error(f"Error running relevance filtering: {e}", exc_info=True)
         raise
 
 
-def finalize_results(output_directory: Path, logger, fastkm_start_time: float, rel_and_api_start_time: float):
+def finalize_results(output_directory: Path, fastkm_start_time: float, rel_and_api_start_time: float) -> None:
     """Organize output, extract scores, and log timing information."""
     logger.info("Processing results...")
     organize_output(output_directory)
     extract_and_write_scores(str(output_directory))
-    
+
     logger.info(f"Analysis complete. Results are in {output_directory}")
-    rel_and_api_end_time = time.time()
-    elapsed_rel_and_api_time = rel_and_api_end_time - rel_and_api_start_time
-    logger.info(f"Relevance and API complete in {elapsed_rel_and_api_time:.2f} seconds.")
+    elapsed_rel_and_api = time.time() - rel_and_api_start_time
+    logger.info(f"Relevance and API complete in {elapsed_rel_and_api:.2f} seconds.")
     total_time = time.time() - fastkm_start_time
     logger.info(f"Total time taken: {total_time:.2f} seconds")
 
 
+def _build_terms(config: Config) -> list[dict] | None:
+    """Build the list of term combinations based on job type and position mode.
 
-def main():
+    Returns None if validation fails (error already logged).
+    """
+    a_terms = config.a_terms
+    b_terms = config.b_terms
+
+    if config.is_skim_with_gpt:
+        c_terms = config.c_terms
+        if config.position:
+            if not (len(a_terms) == len(b_terms) == len(c_terms)):
+                logger.error("A, B, and C terms must be the same length for positional mapping.")
+                return None
+            return [
+                {"a_term": a, "b_terms": [b], "c_term": c}
+                for a, b, c in zip(a_terms, b_terms, c_terms)
+            ]
+        # Cartesian product: A x C with all B terms
+        return [
+            {"a_term": a, "b_terms": b_terms, "c_term": c}
+            for a, c in itertools.product(a_terms, c_terms)
+        ]
+
+    # km_with_gpt
+    if config.position:
+        if len(a_terms) != len(b_terms):
+            logger.error("A and B terms must be the same length for positional mapping.")
+            return None
+        return [
+            {"a_term": a, "b_terms": [b]}
+            for a, b in zip(a_terms, b_terms)
+        ]
+    return [
+        {"a_term": a, "b_terms": b_terms}
+        for a in a_terms
+    ]
+
+
+def _flatten_file_paths(raw_paths: list) -> list[Path]:
+    """Flatten workflow results into a list of resolved Path objects."""
+    result = []
+    for item in raw_paths:
+        if not item:
+            continue
+        if isinstance(item, list):
+            result.extend(Path(p).resolve() for p in item)
+        else:
+            result.append(Path(item).resolve())
+    return result
+
+
+def main() -> None:
     fastkm_start_time = time.time()
 
-    # Initialize workflow and get config
-    config, output_directory, logger = initialize_workflow()
-    config.logger.info("Loading term lists...")
-    config._load_term_lists()
+    config, output_directory = initialize_workflow()
+    logger.info("Loading term lists...")
+    config.load_term_lists()
 
-    # Unified term handling for both job types
-    if config.is_skim_with_gpt:
-        # Use original term paths without output directory modification
-        a_terms = config.a_terms
-        b_terms = config.b_terms
-        c_terms = config.c_terms
-        
-        terms = []
-        if config.position:
-            # make sure the terms are the same length
-            if len(a_terms) != len(b_terms) or len(a_terms) != len(c_terms):
-                logger.error("A, B, and C terms must be the same length for positional mapping.")
-                return
-            # Positional mapping: A1-B1-C1, A2-B2-C2
-            for a, b, c in zip(a_terms, b_terms, c_terms):
-                terms.append({
-                    "a_term": a,
-                    "b_terms": [b],  # Single B term
-                    "c_term": c
-                })
-        else:
-            # Cartesian product: A×C with all B terms
-            for a, c in itertools.product(a_terms, c_terms):
-                terms.append({
-                    "a_term": a,
-                    "b_terms": b_terms,  # All B terms
-                    "c_term": c
-                })
-    elif config.is_km_with_gpt:
-        # KM workflow - Fix: Use config.a_terms and config.b_terms
-        a_terms = config.a_terms
-        b_terms = config.b_terms
-        
-        if config.position:
-            # make sure the terms are the same length
-            if len(a_terms) != len(b_terms):
-                logger.error("A and B terms must be the same length for positional mapping.")
-                return
-            # Pair A terms with B terms by index (A1-B1, A2-B2)
-            terms = [
-                {
-                    "a_term": a_term,
-                    "b_terms": [b_term]  # Single B term per A term
-                }
-                for a_term, b_term in zip(a_terms, b_terms)
-            ]
-        else:
-            # Original behavior: All B terms for each A term
-            terms = [
-                {
-                    "a_term": a_term,
-                    "b_terms": b_terms
-                }
-                for a_term in a_terms
-            ]
-    # Removed legacy km_with_gpt_direct_comp branch
+    terms = _build_terms(config)
+    if terms is None:
+        return
 
-    # Maintain the parallel execution pattern
-    workflow = partial(
-        main_workflow,
-        output_dir=str(output_directory),
-        config=config
-    )
+    workflow = partial(main_workflow, output_dir=str(output_directory), config=config)
 
     with multiprocessing.Pool() as p:
         generated_file_paths = p.map(workflow, terms)
 
-    fastkm_end_time = time.time()
-    elapsed_fastkm_time = fastkm_end_time - fastkm_start_time
-
-    logger.info(f"fastkm results returned in {elapsed_fastkm_time:.2f} seconds.")
+    elapsed_fastkm = time.time() - fastkm_start_time
+    logger.info(f"fastkm results returned in {elapsed_fastkm:.2f} seconds.")
     rel_and_api_start_time = time.time()
-    
+
     try:
-        # Ensure we're working with absolute paths
         output_directory = output_directory.resolve()
-        
-        # Flatten and resolve file paths
-        flattened_file_paths = []
-        for item in generated_file_paths:
-            if item:
-                if isinstance(item, list):
-                    flattened_file_paths.extend([Path(p).resolve() for p in item])
-                else:
-                    flattened_file_paths.append(Path(item).resolve())
-        
-        # Validate we have files to process
+
+        flattened_file_paths = _flatten_file_paths(generated_file_paths)
         if not flattened_file_paths:
             logger.error("No files to process")
             raise ValueError("No files to process")
-        
+
         logger.info(f"Processing {len(flattened_file_paths)} TSV file(s)")
 
-        # Concatenate TSV files if needed
         combined_tsv_path, combined_df, job_prefix = concatenate_tsv_files(
-            flattened_file_paths, output_directory, logger
+            flattened_file_paths, output_directory
         )
-        
-        # Handle cost estimation (may exit if wrapper parent)
-        handle_cost_estimation(config, combined_df, output_directory, logger)
-        
-        # Run relevance filtering
-        run_relevance_filtering(combined_tsv_path, config, logger)
 
-        # Finalize results
-        finalize_results(output_directory, logger, fastkm_start_time, rel_and_api_start_time)
-        
+        # May exit the process if this is the first wrapper run
+        handle_cost_estimation(config, combined_df, output_directory)
+
+        run_relevance_filtering(combined_tsv_path, config)
+        finalize_results(output_directory, fastkm_start_time, rel_and_api_start_time)
+
     except Exception as e:
-        logger.error(f"An error occurred: {str(e)}", exc_info=True)
+        logger.error(f"An error occurred: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

@@ -29,9 +29,15 @@
         "TRITON_SHOW_PROGRESS": true,
         "TRITON_BATCH_CHUNK_SIZE": null
     },
+    "HTCONDOR": {
+        "collector_host": "cm.chtc.wisc.edu",
+        "submit_host": "ap2002.chtc.wisc.edu",
+        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
+    },
     "relevance_filter": {
         "SERVER_URL": "https://xdddev.chtc.io/triton",
         "MODEL_NAME": "porpoise",
+        "MODEL": "lexu14/porpoise1",
         "TEMPERATURE": 0,
         "TOP_K": 20,
         "TOP_P": 0.95,

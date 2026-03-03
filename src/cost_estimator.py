@@ -10,10 +10,11 @@ from src.prompt_library import (
 )
 from src.utils import Config
 
+logger = logging.getLogger(__name__)
+
 class CostEstimator:
     def __init__(self, config: Config):
         self.config = config
-        self.logger = logging.getLogger("SKiM-GPT")
         self.model = config.model
         self.post_n = config.post_n
         
@@ -51,17 +52,17 @@ class CostEstimator:
             if start <= self.post_n <= end:
                 estimated_tokens = tokens
                 estimated_cost = self._calculate_cost(estimated_tokens, is_input=False)
-                self.logger.info(f"=== {job_type} Output Token Estimation ===")
-                self.logger.info(f"Estimated output tokens: {estimated_tokens:,}")
-                self.logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+                logger.info(f"=== {job_type} Output Token Estimation ===")
+                logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+                logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
                 return estimated_tokens
         
         # Default to highest value if POST_N is out of range
         default_tokens = intervals[-1][2]
         estimated_cost = self._calculate_cost(default_tokens, is_input=False)
-        self.logger.info(f"=== {job_type} Output Token Estimation ===")
-        self.logger.info(f"Estimated output tokens: {default_tokens:,}")
-        self.logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info(f"=== {job_type} Output Token Estimation ===")
+        logger.info(f"Estimated output tokens: {default_tokens:,}")
+        logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         return default_tokens
 
 class KMCostEstimator(CostEstimator):
@@ -93,8 +94,8 @@ class KMCostEstimator(CostEstimator):
         """Calculate input token costs for KM jobs."""
         total_tokens = 0
         
-        self.logger.info("=== KM Input Cost Estimation ===")
-        self.logger.info("Row-by-row breakdown:")
+        logger.info("=== KM Input Cost Estimation ===")
+        logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
             # Use numeric len(a_b_intersect) only
@@ -113,12 +114,12 @@ class KMCostEstimator(CostEstimator):
             row_total_tokens = abstract_tokens + prompt_tokens
             total_tokens += row_total_tokens
             
-            self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
+            logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
         
         estimated_cost = self._calculate_cost(total_tokens)
-        self.logger.info("=== Overall Summary ===")
-        self.logger.info(f"Total estimated input tokens: {total_tokens:,}")
-        self.logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info("=== Overall Summary ===")
+        logger.info(f"Total estimated input tokens: {total_tokens:,}")
+        logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         
         return total_tokens
     
@@ -163,8 +164,8 @@ class SkimCostEstimator(CostEstimator):
         """Calculate input token costs for SKIM jobs."""
         total_tokens = 0
         
-        self.logger.info("=== SKIM Input Cost Estimation ===")
-        self.logger.info("Row-by-row breakdown:")
+        logger.info("=== SKIM Input Cost Estimation ===")
+        logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
             # Use numeric lengths only
@@ -192,12 +193,12 @@ class SkimCostEstimator(CostEstimator):
                 row_total_tokens += ac_tokens + ac_prompt_tokens
             
             total_tokens += row_total_tokens
-            self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}-{row['c_term']}): Total input tokens: {row_total_tokens:,}")
+            logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}-{row['c_term']}): Total input tokens: {row_total_tokens:,}")
         
         estimated_cost = self._calculate_cost(total_tokens)
-        self.logger.info("=== Overall Summary ===")
-        self.logger.info(f"Total estimated input tokens: {total_tokens:,}")
-        self.logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info("=== Overall Summary ===")
+        logger.info(f"Total estimated input tokens: {total_tokens:,}")
+        logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         
         return total_tokens
     
@@ -213,126 +214,3 @@ class SkimCostEstimator(CostEstimator):
         else:
             return self._get_output_tokens(self.O1_SKIM_INTERVALS, "SKIM")
 
-def calculate_total_cost_and_prompt(config: Config, input_tokens: int) -> bool:
-    """Calculate total cost and prompt user for confirmation."""
-    estimator = KMCostEstimator(config) if config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"] else SkimCostEstimator(config)
-    
-    if config.job_type not in ["km_with_gpt", "skim_with_gpt", "km_with_gpt_direct_comp"]:
-        estimator.logger.info(f"Cost calculation not available for {config.job_type} jobs")
-        return True
-    
-    estimated_output_tokens = estimator.get_output_tokens()
-    estimated_input_cost = estimator._calculate_cost(input_tokens)
-    estimated_output_cost = estimator._calculate_cost(estimated_output_tokens, is_input=False)
-    
-    # Calculate cost per iteration
-    cost_per_iteration = estimated_input_cost + estimated_output_cost
-    
-    # Determine number of iterations
-    num_iterations = 1
-    if config.iterations:
-        if isinstance(config.iterations, int) and config.iterations > 0:
-            num_iterations = config.iterations
-        elif isinstance(config.iterations, bool) and config.iterations:
-            # If iterations is set to True but no number specified
-            estimator.logger.warning("iterations is set to True but no number specified, assuming 1 iteration for cost")
-    
-    # Calculate total cost across all iterations
-    total_cost = cost_per_iteration * num_iterations
-    
-    display_job_type = "KM_WITH_GPT_DIRECT_COMP" if config.is_dch else config.job_type.upper()
-    print("\n" + "="*50)
-    print(f"COST ESTIMATION FOR {display_job_type} WITH {config.model.upper()}")
-    print("="*50)
-    print(f"POST_N value: {config.post_n}")
-    print(f"Estimated input tokens:  {input_tokens:,}")
-    print(f"Estimated input cost:    ${estimated_input_cost:.2f}")
-    print(f"Estimated output tokens: {estimated_output_tokens:,}")
-    print(f"Estimated output cost:   ${estimated_output_cost:.2f}")
-    print(f"Cost per iteration:      ${cost_per_iteration:.2f}")
-    
-    if num_iterations > 1:
-        print(f"Number of iterations:    {num_iterations}")
-        print("-"*50)
-        print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f} ({num_iterations} iterations)")
-    else:
-        print("-"*50)
-        print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f}")
-    
-    print("="*50)
-    
-    while True:
-        response = input("\nDo you want to continue? (y/n): ").strip().lower()
-        if response in ['y', 'yes']:
-            return True
-        elif response in ['n', 'no']:
-            estimator.logger.info("User chose to abort the job due to cost concerns")
-            return False
-        else:
-            print("Please enter 'y' or 'n'")
-
-class WrapperCostEstimator:
-    """
-    Estimates and prompts a single, aggregate cost for a full wrapper run
-    spanning multiple years × iterations.
-    """
-    def __init__(self, config: Config):
-        self.config = config
-        self.logger = logging.getLogger("SKiM-GPT")
-
-    def prompt_total_cost(self, input_tokens: int, num_years: int) -> bool:
-        """
-        Calculate and prompt total cost (years × iterations) exactly once.
-        Uses a sentinel file in WRAPPER_PARENT_DIR/.cost_prompt_done.
-        """
-        wrapper_parent = os.getenv("WRAPPER_PARENT_DIR", "")
-        sentinel = os.path.join(wrapper_parent, ".cost_prompt_done")
-
-        # if already prompted for this wrapper run, skip
-        if wrapper_parent and os.path.isfile(sentinel):
-            return True
-
-        # pick the correct underlying estimator
-        if self.config.job_type in ["km_with_gpt", "km_with_gpt_direct_comp"]:
-            base = KMCostEstimator(self.config)
-        else:
-            base = SkimCostEstimator(self.config)
-
-        try:
-            output_tokens = base.get_output_tokens()
-            in_cost = base._calculate_cost(input_tokens)
-            out_cost = base._calculate_cost(output_tokens, is_input=False)
-            cost_per_iter = in_cost + out_cost
-
-            iters = self.config.iterations
-            num_iters = iters if isinstance(iters, int) and iters > 0 else 1
-
-            total_cost = cost_per_iter * num_iters * num_years
-
-            print("\n" + "="*50)
-            print(
-                f"COST ESTIMATION FOR {self.config.job_type.upper()} "
-                f"WITH {self.config.model.upper()} wrapper run "
-                f"({num_years} years × {num_iters} iters)"
-            )
-            print("="*50)
-            print(f"Cost per iteration:      ${cost_per_iter:.2f}")
-            print(f"Number of iterations:    {num_iters}")
-            print(f"Number of years:         {num_years}")
-            print("-"*50)
-            print(f"TOTAL ESTIMATED COST:    ${total_cost:.2f}")
-            print("="*50)
-
-            while True:
-                resp = input("Do you want to continue? (y/n): ").strip().lower()
-                if resp in ("y", "yes"):
-                    # mark as done
-                    open(sentinel, "w").close()
-                    return True
-                if resp in ("n", "no"):
-                    self.logger.info("User chose to abort the job due to cost concerns")
-                    return False
-                print("Please enter 'y' or 'n'")
-        except Exception as e:
-            self.logger.error(f"Wrapper cost estimation failed: {e}", exc_info=True)
-            return False

@@ -5,3 +5,4 @@ openai>=2.8.1
 biopython>=1.86
 tiktoken>=0.1.1
 tqdm>=4.66.0
+vulture>=2.14
