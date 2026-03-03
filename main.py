@@ -12,10 +12,9 @@ from pathlib import Path
 import pandas as pd
 
 import src.skim_and_km_api as fastkm
-from main_wrapper import setup_logger
 from src.cost_estimator import KMCostEstimator, SkimCostEstimator
 from src.eval_JSON_results import extract_and_write_scores
-from src.utils import Config, add_file_handler
+from src.utils import Config, add_file_handler, setup_wrapper_logger
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +201,7 @@ def handle_cost_estimation(config: Config, combined_df: pd.DataFrame, output_dir
     # Write sentinel so wrapper can launch parallel children
     sentinel.write_text("ok\n")
 
-    setup_logger(wrapper_parent, config.job_type)
+    setup_wrapper_logger(wrapper_parent, config.job_type)
 
     if estimator:
         input_tokens = estimator.estimate_input_costs(combined_df)

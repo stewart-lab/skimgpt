@@ -30,6 +30,20 @@ def configure_logging(level_str: str = "INFO") -> None:
         root.addHandler(handler)
 
 
+def setup_wrapper_logger(parent_dir: str, job_type: str) -> None:
+    """Configure the root logger with console and file handlers for wrapper runs.
+
+    Clears all existing handlers, then delegates to :func:`configure_logging`
+    and :func:`add_file_handler` to set up a fresh console + file pair.
+    """
+    root = logging.getLogger()
+    for h in root.handlers[:]:
+        h.close()
+        root.removeHandler(h)
+    configure_logging("INFO")
+    add_file_handler(parent_dir, filename=f"{job_type}_wrapper.log")
+
+
 def add_file_handler(log_dir: str, filename: str = "SKiM-GPT.log") -> None:
     """Add a FileHandler to the root logger (replaces any existing FileHandler)."""
     root = logging.getLogger()

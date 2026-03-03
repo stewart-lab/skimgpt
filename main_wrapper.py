@@ -10,6 +10,8 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from src.utils import setup_wrapper_logger
+
 logger = logging.getLogger(__name__)
 
 def update_input_paths(config_path, base_dir):
@@ -26,19 +28,6 @@ def update_input_paths(config_path, base_dir):
 def get_job_type(config_path):
     with open(config_path) as f:
         return json.load(f).get("JOB_TYPE", "unknown").strip()
-
-def setup_logger(parent_dir, job_type):
-    """Configure the root logger with console and file handlers for wrapper runs."""
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
-    # Remove existing handlers to avoid duplicates
-    for h in list(root.handlers):
-        root.removeHandler(h)
-    fmt = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-    ch = logging.StreamHandler(); ch.setFormatter(formatter); root.addHandler(ch)
-    fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))
-    fh.setFormatter(formatter); root.addHandler(fh)
 
 def update_censor_year(config_path, year, depth):
     data = json.load(open(config_path))
@@ -168,7 +157,7 @@ def main():
 
     # --- Logger ---
     jt     = get_job_type(wrapper_cfg)
-    setup_logger(parent_dir, jt)
+    setup_wrapper_logger(parent_dir, jt)
     logger.info(f"Parent dir: {parent_dir}")
     logger.info(f"Preparing to run {num_years} years (each with {iters} iterations)")
 

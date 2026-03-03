@@ -102,47 +102,13 @@ def calculate_relevance_ratios(out_df, config: Config):
 
 def process_single_row(row, config: Config):
     processed_results = {}
+    a_term = b_term = c_term = ""
 
-    if config.is_skim_with_gpt:
-        a_term = clean_term_for_display(row.get("a_term"))
-        b_term = clean_term_for_display(row.get("b_term"))
-        c_term = clean_term_for_display(row.get("c_term"))
+    # analyses: list of (rel_type, result_key, rel_label, hypothesis, url_keys)
+    analyses = []
 
-        # Update row with cleaned terms so downstream functions use them
-        row["a_term"] = a_term
-        row["b_term"] = b_term
-        row["c_term"] = c_term
-
-        abc_result, abc_prompt, abc_urls = perform_analysis(
-            row=row, config=config, relationship_type="A_B_C"
-        )
-        if abc_result or abc_prompt:
-            processed_results["A_B_C_Relationship"] = _build_relationship_result(
-                abc_result, abc_prompt, abc_urls,
-                a_term=a_term, b_term=b_term, c_term=c_term,
-                relationship_label=f"{a_term} - {b_term} - {c_term}",
-                hypothesis=config.skim_hypotheses["ABC"].format(
-                    a_term=a_term, b_term=b_term, c_term=c_term
-                ),
-                url_keys=["AB", "BC"],
-            )
-
-        ac_result, ac_prompt, ac_urls = perform_analysis(
-            row=row, config=config, relationship_type="A_C"
-        )
-        if ac_result or ac_prompt:
-            processed_results["A_C_Relationship"] = _build_relationship_result(
-                ac_result, ac_prompt, ac_urls,
-                a_term=a_term, b_term=b_term, c_term=c_term,
-                relationship_label=f"{a_term} - {c_term}",
-                hypothesis=config.skim_hypotheses["AC"].format(
-                    a_term=a_term, c_term=c_term
-                ),
-                url_keys=["AC"],
-            )
-
-    elif config.is_dch:
-        # DCH mode: direct hypothesis comparison (is_dch can only be True if is_km_with_gpt is True)
+    if config.is_dch:
+        # DCH mode: structurally different — handled separately
         hypothesis1 = row.get("hypothesis1")
         hypothesis2 = row.get("hypothesis2")
 
@@ -162,6 +128,25 @@ def process_single_row(row, config: Config):
                 "URLS": urls,
             }
 
+    elif config.is_skim_with_gpt:
+        a_term = clean_term_for_display(row.get("a_term"))
+        b_term = clean_term_for_display(row.get("b_term"))
+        c_term = clean_term_for_display(row.get("c_term"))
+        row["a_term"], row["b_term"], row["c_term"] = a_term, b_term, c_term
+
+        analyses = [
+            ("A_B_C", "A_B_C_Relationship",
+             f"{a_term} - {b_term} - {c_term}",
+             config.skim_hypotheses["ABC"].format(
+                 a_term=a_term, b_term=b_term, c_term=c_term),
+             ["AB", "BC"]),
+            ("A_C", "A_C_Relationship",
+             f"{a_term} - {c_term}",
+             config.skim_hypotheses["AC"].format(
+                 a_term=a_term, c_term=c_term),
+             ["AC"]),
+        ]
+
     elif config.is_km_with_gpt:
         a_term = row.get("a_term")
         b_term = row.get("b_term")
@@ -170,27 +155,33 @@ def process_single_row(row, config: Config):
             logger.error("Missing 'a_term' or 'b_term' in row.")
             return None
 
-        # Clean terms for display and LLM processing
         a_term = clean_term_for_display(a_term)
         b_term = clean_term_for_display(b_term)
+        c_term = ""
+        row["a_term"], row["b_term"] = a_term, b_term
 
-        # Update row with cleaned terms so downstream functions use them
-        row["a_term"] = a_term
-        row["b_term"] = b_term
+        analyses = [
+            ("A_B", "A_B_Relationship",
+             f"{a_term} - {b_term}",
+             config.km_hypothesis.format(a_term=a_term, b_term=b_term),
+             ["AB"]),
+        ]
 
-        ab_result, ab_prompt, ab_urls = perform_analysis(
-            row=row, config=config, relationship_type="A_B"
-        )
-        if ab_result or ab_prompt:
-            processed_results["A_B_Relationship"] = _build_relationship_result(
-                ab_result, ab_prompt, ab_urls,
-                a_term=a_term, b_term=b_term,
-                relationship_label=f"{a_term} - {b_term}",
-                hypothesis=config.km_hypothesis.format(a_term=a_term, b_term=b_term),
-                url_keys=["AB"],
-            )
     else:
         logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
+
+    for rel_type, result_key, rel_label, hypothesis, url_keys in analyses:
+        result, prompt_text, urls = perform_analysis(
+            row=row, config=config, relationship_type=rel_type
+        )
+        if result or prompt_text:
+            processed_results[result_key] = _build_relationship_result(
+                result, prompt_text, urls,
+                a_term=a_term, b_term=b_term, c_term=c_term,
+                relationship_label=rel_label,
+                hypothesis=hypothesis,
+                url_keys=url_keys,
+            )
 
     logger.debug(f"Processed results: {processed_results}")
     return processed_results if any(processed_results.values()) else None

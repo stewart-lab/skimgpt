@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import socket
 import time
 import warnings
 from pathlib import Path
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", message="Failed to save .* at .*")
 
 ABSTRACT_DELIMITER = "===END OF ABSTRACT==="
+EUTILS_HOST = "eutils.ncbi.nlm.nih.gov"
 
 
 def _split_entries(text: str) -> list[str]:
@@ -54,12 +56,26 @@ class PubMedFetcher:
         self.backoff_factor = backoff_factor
         self.pmid_years: dict[str, int] = {}
         self._setup_entrez()
+        self._check_connectivity()
         logger.info("PubMedFetcher initialized")
 
     def _setup_entrez(self) -> None:
         """Configure Entrez with credentials."""
         Entrez.email = self.email
         Entrez.api_key = self.api_key
+
+    def _check_connectivity(self) -> None:
+        """Verify DNS resolution for the PubMed eutils host.
+
+        Raises:
+            socket.gaierror: If DNS resolution fails.
+        """
+        try:
+            ip_address = socket.gethostbyname(EUTILS_HOST)
+            logger.debug(f"DNS resolution OK: {EUTILS_HOST} -> {ip_address}")
+        except socket.gaierror as e:
+            logger.error(f"DNS resolution failed for '{EUTILS_HOST}': {e}")
+            raise
 
     def validate_pmids(self, pmids: list) -> list[str]:
         """Validate PMIDs to ensure they are numeric."""

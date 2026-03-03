@@ -3,7 +3,6 @@ import ast
 import logging
 import os
 import random
-import socket
 import time
 from itertools import chain
 from typing import Callable
@@ -40,7 +39,7 @@ def _dedup_by_pmid(abstracts, seen_pmids):
     return deduped
 
 
-def getHypothesis(
+def get_hypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
 
@@ -103,7 +102,7 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
         return default
 
 
-def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTensor:
+def get_prompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTensor:
     assert not abstracts.is_2d(), "abstracts should be flattened."
     assert not hypotheses.is_2d(), "hypotheses should be flattened."
     return RaggedTensor(
@@ -332,7 +331,7 @@ def process_results(
     out_df: pd.DataFrame,
     config: Config,
     num_abstracts_fetched: int,
-    output_base_dir: str = None,
+    output_base_dir: str,
 ) -> None:
     """Process results and write to JSON files.
 
@@ -340,15 +339,12 @@ def process_results(
         out_df: DataFrame with analysis results.
         config: Global configuration.
         num_abstracts_fetched: Total abstracts fetched for metadata.
-        output_base_dir: Base directory for JSON output.  When *None*
-            (default / Triton path), ``config.km_output_dir`` is used.
-            CHTC callers pass ``"output"`` (relative to the Docker scratch dir).
+        output_base_dir: Base directory for JSON output.  Resolved by the
+            caller (e.g. ``config.km_output_dir`` for Triton, ``"output"``
+            for CHTC).
     """
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
-
-    if output_base_dir is None:
-        output_base_dir = config.km_output_dir
 
     if config.iterations and config.current_iteration > 0:
         iteration_dir = f"iteration_{config.current_iteration}"
@@ -361,7 +357,7 @@ def process_results(
     if config.is_dch:
         a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
         b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
-        hypotheses = [getHypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
+        hypotheses = [get_hypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
         logger.debug(f"hypotheses: {hypotheses}")
         hyp1 = hypotheses[0]
         hyp2 = hypotheses[1]
@@ -394,7 +390,7 @@ def process_results(
             if config.is_km_with_gpt and not config.is_dch:
                 a_term_val = row.get("a_term", "")
                 b_term_val = row.get("b_term", "")
-                hyp_str = getHypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
+                hyp_str = get_hypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
                 if "A_B_Relationship" in result_dict:
                     result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
             for ratio_type in ["ab", "bc", "ac"]:
@@ -465,16 +461,16 @@ def collect_pmids_and_hypotheses(config: Config):
         b_term = row['b_term']
 
         ab_pmids_raw.append(ast.literal_eval(row['ab_pmid_intersection']))
-        ab_hypotheses_raw.append(getHypothesis(config=config, a_term=a_term, b_term=b_term))
+        ab_hypotheses_raw.append(get_hypothesis(config=config, a_term=a_term, b_term=b_term))
 
         if config.is_skim_with_gpt:
             c_term = row['c_term']
             bc_pmids_raw.append(ast.literal_eval(row['bc_pmid_intersection']))
-            bc_hypotheses_raw.append(getHypothesis(config=config, c_term=c_term, b_term=b_term))
+            bc_hypotheses_raw.append(get_hypothesis(config=config, c_term=c_term, b_term=b_term))
 
             if config.has_ac and 'ac_pmid_intersection' in row:
                 ac_pmids_raw.append(ast.literal_eval(row['ac_pmid_intersection']))
-                ac_hypotheses_raw.append(getHypothesis(config=config, a_term=a_term, c_term=c_term))
+                ac_hypotheses_raw.append(get_hypothesis(config=config, a_term=a_term, c_term=c_term))
 
     ab_pmids = RaggedTensor(ab_pmids_raw)
     ab_hypotheses = RaggedTensor(ab_hypotheses_raw)
@@ -508,7 +504,7 @@ def collect_pmids_and_hypotheses(config: Config):
 
 
 def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: int,
-                   output_base_dir: str = None) -> None:
+                   output_base_dir: str) -> None:
     """Handle iteration-based or single-pass result processing.
 
     Both relevance_chtc.py and relevance_triton.py share nearly identical
@@ -519,8 +515,8 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         out_df: Processed DataFrame.
         num_abstracts_fetched: Total abstracts fetched for metadata.
         output_base_dir: Base directory for JSON output, forwarded to
-            process_results.  Pass None to use config.km_output_dir (Triton)
-            or ``"output"`` for CHTC.
+            process_results.  Resolved by the caller (e.g.
+            ``config.km_output_dir`` for Triton, ``"output"`` for CHTC).
     """
     if config.iterations:
         num_iterations = 1
@@ -532,9 +528,8 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         else:
             logger.warning("Invalid iterations config, defaulting to 1 iteration")
 
-        base_dir = output_base_dir if output_base_dir is not None else config.km_output_dir
         for i in range(1, num_iterations + 1):
-            os.makedirs(os.path.join(base_dir, f"iteration_{i}"), exist_ok=True)
+            os.makedirs(os.path.join(output_base_dir, f"iteration_{i}"), exist_ok=True)
 
         for iteration in range(1, num_iterations + 1):
             iteration_start = time.time()
@@ -577,17 +572,10 @@ def run_relevance_pipeline(
             pass ``"output"``.
     """
     config.load_km_output(km_output_path)
+    if output_base_dir is None:
+        output_base_dir = config.km_output_dir
     start_time = time.time()
     logger.info("Starting relevance analysis...")
-
-    # DNS resolution test
-    try:
-        host = "eutils.ncbi.nlm.nih.gov"
-        ip_address = socket.gethostbyname(host)
-        logger.debug(f"DNS resolution OK: {host} -> {ip_address}")
-    except socket.gaierror as e:
-        logger.error(f"DNS resolution failed for '{host}': {e}")
-        raise
 
     out_df = config.data.copy(deep=True)
     logger.debug(f"Working with dataframe of shape {out_df.shape}")
@@ -618,7 +606,7 @@ def run_relevance_pipeline(
     abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
 
     # Build prompts and run inference
-    prompts = getPrompts(abstracts, all_hypotheses)
+    prompts = get_prompts(abstracts, all_hypotheses)
     answers = infer(prompts)
 
     # Split answers and abstracts by intersection type

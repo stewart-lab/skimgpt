@@ -6,6 +6,8 @@ import os
 import re
 import sys
 
+from src.utils import setup_wrapper_logger
+
 logger = logging.getLogger(__name__)
 
 def clean_model_name(s: str) -> str:
@@ -18,23 +20,6 @@ def get_config_info(cfg_path: str):
     model = cfg.get("GLOBAL_SETTINGS", {}).get("MODEL", "model").strip()
     job_set = cfg.get("JOB_SPECIFIC_SETTINGS", {}).get("km_with_gpt", {}).get("is_dch", False)
     return jt, clean_model_name(model), job_set
-
-def setup_logger(parent_dir: str, job_type: str):
-    """Configure the root logger with console and file handlers for merger."""
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
-    for h in root.handlers[:]:
-        root.removeHandler(h)
-    fmt = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-    root.addHandler(ch)
-
-    fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))
-    fh.setFormatter(formatter)
-    root.addHandler(fh)
 
 def parse_results_file(fn: str, job_type: str, job_set: bool):
     rows = []
@@ -163,7 +148,7 @@ def main():
     parent_dir = args.parent_dir
     cfg_path   = os.path.join(parent_dir, "config.json")
     job_type, model, job_set = get_config_info(cfg_path)
-    setup_logger(parent_dir, job_type)
+    setup_wrapper_logger(parent_dir, job_type)
     logger.info("Starting wrapper_result_merger")
 
     try:
