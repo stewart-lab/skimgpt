@@ -20,7 +20,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from typing import Optional, Dict, List
+from typing import Dict, List
 from tqdm import tqdm
 
 # Use SKiM-GPT logger for consistency with the rest of the application
@@ -118,19 +118,6 @@ class TritonClient:
         except requests.exceptions.RequestException as e:
             logger.error(f"Error checking server health: {e}")
             return False
-
-    def get_model_metadata(self) -> dict:
-        """Get metadata about the model."""
-        try:
-            response = self.session.get(
-                f"{self.server_url}/v2/models/{self.model_name}",
-                timeout=(self.connect_timeout, self.read_timeout)
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error getting model metadata: {e}")
-            return {}
 
     def generate(self, text_input: str, stream: bool = False,
                  sampling_parameters: dict = None,

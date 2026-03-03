@@ -79,8 +79,8 @@ def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = ""
 
 
 def getPrompts(abstracts: RaggedTensor, hypotheses: RaggedTensor) -> RaggedTensor:
-    assert not abstracts.is2D(), "abstracts should be flattened."
-    assert not hypotheses.is2D(), "hypotheses should be flattened."
+    assert not abstracts.is_2d(), "abstracts should be flattened."
+    assert not hypotheses.is_2d(), "hypotheses should be flattened."
     return RaggedTensor(
         [prompt(abstracts[i], hypotheses[i]) for i in range(abstracts.shape)],
         hypotheses.break_point,
@@ -121,7 +121,7 @@ def postProcess(
 
         answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
         answer_masks.reshape(shape)
-        abstracts.applyFilter(answer_masks)
+        abstracts.apply_filter(answer_masks)
     else:
         evaluated_results = []
         for idx, answer in enumerate(outputs.data):
@@ -153,7 +153,7 @@ def postProcess(
             out_df[f"{terms}_hypothesis"] = hypotheses.data
 
         # In debug mode, still filter abstracts for downstream processing
-        abstracts.applyFilter(answer_masks)
+        abstracts.apply_filter(answer_masks)
 
     out_df[f"{terms}_mask"] = answer_masks.data
     out_df[f"{terms}_abstracts"] = abstracts.data

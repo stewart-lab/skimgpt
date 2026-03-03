@@ -3,7 +3,6 @@
 # Get km_output_file from environment variable
 km_output_file=files.txt
 config_file="config.json"
-secrets_file="secrets.json"
 
 export TRANSFORMERS_CACHE=$_CONDOR_SCRATCH_DIR/models
 export HF_HOME=$_CONDOR_SCRATCH_DIR/models
@@ -52,4 +51,4 @@ if [ -n "$CUDA_VISIBLE_DEVICES" ]; then
 fi
 
 # Execute relevance_chtc.py with the required arguments
-python relevance_chtc.py --km_output "$km_output_file" --config "$config_file" --secrets "$secrets_file"
+python relevance_chtc.py --km_output "$km_output_file" --config "$config_file"

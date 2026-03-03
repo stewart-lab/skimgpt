@@ -238,7 +238,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
         return
 
     # ── Triton succeeded — process results locally ────────────────────────
-    defaults = 3 * [RaggedTensor([])]
+    defaults = [RaggedTensor([]) for _ in range(3)]
     ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
     ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
 
@@ -441,7 +441,7 @@ def _run_chtc_fallback(config: Config, km_output_path: str, logger) -> None:
 
             try:
                 logger.info("CHTC fallback: retrieving output files...")
-                htcondor_helper.retrieve_output(cluster_id)
+                htcondor_helper.retrieve_with_timeout(cluster_id, timeout=120)
                 logger.info("CHTC fallback: output files retrieved")
             except Exception as retrieve_err:
                 logger.error(f"CHTC fallback: error retrieving output: {retrieve_err}")

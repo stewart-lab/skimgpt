@@ -38,19 +38,19 @@ def extract_pmids(text: str) -> list:
 
 
 class RaggedTensor:
-    def __init__(self, data, break_point=[]):
+    def __init__(self, data, break_point=None):
         self.data = data
-        self.break_point = break_point
+        self.break_point = break_point if break_point is not None else []
         self.index = 0
-        self.getShape()
+        self.get_shape()
 
-    def getShape(self) -> None:
-        if self.is2D():
+    def get_shape(self) -> None:
+        if self.is_2d():
             self.shape = [len(i) for i in self.data]
         else:
             self.shape = len(self.data)
 
-    def is2D(self) -> bool:
+    def is_2d(self) -> bool:
         if not (len(self.data) == 0):
             return isinstance(self.data[0], list)
         else:
@@ -59,7 +59,7 @@ class RaggedTensor:
     # Duplicates each element in data according to the shape_list
     def expand(self, shape_list: list) -> None:
         assert (
-            not self.is2D()
+            not self.is_2d()
         ), "Data must be 1D before calling expand. Call flatten first?"
         assert self.shape == len(
             shape_list
@@ -72,19 +72,13 @@ class RaggedTensor:
         return RaggedTensor(expanded)
 
     def flatten(self) -> RaggedTensor:
-        if self.is2D():
+        if self.is_2d():
             output = []
             for lst in self.data:
                 output.extend(lst)
             return RaggedTensor(output)
         else:
             return self
-
-    # Inverts the expand method
-    def compress(self, shape_list: list):
-        assert self.shape == sum(shape_list)
-        self.data = list(set(self.data))
-        self.getShape()
 
     # Splits the data depending on the index
     def split(self):
@@ -101,7 +95,7 @@ class RaggedTensor:
 
     # Reshapes the data depending on the input
     def reshape(self, shape: list) -> list:
-        assert not self.is2D(), "Reshape only works with 1D tensors."
+        assert not self.is_2d(), "Reshape only works with 1D tensors."
         assert self.shape == sum(
             shape
         ), "The shape of the tensor should be equal to the sum of the wanted shape."
@@ -112,29 +106,29 @@ class RaggedTensor:
             running_length += length
 
         self.data = output
-        self.getShape()
+        self.get_shape()
 
     # Applies a mask to the tensor
-    def applyFilter(self, mask: RaggedTensor) -> None:
+    def apply_filter(self, mask: RaggedTensor) -> None:
         assert (
             self.shape == mask.shape
         ), "Filtering only works when the shapes are the same"
-        if self.is2D():
+        if self.is_2d():
             for i in range(len(self.data)):
-                boolean_mask = np.array(mask[i]) == 1
+                boolean_mask = np.array(mask.data[i]) == 1
                 self.data[i] = list(np.array(self.data[i])[boolean_mask])
         else:
-            boolean_mask = np.array(mask) == 1
+            boolean_mask = np.array(mask.data) == 1
             self.data = list(np.array(self.data)[boolean_mask])
 
     # Applies a function to the tensor
     def map(self, func: callable, *args) -> RaggedTensor:
-        assert not self.is2D(), "Map only works with 1D tensors"
+        assert not self.is_2d(), "Map only works with 1D tensors"
         return RaggedTensor([func(i, *args) for i in self.data], self.break_point)
 
     # Simply concatenates two ragged tensors and appends to the break_point list
     def __add__(self, other: RaggedTensor) -> RaggedTensor:
-        assert not self.is2D(), "Adding only works with flattened tensors"
+        assert not self.is_2d(), "Adding only works with flattened tensors"
         break_point = self.shape
         return RaggedTensor(self.data + other.data, self.break_point + [break_point])
 
@@ -258,7 +252,7 @@ def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
     - Replaces '/' with '_'
     """
     canonical = strip_pipe(term)
-    if isinstance(canonical, str) and len(canonical) > max_len:
+    if len(canonical) > max_len:
         canonical = canonical[:max_len]
     return canonical.replace("/", "_")
 
@@ -303,7 +297,6 @@ def extract_json_from_markdown(s: str) -> dict:
     
     Finds ```json ... ```; falls back to first {...}
     """
-    import re
     m = re.search(r"```json\s*(\{.*?\})\s*```", s, flags=re.S)
     if not m:
         m = re.search(r"(\{.*\})", s, flags=re.S)
@@ -334,6 +327,9 @@ def write_to_json(data, file_path, output_directory, config):
 
 
 class Config:
+    _LOG_FORMAT = '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s'
+    _LOG_DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
+
     def __init__(self, config_path: str):
         self.job_config_path = config_path
         
@@ -357,17 +353,7 @@ class Config:
         self.validate_secrets()
         
         # Initialize OpenAI/DeepSeek client
-
-        is_deepseek = self.model == "r1"
-        key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
-        api_key = self.secrets[key_name]
-        
-        client_kwargs = {"api_key": api_key}
-        if is_deepseek:
-            client_kwargs["base_url"] = "https://api.deepseek.com/v1"
-        
-        self.llm_client = openai.OpenAI(**client_kwargs)
-        self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client")
+        self.llm_client = self._build_llm_client()
         
         self.km_output_dir = None
         self.km_output_base_name = None
@@ -380,7 +366,6 @@ class Config:
         self.job_type = self.job_config.get("JOB_TYPE")
         self.filter_config = self.job_config["relevance_filter"]
         self.debug = self.filter_config["DEBUG"]
-        self.test_leakage = self.filter_config["TEST_LEAKAGE"]
         self.post_n = self.global_settings["POST_N"]
         self.top_n_articles_most_cited = self.global_settings["TOP_N_ARTICLES_MOST_CITED"]
         self.top_n_articles_most_recent = self.global_settings["TOP_N_ARTICLES_MOST_RECENT"]
@@ -458,7 +443,7 @@ class Config:
             and len(self.data["ac_pmid_intersection"].value_counts()) > 0
         )
 
-        print(f"Job type detected. Running {self.job_type}.")
+        self.logger.info(f"Job type detected. Running {self.job_type}.")
         if self.is_skim_with_gpt:
             assert (
                 "c_term" in self.data.columns
@@ -487,8 +472,7 @@ class Config:
             log_file = os.path.join(log_dir, "SKiM-GPT.log")
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
+                self._LOG_FORMAT, datefmt=self._LOG_DATE_FORMAT
             ))
             self.logger.addHandler(file_handler)
 
@@ -502,10 +486,8 @@ class Config:
         if logger.handlers:
             logger.handlers = []
 
-        # Define a more detailed formatter that includes function and file information
         detailed_formatter = logging.Formatter(
-            '%(asctime)s - SKiM-GPT - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            self._LOG_FORMAT, datefmt=self._LOG_DATE_FORMAT
         )
         
         # Console handler only initially
@@ -529,17 +511,23 @@ class Config:
         
         # Reconstruct logger
         self.logger = self.setup_logger()
-        
+
         # Reconstruct OpenAI/DeepSeek client
+        self.llm_client = self._build_llm_client()
+
+    def _build_llm_client(self) -> openai.OpenAI:
+        """Build and return an OpenAI/DeepSeek client based on model config."""
         is_deepseek = self.model == "r1"
         key_name = "DEEPSEEK_API_KEY" if is_deepseek else "OPENAI_API_KEY"
         api_key = self.secrets[key_name]
-        
+
         client_kwargs = {"api_key": api_key}
         if is_deepseek:
             client_kwargs["base_url"] = "https://api.deepseek.com/v1"
-        
-        self.llm_client = openai.OpenAI(**client_kwargs)
+
+        client = openai.OpenAI(**client_kwargs)
+        self.logger.debug(f"Initialized {'DeepSeek' if is_deepseek else 'OpenAI'} client")
+        return client
 
     def _load_term_lists(self):
         """Load appropriate term lists based on job configuration"""
@@ -619,18 +607,6 @@ class Config:
         return self.job_specific_settings.get("position", False)
 
     @property
-    def fet_thresholds(self):
-        if self.job_type == "skim_with_gpt":
-            return {
-                "ab": self.job_specific_settings["ab_fet_threshold"],
-                "bc": self.job_specific_settings["bc_fet_threshold"]
-            }
-        else:
-            return {
-                "ab": self.job_specific_settings["ab_fet_threshold"]
-            }
-
-    @property
     def censor_year_upper(self):
         return self.job_specific_settings.get("censor_year_upper", self.job_specific_settings.get("censor_year", 2024))
 
@@ -655,6 +631,16 @@ class Config:
         return self.is_km_with_gpt and self.job_config["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"].get("is_dch", False)
 
 
+    @property
+    def _required_secret_keys(self) -> list:
+        """Return list of required secret key names based on model config."""
+        keys = ["PUBMED_API_KEY"]
+        if self.model == "r1":
+            keys.append("DEEPSEEK_API_KEY")
+        else:
+            keys.append("OPENAI_API_KEY")
+        return keys
+
     def create_secrets_file(self):
         """Create secrets.json from environment variables if missing"""
         secrets = {
@@ -662,15 +648,8 @@ class Config:
             "PUBMED_API_KEY": os.getenv("PUBMED_API_KEY"),
             "DEEPSEEK_API_KEY": os.getenv("DEEPSEEK_API_KEY")
         }
-        
-        # Only check for required keys based on model
-        required_keys = ["PUBMED_API_KEY"]
-        if self.model == "r1":
-            required_keys.append("DEEPSEEK_API_KEY")
-        else:
-            required_keys.append("OPENAI_API_KEY")
-        
-        missing = [k for k in required_keys if not secrets.get(k)]
+
+        missing = [k for k in self._required_secret_keys if not secrets.get(k)]
         if missing:
             raise ValueError(
                 f"Cannot create secrets.json - missing environment variables: {', '.join(missing)}"
@@ -694,15 +673,7 @@ class Config:
 
     def validate_secrets(self):
         """Validate required secrets exist"""
-        required = ["PUBMED_API_KEY"]
-        
-        # Add API key requirement based on model
-        if self.model == "r1":
-            required.append("DEEPSEEK_API_KEY")
-        else:
-            required.append("OPENAI_API_KEY")
-        
-        missing = [key for key in required if not self.secrets.get(key)]
+        missing = [key for key in self._required_secret_keys if not self.secrets.get(key)]
         if missing:
             raise ValueError(f"Missing secrets in {self.secrets_path}: {', '.join(missing)}")
 
@@ -715,30 +686,17 @@ class Config:
     def _update_output_paths_for_iteration(self):
         """Update output paths based on current iteration"""
         if self.iterations and self.km_output_dir and self.current_iteration > 0:
-            # Create iteration-specific output directory
-            iteration_dir = os.path.join(self.km_output_dir, f"iteration_{self.current_iteration}")
-            if not os.path.exists(iteration_dir):
-                os.makedirs(iteration_dir)
-                
-            # Update file paths to use iteration-specific directory
-            self.filtered_tsv_name = os.path.join(
-                iteration_dir, f"filtered_{self.km_output_base_name}.tsv"
-            )
-            self.debug_tsv_name = os.path.join(
-                iteration_dir, f"debug_{self.km_output_base_name}.tsv"
-            )
-            
-            # Update logger with new file handler for this iteration
-            self.add_file_handler(iteration_dir)
+            output_dir = os.path.join(self.km_output_dir, f"iteration_{self.current_iteration}")
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
         else:
+            output_dir = self.km_output_dir
 
-            self.filtered_tsv_name = os.path.join(
-                self.km_output_dir, f"filtered_{self.km_output_base_name}.tsv"
-            )
-            self.debug_tsv_name = os.path.join(
-                self.km_output_dir, f"debug_{self.km_output_base_name}.tsv"
-            )
-            
-            # Update logger with new file handler for the base directory
-            self.add_file_handler(self.km_output_dir)
+        self.filtered_tsv_name = os.path.join(
+            output_dir, f"filtered_{self.km_output_base_name}.tsv"
+        )
+        self.debug_tsv_name = os.path.join(
+            output_dir, f"debug_{self.km_output_base_name}.tsv"
+        )
+        self.add_file_handler(output_dir)
             
