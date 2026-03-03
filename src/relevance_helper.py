@@ -3,7 +3,11 @@ import ast
 import logging
 import os
 import random
+import socket
 import time
+from itertools import chain
+from typing import Callable
+
 import pandas as pd
 from src.utils import (
     Config, RaggedTensor, sanitize_term_for_filename,
@@ -544,3 +548,100 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         logger.info("No iterations requested, processing results once")
         config.current_iteration = 0
         process_results(out_df, config, num_abstracts_fetched, output_base_dir=output_base_dir)
+
+
+InferenceFn = Callable[[RaggedTensor], RaggedTensor]
+
+
+def run_relevance_pipeline(
+    config: Config,
+    km_output_path: str,
+    infer: InferenceFn,
+    *,
+    output_base_dir: str | None = None,
+) -> None:
+    """Run the shared relevance-analysis pipeline.
+
+    This function consolidates the orchestration logic common to both
+    ``relevance_triton.py`` and ``relevance_chtc.py``.  The only part that
+    differs between backends is the *inference* step, which is supplied as
+    the ``infer`` callable.
+
+    Args:
+        config: Initialized Config object.
+        km_output_path: Path to the TSV file to process.
+        infer: Callable that takes a RaggedTensor of prompts and returns
+            a RaggedTensor of model outputs.
+        output_base_dir: Base directory for JSON output.  When *None*,
+            ``config.km_output_dir`` is used (Triton path).  CHTC callers
+            pass ``"output"``.
+    """
+    config.load_km_output(km_output_path)
+    start_time = time.time()
+    logger.info("Starting relevance analysis...")
+
+    # DNS resolution test
+    try:
+        host = "eutils.ncbi.nlm.nih.gov"
+        ip_address = socket.gethostbyname(host)
+        logger.debug(f"DNS resolution OK: {host} -> {ip_address}")
+    except socket.gaierror as e:
+        logger.error(f"DNS resolution failed for '{host}': {e}")
+        raise
+
+    out_df = config.data.copy(deep=True)
+    logger.debug(f"Working with dataframe of shape {out_df.shape}")
+
+    pubmed_fetcher = PubMedFetcher(
+        config=config,
+        email="jfreeman@morgridge.org",
+        api_key=config.secrets["PUBMED_API_KEY"],
+        max_retries=config.max_retries,
+        backoff_factor=0.5,
+    )
+    logger.info("Initialized PubMedFetcher")
+
+    # Collect PMIDs and hypotheses for all term-pair intersections
+    collected = collect_pmids_and_hypotheses(config)
+    ab_pmids = collected["ab_pmids"]
+    ab_hypotheses = collected["ab_hypotheses"]
+    all_pmids = collected["all_pmids"]
+    all_hypotheses = collected["all_hypotheses"]
+    bc_pmids = collected.get("bc_pmids")
+    bc_hypotheses = collected.get("bc_hypotheses")
+    ac_pmids = collected.get("ac_pmids")
+    ac_hypotheses = collected.get("ac_hypotheses")
+
+    # Fetch abstracts
+    abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
+    num_abstracts_fetched = len(abstract_map)
+    abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
+
+    # Build prompts and run inference
+    prompts = getPrompts(abstracts, all_hypotheses)
+    answers = infer(prompts)
+
+    # Split answers and abstracts by intersection type
+    defaults = [RaggedTensor([]) for _ in range(3)]
+    ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
+    ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
+
+    postProcess(config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape)
+
+    if config.is_skim_with_gpt:
+        postProcess(config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape)
+        if config.has_ac:
+            postProcess(config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape)
+
+    # Skip process_dataframe for DCH mode — sampling handles context window sizing
+    if not config.is_dch:
+        out_df = process_dataframe(out_df, config, pubmed_fetcher)
+
+    # Save processed dataframe
+    initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
+    out_df.to_csv(initial_output_file, sep="\t")
+    logger.info(f"Saved initial processed data to {initial_output_file}")
+
+    run_iterations(config, out_df, num_abstracts_fetched, output_base_dir=output_base_dir)
+
+    logger.info(f"Relevance analysis completed in {time.time() - start_time:.2f} seconds")

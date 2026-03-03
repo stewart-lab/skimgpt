@@ -2,19 +2,11 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import socket
-import time
 from datetime import datetime
-from itertools import chain
 from pathlib import Path
 from src.utils import Config, RaggedTensor
-from src.pubmed_fetcher import PubMedFetcher
 from src.triton_client import TritonClient
-from src.relevance_helper import (
-    getPrompts,
-    postProcess, process_dataframe,
-    collect_pmids_and_hypotheses, run_iterations,
-)
+from src.relevance_helper import run_relevance_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -78,59 +70,22 @@ def gen(
 
 def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     """Run relevance analysis on the provided TSV file.
-    
+
+    Initialises a Triton inference client and delegates the rest of the
+    orchestration to :func:`run_relevance_pipeline`.  If Triton is
+    unreachable (or every request in a batch fails), falls back to a
+    CHTC HTCondor GPU job.
+
     Args:
         config: Initialized Config object
         km_output_path: Path to the TSV file to process
     """
-    
     logger.debug(f"config: {config}")
     logger.debug(f"km_output_path: {km_output_path}")
-    config.load_km_output(km_output_path)   
-    start_time = time.time()
-    logger.info("Starting relevance analysis...")
-    
-    try:
-        # DNS resolution test in Python
-        host = "eutils.ncbi.nlm.nih.gov"
-        ip_address = socket.gethostbyname(host)
-        logger.debug(f"Python DNS resolution test: Successfully resolved '{host}' to '{ip_address}'")
-    except socket.gaierror as e:
-        logger.error(f"Python DNS resolution test: Failed to resolve '{host}'. Error: {e}")
-        raise  # Re-raise the exception to stop script execution
 
-    out_df = config.data.copy(deep=True)
-    logger.debug(f"Working with dataframe of shape {out_df.shape}")
+    # Load before try/except so _run_chtc_fallback can use config.km_output_dir
+    config.load_km_output(km_output_path)
 
-    # Initialize PubMedFetcher
-    pubmed_fetcher = PubMedFetcher(
-        config=config,
-        email="jfreeman@morgridge.org",
-        api_key=config.secrets["PUBMED_API_KEY"],
-        max_retries=config.max_retries,
-        backoff_factor=0.5
-    )
-    logger.info("Initialized PubMedFetcher")
-    
-    # Collect PMIDs and hypotheses for all term-pair intersections
-    collected = collect_pmids_and_hypotheses(config)
-    ab_pmids = collected["ab_pmids"]
-    ab_hypotheses = collected["ab_hypotheses"]
-    all_pmids = collected["all_pmids"]
-    all_hypotheses = collected["all_hypotheses"]
-    bc_pmids = collected.get("bc_pmids")
-    bc_hypotheses = collected.get("bc_hypotheses")
-    ac_pmids = collected.get("ac_pmids")
-    ac_hypotheses = collected.get("ac_hypotheses")
-
-    # Fetch abstracts
-    abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
-    num_abstracts_fetched = len(abstract_map)
-    abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
-    
-    # Ensure abstracts remain flattened for prompt generation; DCH merging happens in process_results
-
-    # ── Attempt Triton inference, fall back to CHTC on total failure ─────
     try:
         # Initialize Triton client for inference
         logger.info("Initializing Triton client for remote inference...")
@@ -170,48 +125,20 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
             batch_chunk_size = int(batch_chunk_size)
             logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
 
-        prompts = getPrompts(abstracts, all_hypotheses)
-        answers = gen(prompts, model,
-                      max_workers=max_workers,
-                      show_progress=show_progress,
-                      batch_chunk_size=batch_chunk_size)
+        def triton_infer(prompts):
+            return gen(
+                prompts, model,
+                max_workers=max_workers,
+                show_progress=show_progress,
+                batch_chunk_size=batch_chunk_size,
+            )
+
+        run_relevance_pipeline(config, km_output_path, infer=triton_infer)
 
     except TritonBatchFailureError as e:
         logger.warning(f"Triton inference failed: {e}")
         logger.info("Falling back to CHTC HTCondor job submission...")
         _run_chtc_fallback(config, km_output_path)
-        return
-
-    # ── Triton succeeded — process results locally ────────────────────────
-    defaults = [RaggedTensor([]) for _ in range(3)]
-    ab_outputs, bc_outputs, ac_outputs, *_ = chain(answers.split(), defaults)
-    ab_abstracts, bc_abstracts, ac_abstracts, *_ = chain(abstracts.split(), defaults)
-
-    postProcess(
-        config, ab_outputs, ab_abstracts, ab_hypotheses, out_df, "ab", ab_pmids.shape
-    )
-
-    if config.is_skim_with_gpt:
-        postProcess(
-            config, bc_outputs, bc_abstracts, bc_hypotheses, out_df, "bc", bc_pmids.shape
-        )
-        if config.has_ac:
-            postProcess(
-                config, ac_outputs, ac_abstracts, ac_hypotheses, out_df, "ac", ac_pmids.shape
-            )
-
-    # Skip process_dataframe for DCH mode - sampling handles context window sizing
-    if not config.is_dch:
-        out_df = process_dataframe(out_df, config, pubmed_fetcher)
-
-    # Save the initial processed dataframe
-    initial_output_file = config.debug_tsv_name if config.debug else config.filtered_tsv_name
-    out_df.to_csv(initial_output_file, sep="\t")
-    logger.info(f"Saved initial processed data to {initial_output_file}")
-
-    run_iterations(config, out_df, num_abstracts_fetched)
-
-    logger.info(f"Relevance analysis completed in {time.time() - start_time:.2f} seconds")
 
 
 # ── CHTC fallback helpers ─────────────────────────────────────────────────
