@@ -1,28 +1,52 @@
 from __future__ import annotations
 import ast
+import logging
 import os
 import random
+import time
 import pandas as pd
 from src.utils import (
     Config, RaggedTensor, sanitize_term_for_filename,
     strip_pipe, normalize_entries, write_to_json,
-    PMID_PATTERN, extract_pmid,
+    extract_pmid, clean_term_for_display,
 )
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import calculate_relevance_ratios, process_single_row
+
+logger = logging.getLogger(__name__)
+
+
+def _flatten_if_nested(data):
+    """Flatten one level of nesting if the data is a list of lists."""
+    if data and isinstance(data, list) and isinstance(data[0], list):
+        return [item for sublist in data for item in sublist]
+    return data
+
+
+def _dedup_by_pmid(abstracts, seen_pmids):
+    """Return abstracts with duplicate PMIDs removed, updating seen_pmids in place."""
+    deduped = []
+    for text in abstracts:
+        pmid = extract_pmid(text)
+        if pmid:
+            if pmid in seen_pmids:
+                continue
+            seen_pmids.add(pmid)
+        deduped.append(text)
+    return deduped
 
 
 def getHypothesis(
     config: Config, a_term: str = None, b_term: str = None, c_term: str = None
 ) -> str:
 
-    # Replace ampersands with spaces in all terms for hypothesis generation
+    # Clean terms for hypothesis generation (strips pipes and replaces ampersands)
     if a_term:
-        a_term = a_term.replace("&", " ")
+        a_term = clean_term_for_display(a_term)
     if b_term:
-        b_term = b_term.replace("&", " ")
+        b_term = clean_term_for_display(b_term)
     if c_term:
-        c_term = c_term.replace("&", " ")
+        c_term = clean_term_for_display(c_term)
 
     if config.is_km_with_gpt:
         assert a_term and b_term and not c_term
@@ -52,29 +76,26 @@ def prompt(abstract, hyp) -> str:
     return f"Abstract: {abstract}\nHypothesis: {hyp}\nInstructions: Classify this abstract as either 0 (Not Relevant) or 1 (Relevant) for evaluating the provided hypothesis.\nScore: "
 
 
-def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = "", default: int = 0, logger = None) -> int:
+def safe_eval(text: str, idx: int = -1, abstract: str = "", hypothesis: str = "", default: int = 0) -> int:
     """Safely evaluate model output, handling empty or invalid responses."""
     text = text.strip()
     if not text:
-        if logger:
-            logger.warning(f"Empty model output at index {idx}, using default value {default}")
-            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
-            logger.warning(f"  Hypothesis: {hypothesis}")
+        logger.warning(f"Empty model output at index {idx}, using default value {default}")
+        logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+        logger.warning(f"  Hypothesis: {hypothesis}")
         return default
     try:
         result = ast.literal_eval(text)
         if result not in [0, 1]:
-            if logger:
-                logger.warning(f"Invalid model output '{text}' at index {idx} (expected 0 or 1), using default {default}")
-                logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
-                logger.warning(f"  Hypothesis: {hypothesis}")
+            logger.warning(f"Invalid model output '{text}' at index {idx} (expected 0 or 1), using default {default}")
+            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+            logger.warning(f"  Hypothesis: {hypothesis}")
             return default
         return result
     except (SyntaxError, NameError, ValueError) as e:
-        if logger:
-            logger.warning(f"Failed to evaluate model output '{text}' at index {idx}: {e}, using default {default}")
-            logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
-            logger.warning(f"  Hypothesis: {hypothesis}")
+        logger.warning(f"Failed to evaluate model output '{text}' at index {idx}: {e}, using default {default}")
+        logger.warning(f"  Abstract: {abstract[:200]}..." if len(abstract) > 200 else f"  Abstract: {abstract}")
+        logger.warning(f"  Hypothesis: {hypothesis}")
         return default
 
 
@@ -102,7 +123,6 @@ def postProcess(
 
     abstracts.reshape(shape)
 
-    logger = config.logger
     logger.info(f"Processing {len(outputs.data)} abstracts for {terms} relationship")
 
     if not config.debug:
@@ -110,7 +130,7 @@ def postProcess(
         for idx, output in enumerate(outputs.data):
             abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
             hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
-            result = safe_eval(output, idx, abstract, hypothesis, 0, logger)
+            result = safe_eval(output, idx, abstract, hypothesis, 0)
             evaluated_results.append(result)
 
             relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
@@ -121,14 +141,13 @@ def postProcess(
 
         answer_masks = RaggedTensor(evaluated_results, outputs.break_point)
         answer_masks.reshape(shape)
-        abstracts.apply_filter(answer_masks)
     else:
         evaluated_results = []
         for idx, answer in enumerate(outputs.data):
             abstract = flat_abstracts[idx] if idx < len(flat_abstracts) else ""
             hypothesis = flat_hypotheses[idx] if idx < len(flat_hypotheses) else ""
             first_char = answer[0] if answer else ""
-            result = safe_eval(first_char, idx, abstract, hypothesis, 0, logger)
+            result = safe_eval(first_char, idx, abstract, hypothesis, 0)
             evaluated_results.append(result)
 
             relevance_status = "RELEVANT" if result == 1 else "NOT RELEVANT"
@@ -143,28 +162,16 @@ def postProcess(
         cot = RaggedTensor([answer[1:] for answer in outputs.data])
         cot.reshape(shape)
 
-        if terms == "ac":
-            out_df[f"{terms}_mask"] = answer_masks.data
-            out_df[f"{terms}_cot"] = cot.data
-            out_df[f"{terms}_hypothesis"] = hypotheses.data
-        else:
-            out_df[f"{terms}_mask"] = answer_masks.data
-            out_df[f"{terms}_cot"] = cot.data
-            out_df[f"{terms}_hypothesis"] = hypotheses.data
+        out_df[f"{terms}_cot"] = cot.data
+        out_df[f"{terms}_hypothesis"] = hypotheses.data
 
-        # In debug mode, still filter abstracts for downstream processing
-        abstracts.apply_filter(answer_masks)
+    # Filter abstracts using the computed masks (both debug and non-debug)
+    abstracts.apply_filter(answer_masks)
 
     out_df[f"{terms}_mask"] = answer_masks.data
     out_df[f"{terms}_abstracts"] = abstracts.data
 
-    def flatten_if_needed(data):
-        """Flatten nested lists into a single list"""
-        if data and isinstance(data[0], list):
-            return [item for sublist in data for item in sublist]
-        return data
-
-    flat_masks = flatten_if_needed(answer_masks.data)
+    flat_masks = _flatten_if_nested(answer_masks.data)
     total_abstracts = len(flat_masks)
     relevant_count = sum(flat_masks)
     filtered_count = total_abstracts - relevant_count
@@ -178,7 +185,6 @@ def postProcess(
 
 def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubMedFetcher) -> pd.DataFrame:
     """Process dataframe with optimizations and filtering."""
-    logger = config.logger
     columns_to_process = [col for col in [
         "ab_abstracts",
         "bc_abstracts",
@@ -216,33 +222,13 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     Returns:
         A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
     """
-    logger = config.logger
-
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
 
-    # Deduplicate across rows using PMID
+    # Deduplicate across both lists using PMID
     seen_pmids = set()
-    dedup1 = []
-    for t in list1:
-        pmid = extract_pmid(t)
-        if pmid:
-            if pmid in seen_pmids:
-                continue
-            seen_pmids.add(pmid)
-        dedup1.append(t)
-
-    dedup2 = []
-    for t in list2:
-        pmid = extract_pmid(t)
-        if pmid:
-            if pmid in seen_pmids:
-                continue
-            seen_pmids.add(pmid)
-        dedup2.append(t)
-
-    list1 = dedup1
-    list2 = dedup2
+    list1 = _dedup_by_pmid(list1, seen_pmids)
+    list2 = _dedup_by_pmid(list2, seen_pmids)
 
     total1 = len(list1)
     total2 = len(list2)
@@ -266,8 +252,8 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     n1 = 0
     n2 = 0
     if total > 0:
-        s1 = (total1 / total) if total > 0 else 0.0
-        s2 = (total2 / total) if total > 0 else 0.0
+        s1 = total1 / total
+        s2 = total2 / total
 
         if total1 > 0:
             s1 = max(s1, min_floor)
@@ -332,16 +318,10 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({n1} from candidate1 + {n2} from candidate2)")
     logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
 
-    if sampled_abstracts:
-        consolidated_abstracts = "\n\n".join(sampled_abstracts)
-        expected_count = len(sampled_abstracts)
-    else:
-        consolidated_abstracts = ""
-        expected_count = 0
-
+    consolidated_abstracts = "\n\n".join(sampled_abstracts) if sampled_abstracts else ""
     total_relevant_abstracts = total1 + total2
 
-    return consolidated_abstracts, expected_count, total_relevant_abstracts
+    return consolidated_abstracts, len(sampled_abstracts), total_relevant_abstracts
 
 
 def process_results(
@@ -360,7 +340,6 @@ def process_results(
             (default / Triton path), ``config.km_output_dir`` is used.
             CHTC callers pass ``"output"`` (relative to the Docker scratch dir).
     """
-    logger = config.logger
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
 
@@ -388,13 +367,8 @@ def process_results(
         v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
         v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
 
-        def flatten_if_nested(data):
-            if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-                return [item for sublist in data for item in sublist]
-            return data
-
-        v1 = flatten_if_nested(v1_all_raw)
-        v2 = flatten_if_nested(v2_all_raw)
+        v1 = _flatten_if_nested(v1_all_raw)
+        v2 = _flatten_if_nested(v2_all_raw)
         logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
         logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
@@ -414,14 +388,11 @@ def process_results(
         logger.debug(f" Result dict: {result_dict}")
         if result_dict:
             if config.is_km_with_gpt and not config.is_dch:
-                try:
-                    a_term_val = row.get("a_term", "")
-                    b_term_val = row.get("b_term", "")
-                    hyp_str = getHypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
-                    if "A_B_Relationship" in result_dict:
-                        result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
-                except Exception:
-                    pass
+                a_term_val = row.get("a_term", "")
+                b_term_val = row.get("b_term", "")
+                hyp_str = getHypothesis(config=config, a_term=a_term_val, b_term=b_term_val)
+                if "A_B_Relationship" in result_dict:
+                    result_dict["A_B_Relationship"].setdefault("Hypothesis", hyp_str)
             for ratio_type in ["ab", "bc", "ac"]:
                 ratio_col = f"{ratio_type}_relevance_ratio"
                 fraction_col = f"{ratio_type}_relevance_fraction"
@@ -435,7 +406,8 @@ def process_results(
             if config.is_dch:
                 try:
                     result_dict["total_relevant_abstracts"] = int(row.get("total_relevant_abstracts", 0))
-                except Exception:
+                except (TypeError, ValueError):
+                    logger.warning("Could not parse total_relevant_abstracts, defaulting to 0")
                     result_dict["total_relevant_abstracts"] = 0
                 logger.info(f"Processed row {index + 1}/{total_rows} (DCH)")
             else:
@@ -461,4 +433,114 @@ def process_results(
 
             logger.debug(f" IN PROCESS RESULTS   Output json before writing: {output_json}")
             logger.debug(f" IN PROCESS RESULTS   Result dict: {result_dict}")
-            write_to_json([result_dict], output_json, output_base_dir, config)
+            write_to_json([result_dict], output_json, output_base_dir)
+
+
+def collect_pmids_and_hypotheses(config: Config):
+    """Collect PMIDs and hypotheses from config.data for all term-pair intersections.
+
+    Both relevance_chtc.py and relevance_triton.py need identical PMID/hypothesis
+    collection logic. This function centralises that work.
+
+    Returns:
+        A dict with keys:
+            ab_pmids, ab_hypotheses: always present (RaggedTensor)
+            bc_pmids, bc_hypotheses: present when is_skim_with_gpt (RaggedTensor)
+            ac_pmids, ac_hypotheses: present when is_skim_with_gpt and has_ac (RaggedTensor)
+            all_pmids, all_hypotheses: flattened/expanded union (RaggedTensor)
+    """
+    ab_pmids_raw = []
+    ab_hypotheses_raw = []
+    bc_pmids_raw = []
+    bc_hypotheses_raw = []
+    ac_pmids_raw = []
+    ac_hypotheses_raw = []
+
+    for _, row in config.data.iterrows():
+        a_term = row['a_term']
+        b_term = row['b_term']
+
+        ab_pmids_raw.append(ast.literal_eval(row['ab_pmid_intersection']))
+        ab_hypotheses_raw.append(getHypothesis(config=config, a_term=a_term, b_term=b_term))
+
+        if config.is_skim_with_gpt:
+            c_term = row['c_term']
+            bc_pmids_raw.append(ast.literal_eval(row['bc_pmid_intersection']))
+            bc_hypotheses_raw.append(getHypothesis(config=config, c_term=c_term, b_term=b_term))
+
+            if config.has_ac and 'ac_pmid_intersection' in row:
+                ac_pmids_raw.append(ast.literal_eval(row['ac_pmid_intersection']))
+                ac_hypotheses_raw.append(getHypothesis(config=config, a_term=a_term, c_term=c_term))
+
+    ab_pmids = RaggedTensor(ab_pmids_raw)
+    ab_hypotheses = RaggedTensor(ab_hypotheses_raw)
+    all_pmids = ab_pmids.flatten()
+    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
+
+    result = {
+        "ab_pmids": ab_pmids,
+        "ab_hypotheses": ab_hypotheses,
+    }
+
+    if config.is_skim_with_gpt:
+        bc_pmids = RaggedTensor(bc_pmids_raw)
+        bc_hypotheses = RaggedTensor(bc_hypotheses_raw)
+        all_pmids += bc_pmids.flatten()
+        all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
+        result["bc_pmids"] = bc_pmids
+        result["bc_hypotheses"] = bc_hypotheses
+
+        if config.has_ac and ac_pmids_raw:
+            ac_pmids = RaggedTensor(ac_pmids_raw)
+            ac_hypotheses = RaggedTensor(ac_hypotheses_raw)
+            all_pmids += ac_pmids.flatten()
+            all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
+            result["ac_pmids"] = ac_pmids
+            result["ac_hypotheses"] = ac_hypotheses
+
+    result["all_pmids"] = all_pmids
+    result["all_hypotheses"] = all_hypotheses
+    return result
+
+
+def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: int,
+                   output_base_dir: str = None) -> None:
+    """Handle iteration-based or single-pass result processing.
+
+    Both relevance_chtc.py and relevance_triton.py share nearly identical
+    iteration handling code.  This function centralises it.
+
+    Args:
+        config: Global configuration.
+        out_df: Processed DataFrame.
+        num_abstracts_fetched: Total abstracts fetched for metadata.
+        output_base_dir: Base directory for JSON output, forwarded to
+            process_results.  Pass None to use config.km_output_dir (Triton)
+            or ``"output"`` for CHTC.
+    """
+    if config.iterations:
+        num_iterations = 1
+        if isinstance(config.iterations, bool) and config.iterations:
+            logger.warning("iterations is set to True but no number specified, defaulting to 1 iteration")
+        elif isinstance(config.iterations, int) and config.iterations > 0:
+            num_iterations = config.iterations
+            logger.info(f"Will perform {num_iterations} iterations of analysis")
+        else:
+            logger.warning("Invalid iterations config, defaulting to 1 iteration")
+
+        base_dir = output_base_dir if output_base_dir is not None else config.km_output_dir
+        for i in range(1, num_iterations + 1):
+            os.makedirs(os.path.join(base_dir, f"iteration_{i}"), exist_ok=True)
+
+        for iteration in range(1, num_iterations + 1):
+            iteration_start = time.time()
+            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
+            config.set_iteration(iteration)
+            process_results(out_df, config, num_abstracts_fetched, output_base_dir=output_base_dir)
+            logger.info(f"Iteration {iteration} completed in {time.time() - iteration_start:.2f} seconds")
+
+        logger.info(f"All {num_iterations} iterations completed successfully")
+    else:
+        logger.info("No iterations requested, processing results once")
+        config.current_iteration = 0
+        process_results(out_df, config, num_abstracts_fetched, output_base_dir=output_base_dir)

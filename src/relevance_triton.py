@@ -1,6 +1,5 @@
 from __future__ import annotations
-import ast
-import pandas as pd
+import logging
 import os
 import shutil
 import socket
@@ -12,9 +11,12 @@ from src.utils import Config, RaggedTensor
 from src.pubmed_fetcher import PubMedFetcher
 from src.triton_client import TritonClient
 from src.relevance_helper import (
-    getHypothesis, getPrompts,
-    postProcess, process_dataframe, process_results,
+    getPrompts,
+    postProcess, process_dataframe,
+    collect_pmids_and_hypotheses, run_iterations,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TritonBatchFailureError(RuntimeError):
@@ -23,49 +25,44 @@ class TritonBatchFailureError(RuntimeError):
 
 
 def gen(
-    prompts: RaggedTensor, model: TritonClient, logger=None,
+    prompts: RaggedTensor, model: TritonClient,
     max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
 ) -> RaggedTensor:
     """Generate outputs using Triton client batch inference with configurable parameters.
-    
+
     Args:
         prompts: RaggedTensor containing input prompts
         model: TritonClient instance for inference (with pre-configured sampling parameters)
-        logger: Logger instance for debugging
         max_workers: Maximum concurrent requests (default: None = use client default)
         show_progress: Show progress bar during inference (default: False)
         batch_chunk_size: Process large batches in chunks (default: None = no chunking)
-    
+
     Returns:
         RaggedTensor containing model outputs
     """
-    # Debug: log first few prompts
-    if logger:
-        logger.info(f"DEBUG gen(): Number of prompts: {len(prompts.data)}")
-        if len(prompts.data) > 0:
-            logger.info(f"DEBUG gen(): First prompt (truncated): {prompts.data[0][:300]}...")
-            logger.info(f"DEBUG gen(): Model sampling params - temperature: {model.temperature}, "
-                       f"top_p: {model.top_p}, max_tokens: {model.max_tokens}")
-        if max_workers:
-            logger.info(f"DEBUG gen(): Using max_workers={max_workers}")
-        if batch_chunk_size:
-            logger.info(f"DEBUG gen(): Using batch_chunk_size={batch_chunk_size}")
-    
+    logger.debug(f"gen(): Number of prompts: {len(prompts.data)}")
+    if len(prompts.data) > 0:
+        logger.debug(f"gen(): First prompt (truncated): {prompts.data[0][:300]}...")
+        logger.debug(f"gen(): Model sampling params - temperature: {model.temperature}, "
+                    f"top_p: {model.top_p}, max_tokens: {model.max_tokens}")
+    if max_workers:
+        logger.debug(f"gen(): Using max_workers={max_workers}")
+    if batch_chunk_size:
+        logger.debug(f"gen(): Using batch_chunk_size={batch_chunk_size}")
+
     batch_results = model.generate_batch(
         text_inputs=prompts.data,
         max_workers=max_workers,
         show_progress=show_progress,
         batch_chunk_size=batch_chunk_size
     )
-    
-    # Check for errors and raise on total batch failure
+
     error_count = sum(1 for r in batch_results if "error" in r)
-    if logger:
-        logger.info(f"DEBUG gen(): Number of results: {len(batch_results)}")
-        if error_count > 0:
-            logger.warning(f"DEBUG gen(): {error_count}/{len(batch_results)} requests failed")
-        if len(batch_results) > 0:
-            logger.info(f"DEBUG gen(): First result: {batch_results[0]}")
+    logger.debug(f"gen(): Number of results: {len(batch_results)}")
+    if error_count > 0:
+        logger.warning(f"gen(): {error_count}/{len(batch_results)} requests failed")
+    if len(batch_results) > 0:
+        logger.debug(f"gen(): First result: {batch_results[0]}")
 
     if batch_results and error_count == len(batch_results):
         raise TritonBatchFailureError(
@@ -79,7 +76,6 @@ def gen(
     return outputs
 
 
-
 def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     """Run relevance analysis on the provided TSV file.
     
@@ -88,7 +84,6 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
         km_output_path: Path to the TSV file to process
     """
     
-    logger = config.logger
     logger.debug(f"config: {config}")
     logger.debug(f"km_output_path: {km_output_path}")
     config.load_km_output(km_output_path)   
@@ -117,66 +112,16 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     )
     logger.info("Initialized PubMedFetcher")
     
-    # Process each row individually (unified for DCH and non-DCH)
-    ab_pmids = []
-    ab_hypotheses = []
-
-    for _, row in config.data.iterrows():
-        a_term = row['a_term']
-        logger.debug(f"Row b_term from dataframe: {row['b_term']}, type: {type(row['b_term'])}")
-        b_term = row['b_term']
-
-        # Convert string representation of list to actual list
-        pmids = ast.literal_eval(row['ab_pmid_intersection'])
-        ab_pmids.append(pmids)
-
-        # Generate hypothesis for this specific pair
-        # Preserve pipes here; do not strip before relevance
-        hypothesis = getHypothesis(config=config, a_term=a_term, b_term=b_term)
-        ab_hypotheses.append(hypothesis)
-
-    # Convert to RaggedTensor format
-    ab_pmids = RaggedTensor(ab_pmids)
-    ab_hypotheses = RaggedTensor(ab_hypotheses)
-    all_pmids = ab_pmids.flatten()
-    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
-
-    if config.is_skim_with_gpt:
-        # Process BC and AC terms row by row
-        bc_pmids = []
-        bc_hypotheses = []
-        ac_pmids = []
-        ac_hypotheses = []
-
-        for _, row in config.data.iterrows():
-            b_term = row['b_term']
-            c_term = row['c_term']
-            a_term = row['a_term']
-            
-            # Process BC terms
-            bc_pmid_list = ast.literal_eval(row['bc_pmid_intersection'])
-            bc_pmids.append(bc_pmid_list)
-            bc_hypothesis = getHypothesis(config=config, c_term=c_term, b_term=b_term)
-            bc_hypotheses.append(bc_hypothesis)
-            
-            # Process AC terms if available
-            if config.has_ac and 'ac_pmid_intersection' in row:
-                ac_pmid_list = ast.literal_eval(row['ac_pmid_intersection'])
-                ac_pmids.append(ac_pmid_list)
-                ac_hypothesis = getHypothesis(config=config, a_term=a_term, c_term=c_term)
-                ac_hypotheses.append(ac_hypothesis)
-
-        # Convert to RaggedTensor format and add to all_pmids/hypotheses
-        bc_pmids = RaggedTensor(bc_pmids)
-        bc_hypotheses = RaggedTensor(bc_hypotheses)
-        all_pmids += bc_pmids.flatten()
-        all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
-
-        if config.has_ac and ac_pmids:
-            ac_pmids = RaggedTensor(ac_pmids)
-            ac_hypotheses = RaggedTensor(ac_hypotheses)
-            all_pmids += ac_pmids.flatten()
-            all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
+    # Collect PMIDs and hypotheses for all term-pair intersections
+    collected = collect_pmids_and_hypotheses(config)
+    ab_pmids = collected["ab_pmids"]
+    ab_hypotheses = collected["ab_hypotheses"]
+    all_pmids = collected["all_pmids"]
+    all_hypotheses = collected["all_hypotheses"]
+    bc_pmids = collected.get("bc_pmids")
+    bc_hypotheses = collected.get("bc_hypotheses")
+    ac_pmids = collected.get("ac_pmids")
+    ac_hypotheses = collected.get("ac_hypotheses")
 
     # Fetch abstracts
     abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
@@ -195,7 +140,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
                 model_name=config.filter_config.get("MODEL_NAME"),
                 temperature=config.filter_config["TEMPERATURE"],
                 top_p=config.filter_config["TOP_P"],
-                max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1
+                max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
             )
 
             if not model.check_server_health():
@@ -226,7 +171,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
             logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
 
         prompts = getPrompts(abstracts, all_hypotheses)
-        answers = gen(prompts, model, logger,
+        answers = gen(prompts, model,
                       max_workers=max_workers,
                       show_progress=show_progress,
                       batch_chunk_size=batch_chunk_size)
@@ -234,7 +179,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     except TritonBatchFailureError as e:
         logger.warning(f"Triton inference failed: {e}")
         logger.info("Falling back to CHTC HTCondor job submission...")
-        _run_chtc_fallback(config, km_output_path, logger)
+        _run_chtc_fallback(config, km_output_path)
         return
 
     # ── Triton succeeded — process results locally ────────────────────────
@@ -264,43 +209,9 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     out_df.to_csv(initial_output_file, sep="\t")
     logger.info(f"Saved initial processed data to {initial_output_file}")
 
-    # Check if we need to run iterations
-    if config.iterations:
-        num_iterations = 1
-        if isinstance(config.iterations, bool) and config.iterations:
-            logger.warning("iterations is set to True but no number specified, defaulting to 1 iteration")
-        elif isinstance(config.iterations, int) and config.iterations > 0:
-            num_iterations = config.iterations
-            logger.info(f"Will perform {num_iterations} iterations of analysis")
-        else:
-            logger.warning("Invalid iterations config, defaulting to 1 iteration")
+    run_iterations(config, out_df, num_abstracts_fetched)
 
-        logger.info(f"Setting up for {num_iterations} iterations")
-        for i in range(1, num_iterations + 1):
-            iteration_dir = os.path.join(config.km_output_dir, f"iteration_{i}")
-            if not os.path.exists(iteration_dir):
-                os.makedirs(iteration_dir)
-                logger.info(f"Created output directory for iteration {i}: {iteration_dir}")
-
-        filtered_df = out_df.copy(deep=True)
-
-        for iteration in range(1, num_iterations + 1):
-            iteration_start_time = time.time()
-            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
-            config.set_iteration(iteration)
-            process_results(filtered_df, config, num_abstracts_fetched)
-            iteration_elapsed_time = time.time() - iteration_start_time
-            logger.info(f"Iteration {iteration} completed in {iteration_elapsed_time:.2f} seconds")
-
-        logger.info(f"All {num_iterations} iterations completed successfully")
-    else:
-        logger.info("No iterations requested, processing results once")
-        config.current_iteration = 0
-        process_results(out_df, config, num_abstracts_fetched)
-
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.info(f"Relevance analysis completed in {elapsed_time:.2f} seconds")
+    logger.info(f"Relevance analysis completed in {time.time() - start_time:.2f} seconds")
 
 
 # ── CHTC fallback helpers ─────────────────────────────────────────────────
@@ -332,7 +243,7 @@ def _remove_token_file(token_file: str):
         shutil.rmtree(str(token_dir), ignore_errors=True)
 
 
-def _run_chtc_fallback(config: Config, km_output_path: str, logger) -> None:
+def _run_chtc_fallback(config: Config, km_output_path: str) -> None:
     """Submit the relevance analysis as a CHTC HTCondor job (Docker + GPU + vLLM).
 
     Stages all required files into the output directory and uses HTCondorHelper

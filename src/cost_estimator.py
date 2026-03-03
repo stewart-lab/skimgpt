@@ -10,10 +10,11 @@ from src.prompt_library import (
 )
 from src.utils import Config
 
+logger = logging.getLogger(__name__)
+
 class CostEstimator:
     def __init__(self, config: Config):
         self.config = config
-        self.logger = logging.getLogger("SKiM-GPT")
         self.model = config.model
         self.post_n = config.post_n
         
@@ -51,17 +52,17 @@ class CostEstimator:
             if start <= self.post_n <= end:
                 estimated_tokens = tokens
                 estimated_cost = self._calculate_cost(estimated_tokens, is_input=False)
-                self.logger.info(f"=== {job_type} Output Token Estimation ===")
-                self.logger.info(f"Estimated output tokens: {estimated_tokens:,}")
-                self.logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+                logger.info(f"=== {job_type} Output Token Estimation ===")
+                logger.info(f"Estimated output tokens: {estimated_tokens:,}")
+                logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
                 return estimated_tokens
         
         # Default to highest value if POST_N is out of range
         default_tokens = intervals[-1][2]
         estimated_cost = self._calculate_cost(default_tokens, is_input=False)
-        self.logger.info(f"=== {job_type} Output Token Estimation ===")
-        self.logger.info(f"Estimated output tokens: {default_tokens:,}")
-        self.logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info(f"=== {job_type} Output Token Estimation ===")
+        logger.info(f"Estimated output tokens: {default_tokens:,}")
+        logger.info(f"Estimated output cost (${self.output_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         return default_tokens
 
 class KMCostEstimator(CostEstimator):
@@ -93,8 +94,8 @@ class KMCostEstimator(CostEstimator):
         """Calculate input token costs for KM jobs."""
         total_tokens = 0
         
-        self.logger.info("=== KM Input Cost Estimation ===")
-        self.logger.info("Row-by-row breakdown:")
+        logger.info("=== KM Input Cost Estimation ===")
+        logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
             # Use numeric len(a_b_intersect) only
@@ -113,12 +114,12 @@ class KMCostEstimator(CostEstimator):
             row_total_tokens = abstract_tokens + prompt_tokens
             total_tokens += row_total_tokens
             
-            self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
+            logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}): Total input tokens: {row_total_tokens:,}")
         
         estimated_cost = self._calculate_cost(total_tokens)
-        self.logger.info("=== Overall Summary ===")
-        self.logger.info(f"Total estimated input tokens: {total_tokens:,}")
-        self.logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info("=== Overall Summary ===")
+        logger.info(f"Total estimated input tokens: {total_tokens:,}")
+        logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         
         return total_tokens
     
@@ -163,8 +164,8 @@ class SkimCostEstimator(CostEstimator):
         """Calculate input token costs for SKIM jobs."""
         total_tokens = 0
         
-        self.logger.info("=== SKIM Input Cost Estimation ===")
-        self.logger.info("Row-by-row breakdown:")
+        logger.info("=== SKIM Input Cost Estimation ===")
+        logger.info("Row-by-row breakdown:")
         
         for idx, row in combined_df.iterrows():
             # Use numeric lengths only
@@ -192,12 +193,12 @@ class SkimCostEstimator(CostEstimator):
                 row_total_tokens += ac_tokens + ac_prompt_tokens
             
             total_tokens += row_total_tokens
-            self.logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}-{row['c_term']}): Total input tokens: {row_total_tokens:,}")
+            logger.info(f"Row {idx + 1} ({row['a_term']}-{row['b_term']}-{row['c_term']}): Total input tokens: {row_total_tokens:,}")
         
         estimated_cost = self._calculate_cost(total_tokens)
-        self.logger.info("=== Overall Summary ===")
-        self.logger.info(f"Total estimated input tokens: {total_tokens:,}")
-        self.logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
+        logger.info("=== Overall Summary ===")
+        logger.info(f"Total estimated input tokens: {total_tokens:,}")
+        logger.info(f"Estimated input cost (${self.input_cost_per_million:.2f}/million tokens): ${estimated_cost:.2f}")
         
         return total_tokens
     

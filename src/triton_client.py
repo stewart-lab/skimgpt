@@ -14,17 +14,18 @@ Features:
 """
 
 import json
-import requests
 import logging
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from typing import Dict, List
-from tqdm import tqdm
+from typing import List
 
-# Use SKiM-GPT logger for consistency with the rest of the application
-logger = logging.getLogger("SKiM-GPT")
+import requests
+from requests.adapters import HTTPAdapter
+from tqdm import tqdm
+from urllib3.util.retry import Retry
+
+logger = logging.getLogger(__name__)
 
 
 class TritonClient:
@@ -59,7 +60,7 @@ class TritonClient:
                  max_tokens: int = None):
         """
         Initialize the Triton client with connection pooling and retry logic.
-        
+
         Args:
             server_url: Base URL of the Triton server (defaults to DEFAULT_SERVER_URL)
             model_name: Name of the model to use for inference (defaults to DEFAULT_MODEL_NAME)
@@ -78,34 +79,39 @@ class TritonClient:
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
         
-        # Store required sampling parameters (validation should happen in Config)
         self.temperature = temperature
         self.top_p = top_p
         self.max_tokens = max_tokens
-        
-        # Create a session with connection pooling
+
         self.session = requests.Session()
         
-        # Configure retry strategy with exponential backoff
         retry_strategy = Retry(
             total=max_retries,
-            backoff_factor=1,  # 1s, 2s, 4s, 8s...
-            status_forcelist=[429, 502, 503, 504],  # Retry on these status codes
+            backoff_factor=1,
+            status_forcelist=[429, 502, 503, 504],
             allowed_methods=["GET", "POST"],
-            raise_on_status=False
+            raise_on_status=False,
         )
-        
-        # Mount adapter with connection pooling and retry strategy
+
         adapter = HTTPAdapter(
             pool_connections=pool_connections,
             pool_maxsize=pool_maxsize,
-            max_retries=retry_strategy
+            max_retries=retry_strategy,
         )
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
         logger.debug(f"TritonClient initialized with connection pool (size={pool_maxsize}), "
                     f"retries={max_retries}, timeouts=({connect_timeout}s, {read_timeout}s)")
+
+    @property
+    def _default_sampling_params(self) -> dict:
+        """Build the default sampling parameters from instance attributes."""
+        return {
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "max_tokens": self.max_tokens,
+        }
 
     def check_server_health(self) -> bool:
         """Check if the Triton server is ready."""
@@ -135,15 +141,9 @@ class TritonClient:
         Returns:
             Dictionary containing the generation response, or dict with 'error' key on failure
         """
-        # Use instance defaults if no sampling parameters provided
         if sampling_parameters is None:
-            sampling_parameters = {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens
-            }
+            sampling_parameters = self._default_sampling_params
 
-        # Construct the request payload using Triton's format
         payload = {
             "text_input": text_input,
             "stream": stream,
@@ -155,24 +155,19 @@ class TritonClient:
             response = self.session.post(
                 self.generate_url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
                 stream=stream,
-                timeout=(self.connect_timeout, self.read_timeout)
+                timeout=(self.connect_timeout, self.read_timeout),
             )
             response.raise_for_status()
 
             if stream:
-                # Handle streaming response
-                result_text = ""
-                for line in response.iter_lines():
-                    if line:
-                        result_text += line.decode('utf-8') + "\n"
-                return {"text_output": result_text}
-            else:
-                result = response.json()
-                logger.debug(f"Triton raw response keys: {result.keys()}")
-                logger.debug(f"Triton raw response (truncated): {str(result)[:500]}")
-                return result
+                lines = [line.decode('utf-8') for line in response.iter_lines() if line]
+                return {"text_output": "\n".join(lines) + "\n" if lines else ""}
+
+            result = response.json()
+            logger.debug(f"Triton raw response keys: {result.keys()}")
+            logger.debug(f"Triton raw response (truncated): {str(result)[:500]}")
+            return result
 
         except requests.exceptions.Timeout as e:
             error_msg = f"Request timeout after {self.connect_timeout}s (connect) / {self.read_timeout}s (read)"
@@ -186,7 +181,6 @@ class TritonClient:
                 logger.error(f"Response status: {e.response.status_code}")
                 logger.error(f"Response text: {e.response.text[:500]}")
             logger.debug(f"Failed prompt (first 200 chars): {text_input[:200]}...")
-            import traceback
             logger.debug(f"Traceback: {traceback.format_exc()}")
             return {"error": "request_failed", "error_message": error_msg}
 
@@ -220,26 +214,18 @@ class TritonClient:
         if not text_inputs:
             return []
         
-        # Use instance defaults if no sampling parameters provided
         if sampling_parameters is None:
-            sampling_parameters = {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens
-            }
-        
-        # Use default max_workers if not specified
+            sampling_parameters = self._default_sampling_params
+
         if max_workers is None:
             max_workers = self.DEFAULT_MAX_WORKERS
         
-        # If batch chunking is requested, process in chunks
         if batch_chunk_size and len(text_inputs) > batch_chunk_size:
             return self._generate_batch_chunked(
                 text_inputs, sampling_parameters, exclude_input_in_output,
-                max_workers, show_progress, batch_chunk_size
+                max_workers, show_progress, batch_chunk_size,
             )
-        
-        # Process entire batch at once
+
         return self._generate_batch_single(
             text_inputs, sampling_parameters, exclude_input_in_output,
             max_workers, show_progress
@@ -263,39 +249,32 @@ class TritonClient:
                 sampling_parameters=sampling_parameters,
                 exclude_input_in_output=exclude_input_in_output
             )
-            # Track errors
             has_error = "error" in result
             return idx, result, has_error
 
         results = [None] * total_requests
-
-        # Create progress bar if requested
         progress_bar = None
         if show_progress:
             progress_bar = tqdm(total=total_requests, desc="Generating", unit="req")
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all requests with their indices
             futures = {
                 executor.submit(_generate_single, (idx, text)): idx
                 for idx, text in enumerate(text_inputs)
             }
 
-            # Collect results as they complete
             for future in as_completed(futures):
                 idx, result, has_error = future.result()
                 results[idx] = result
                 if has_error:
                     error_count += 1
                 
-                # Update progress bar
                 if progress_bar:
                     progress_bar.update(1)
         
         if progress_bar:
             progress_bar.close()
         
-        # Log batch statistics
         elapsed_time = time.time() - start_time
         avg_latency = elapsed_time / total_requests if total_requests > 0 else 0
         logger.info(f"Batch complete: {total_requests} requests in {elapsed_time:.2f}s "
@@ -330,7 +309,6 @@ class TritonClient:
             logger.debug(f"Processing chunk {chunk_idx + 1}/{num_chunks} "
                         f"(requests {start_idx}-{end_idx})")
             
-            # Process this chunk
             chunk_results = self._generate_batch_single(
                 chunk, sampling_parameters, exclude_input_in_output,
                 max_workers, show_progress

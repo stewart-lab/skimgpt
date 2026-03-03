@@ -1,14 +1,9 @@
 #!/bin/bash
 
-# Get km_output_file from environment variable
 km_output_file=files.txt
 config_file="config.json"
 
-export TRANSFORMERS_CACHE=$_CONDOR_SCRATCH_DIR/models
 export HF_HOME=$_CONDOR_SCRATCH_DIR/models
-export HF_DATASETS_CACHE=$_CONDOR_SCRATCH_DIR/datasets
-export HF_MODULES_CACHE=$_CONDOR_SCRATCH_DIR/modules
-export HF_METRICS_CACHE=$_CONDOR_SCRATCH_DIR/metrics
 
 # --- Fix CUDA_VISIBLE_DEVICES before Python/CUDA initialization ---
 # HTCondor may set CUDA_VISIBLE_DEVICES to GPU UUIDs (e.g. "GPU-abc123...").

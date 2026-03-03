@@ -10,6 +10,8 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+logger = logging.getLogger(__name__)
+
 def update_input_paths(config_path, base_dir):
     with open(config_path) as f:
         cfg = json.load(f)
@@ -26,17 +28,17 @@ def get_job_type(config_path):
         return json.load(f).get("JOB_TYPE", "unknown").strip()
 
 def setup_logger(parent_dir, job_type):
-    logger = logging.getLogger("SKiM-GPT-wrapper")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    for h in list(logger.handlers):
-        logger.removeHandler(h)
-    fmt = "%(asctime)s - SKiM-GPT-wrapper - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
+    """Configure the root logger with console and file handlers for wrapper runs."""
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    # Remove existing handlers to avoid duplicates
+    for h in list(root.handlers):
+        root.removeHandler(h)
+    fmt = "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
     formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-    ch = logging.StreamHandler(); ch.setFormatter(formatter); logger.addHandler(ch)
+    ch = logging.StreamHandler(); ch.setFormatter(formatter); root.addHandler(ch)
     fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))
-    fh.setFormatter(formatter); logger.addHandler(fh)
-    return logger
+    fh.setFormatter(formatter); root.addHandler(fh)
 
 def update_censor_year(config_path, year, depth):
     data = json.load(open(config_path))
@@ -81,7 +83,7 @@ def parse_job_status(log_dir):
         return None
     return re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - ", "", last)
 
-def run_one_year(year, work_dir, project_dir, original_config, main_py_path, logger, depth):
+def run_one_year(year, work_dir, project_dir, original_config, main_py_path, depth):
     logger.info(f"Starting censor_year {year}")
     cfg_path = os.path.join(work_dir, "config.json")
     shutil.copy2(original_config, cfg_path)
@@ -166,7 +168,7 @@ def main():
 
     # --- Logger ---
     jt     = get_job_type(wrapper_cfg)
-    logger = setup_logger(parent_dir, jt)
+    setup_logger(parent_dir, jt)
     logger.info(f"Parent dir: {parent_dir}")
     logger.info(f"Preparing to run {num_years} years (each with {iters} iterations)")
 
@@ -182,7 +184,7 @@ def main():
     first = years[0]
     first_dir = os.path.join(parent_dir, "output", f"output_{ts}_cy{first}")
     os.makedirs(first_dir, exist_ok=True)
-    _, rc = run_one_year(first, first_dir, project_dir, wrapper_cfg, main_py, logger, depth)
+    _, rc = run_one_year(first, first_dir, project_dir, wrapper_cfg, main_py, depth)
     if rc != 0:
         logger.error("First-year run (with cost-prompt) failed; aborting wrapper")
         sys.exit(1)
@@ -198,7 +200,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=len(work_dirs)) as exe:
         futures = {
-            exe.submit(run_one_year, y, wd, project_dir, wrapper_cfg, main_py, logger, depth): y
+            exe.submit(run_one_year, y, wd, project_dir, wrapper_cfg, main_py, depth): y
             for y, wd in work_dirs.items()
         }
 

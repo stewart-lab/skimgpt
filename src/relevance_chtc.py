@@ -25,7 +25,7 @@ def convert_gpu_uuid_to_device_id(gpu_uuid):
             if suffix.isdigit():
                 return suffix
 
-    except (subprocess.SubprocessError, subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.SubprocessError, FileNotFoundError):
         pass
 
     return gpu_uuid
@@ -56,17 +56,20 @@ for _key, _val in {
     os.environ.setdefault(_key, _val)
 # ──────────────────────────────────────────────────────────────────────────
 
-import ast
 import argparse
+import logging
 import socket
 import time
 from itertools import chain
-from src.utils import Config, RaggedTensor
+from src.utils import Config, RaggedTensor, configure_logging
 from src.pubmed_fetcher import PubMedFetcher
 from src.relevance_helper import (
-    getHypothesis, getPrompts,
-    postProcess, process_dataframe, process_results,
+    getPrompts,
+    postProcess, process_dataframe,
+    collect_pmids_and_hypotheses, run_iterations,
 )
+
+logger = logging.getLogger(__name__)
 
 # vllm and torch are imported lazily inside main() so that GPU environment
 # variables (especially CUDA_VISIBLE_DEVICES) can be configured before CUDA
@@ -98,7 +101,7 @@ def estimate_max_batched_tokens(seq_len: int = VLLM_MAX_MODEL_LEN,
         An integer suitable for vLLM's ``max_num_batched_tokens`` parameter.
     """
     try:
-        config.logger.info(f"device count: {torch.cuda.device_count()}")
+        logger.info(f"device count: {torch.cuda.device_count()}")
         prop = torch.cuda.get_device_properties(0)
         total_gib = prop.total_memory / (1024 ** 3)
         avail_gib = total_gib * gpu_memory_util - weight_mem_gib
@@ -123,8 +126,8 @@ def main():
     parser.add_argument("--config", type=str, required=True, help="Config file for kmGPT run.")
     args = parser.parse_args()
 
+    configure_logging()
     config = Config(args.config)
-    logger = config.logger
     logger.debug(f"args.km_output: {args.km_output}")
     km_output_path = args.km_output
     if os.path.basename(km_output_path) == "files.txt":
@@ -155,47 +158,16 @@ def main():
     )
     logger.info("Initialized PubMedFetcher")
 
-    # Process all rows in a single pass
-    ab_pmids = []
-    ab_hypotheses = []
-    bc_pmids = []
-    bc_hypotheses = []
-    ac_pmids = []
-    ac_hypotheses = []
-
-    for _, row in config.data.iterrows():
-        a_term = row['a_term']
-        b_term = row['b_term']
-
-        ab_pmids.append(ast.literal_eval(row['ab_pmid_intersection']))
-        ab_hypotheses.append(getHypothesis(config=config, a_term=a_term, b_term=b_term))
-
-        if config.is_skim_with_gpt:
-            c_term = row['c_term']
-            bc_pmids.append(ast.literal_eval(row['bc_pmid_intersection']))
-            bc_hypotheses.append(getHypothesis(config=config, c_term=c_term, b_term=b_term))
-
-            if config.has_ac and 'ac_pmid_intersection' in row:
-                ac_pmids.append(ast.literal_eval(row['ac_pmid_intersection']))
-                ac_hypotheses.append(getHypothesis(config=config, a_term=a_term, c_term=c_term))
-
-    # Convert to RaggedTensor format
-    ab_pmids = RaggedTensor(ab_pmids)
-    ab_hypotheses = RaggedTensor(ab_hypotheses)
-    all_pmids = ab_pmids.flatten()
-    all_hypotheses = ab_hypotheses.expand(ab_pmids.shape)
-
-    if config.is_skim_with_gpt:
-        bc_pmids = RaggedTensor(bc_pmids)
-        bc_hypotheses = RaggedTensor(bc_hypotheses)
-        all_pmids += bc_pmids.flatten()
-        all_hypotheses += bc_hypotheses.expand(bc_pmids.shape)
-
-        if config.has_ac and ac_pmids:
-            ac_pmids = RaggedTensor(ac_pmids)
-            ac_hypotheses = RaggedTensor(ac_hypotheses)
-            all_pmids += ac_pmids.flatten()
-            all_hypotheses += ac_hypotheses.expand(ac_pmids.shape)
+    # Collect PMIDs and hypotheses for all term-pair intersections
+    collected = collect_pmids_and_hypotheses(config)
+    ab_pmids = collected["ab_pmids"]
+    ab_hypotheses = collected["ab_hypotheses"]
+    all_pmids = collected["all_pmids"]
+    all_hypotheses = collected["all_hypotheses"]
+    bc_pmids = collected.get("bc_pmids")
+    bc_hypotheses = collected.get("bc_hypotheses")
+    ac_pmids = collected.get("ac_pmids")
+    ac_hypotheses = collected.get("ac_hypotheses")
 
     # Fetch abstracts
     abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
@@ -278,31 +250,7 @@ def main():
     out_df.to_csv(initial_output_file, sep="\t")
     logger.info(f"Saved initial processed data to {initial_output_file}")
 
-    if config.iterations:
-        num_iterations = 1
-        if isinstance(config.iterations, bool) and config.iterations:
-            logger.warning("iterations is set to True but no number specified, defaulting to 1 iteration")
-        elif isinstance(config.iterations, int) and config.iterations > 0:
-            num_iterations = config.iterations
-            logger.info(f"Will perform {num_iterations} iterations of analysis")
-        else:
-            logger.warning("Invalid iterations config, defaulting to 1 iteration")
-
-        for i in range(1, num_iterations + 1):
-            os.makedirs(os.path.join(config.km_output_dir, f"iteration_{i}"), exist_ok=True)
-
-        for iteration in range(1, num_iterations + 1):
-            iteration_start = time.time()
-            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
-            config.set_iteration(iteration)
-            process_results(out_df, config, num_abstracts_fetched, output_base_dir="output")
-            logger.info(f"Iteration {iteration} completed in {time.time() - iteration_start:.2f} seconds")
-
-        logger.info(f"All {num_iterations} iterations completed successfully")
-    else:
-        logger.info("No iterations requested, processing results once")
-        config.current_iteration = 0
-        process_results(out_df, config, num_abstracts_fetched, output_base_dir="output")
+    run_iterations(config, out_df, num_abstracts_fetched, output_base_dir="output")
 
     logger.info(f"Relevance analysis completed in {time.time() - start_time:.2f} seconds")
 
