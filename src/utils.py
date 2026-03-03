@@ -299,14 +299,22 @@ def sanitize_term_for_filename(term: str, max_len: int = 80) -> str:
     return canonical.replace("/", "_")
 
 
-def normalize_entries(value: str | list) -> list[str]:
-    """Return a flat list of individual abstracts.
+ABSTRACT_DELIMITER = "===END OF ABSTRACT==="
 
-    Handles cases where input is a single concatenated string containing
-    multiple abstracts separated by the '===END OF ABSTRACT===' sentinel.
+
+def split_abstract_entries(value: str | list, *, keep_delimiter: bool = False) -> list[str]:
+    """Split abstract text on the ``===END OF ABSTRACT===`` delimiter.
+
+    Args:
+        value: A concatenated string (or list of strings) containing abstracts
+            separated by the delimiter.
+        keep_delimiter: If *True*, re-append the delimiter to each entry
+            (needed by the relevance pipeline).
+
+    Returns:
+        A flat list of individual abstract entries, stripped of excess whitespace.
     """
-    segments = []
-    # Normalize to list for iteration
+    segments: list[str] = []
     if isinstance(value, list):
         iterable = value
     elif isinstance(value, str):
@@ -316,7 +324,6 @@ def normalize_entries(value: str | list) -> list[str]:
 
     for item in iterable:
         if not isinstance(item, str):
-            # Coerce non-strings defensively
             segments.append(str(item))
             continue
 
@@ -324,14 +331,29 @@ def normalize_entries(value: str | list) -> list[str]:
         if not text:
             continue
 
-        if '===END OF ABSTRACT===' in text:
-            parts = [p.strip() for p in text.split('===END OF ABSTRACT===') if p.strip()]
-            # Re-append sentinel to each piece to preserve downstream expectations
-            segments.extend([f"{p}===END OF ABSTRACT===" for p in parts])
+        if ABSTRACT_DELIMITER in text:
+            parts = [p.strip() for p in text.split(ABSTRACT_DELIMITER) if p.strip()]
+            if keep_delimiter:
+                segments.extend([f"{p}{ABSTRACT_DELIMITER}" for p in parts])
+            else:
+                segments.extend(parts)
         else:
-            # Fallback: treat as a single abstract entry
             segments.append(text)
     return segments
+
+
+def join_abstract_entries(entries: list[str]) -> str:
+    """Rejoin abstract entries with the standard delimiter and newlines."""
+    return f"{ABSTRACT_DELIMITER}\n\n".join(entries) + f"{ABSTRACT_DELIMITER}\n\n"
+
+
+def normalize_entries(value: str | list) -> list[str]:
+    """Return a flat list of individual abstracts with the delimiter preserved.
+
+    Thin wrapper around :func:`split_abstract_entries` kept for backward
+    compatibility with the relevance pipeline.
+    """
+    return split_abstract_entries(value, keep_delimiter=True)
 
 
 def extract_json_from_markdown(s: str) -> dict:
@@ -682,4 +704,70 @@ class Config:
             output_dir, f"debug_{self.km_output_base_name}.tsv"
         )
         add_file_handler(output_dir)
-            
+
+
+def get_hypothesis(
+    config: Config,
+    a_term: str = None,
+    b_term: str = None,
+    c_term: str = None,
+    *,
+    relationship_type: str = None,
+    clean_terms: bool = True,
+) -> str:
+    """Build a hypothesis string from config templates.
+
+    Two calling conventions:
+
+    1. **Relevance pipeline** (``relationship_type`` omitted): infers the
+       relationship from which terms are non-None.
+    2. **Classifier pipeline** (``relationship_type`` provided): selects the
+       template directly.  Use ``"A_B"``, ``"A_B_C"``, or ``"A_C"``.
+
+    Args:
+        config: Config object holding hypothesis templates.
+        a_term, b_term, c_term: Terms to substitute.
+        relationship_type: Explicit relationship selector for the classifier
+            path.  One of ``"A_B"``, ``"A_B_C"``, ``"A_C"``.
+        clean_terms: When *True* (default) the terms are cleaned for display
+            (pipes/ampersands removed).  Set to *False* when the caller has
+            already cleaned them.
+    """
+    if clean_terms:
+        if a_term:
+            a_term = clean_term_for_display(a_term)
+        if b_term:
+            b_term = clean_term_for_display(b_term)
+        if c_term:
+            c_term = clean_term_for_display(c_term)
+
+    fmt = {"a_term": a_term or "", "b_term": b_term or "", "c_term": c_term or ""}
+
+    # --- Classifier path: explicit relationship_type -----------------------
+    if relationship_type is not None:
+        if config.is_km_with_gpt and relationship_type == "A_B":
+            return config.km_hypothesis.format(**fmt)
+        template_map = {
+            "A_B_C": config.skim_hypotheses.get("ABC"),
+            "A_C":   config.skim_hypotheses.get("AC"),
+            "A_B":   config.skim_hypotheses.get("AB"),
+        }
+        template = template_map.get(relationship_type)
+        if template:
+            return template.format(**fmt)
+        logger.warning("Unknown relationship_type %r", relationship_type)
+        return ""
+
+    # --- Relevance path: infer from which terms are provided ---------------
+    if config.is_km_with_gpt:
+        return config.km_hypothesis.format(**fmt)
+
+    if config.is_skim_with_gpt:
+        if a_term and b_term and not c_term:
+            return config.skim_hypotheses["AB"].format(**fmt)
+        if b_term and c_term and not a_term:
+            return config.skim_hypotheses["BC"].format(**fmt)
+        if a_term and c_term and not b_term:
+            return config.skim_hypotheses["rel_AC"].format(**fmt)
+
+    return f"No valid hypothesis for the provided {config.job_type}."

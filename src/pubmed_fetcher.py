@@ -18,25 +18,21 @@ os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_cache_dir)
 
 import tiktoken
 
-from src.utils import Config, extract_pmid
+from src.retry import retry_call
+from src.utils import (
+    ABSTRACT_DELIMITER,
+    Config,
+    extract_pmid,
+    join_abstract_entries,
+    split_abstract_entries,
+)
 
 logger = logging.getLogger(__name__)
 
 # Silence the specific Bio.Entrez.Parser warning about DTD files
 warnings.filterwarnings("ignore", message="Failed to save .* at .*")
 
-ABSTRACT_DELIMITER = "===END OF ABSTRACT==="
 EUTILS_HOST = "eutils.ncbi.nlm.nih.gov"
-
-
-def _split_entries(text: str) -> list[str]:
-    """Split delimited abstract text into a list of stripped, non-empty entries."""
-    return [e.strip() for e in text.split(ABSTRACT_DELIMITER) if e.strip()]
-
-
-def _join_entries(entries: list[str]) -> str:
-    """Rejoin abstract entries with the standard delimiter."""
-    return f"{ABSTRACT_DELIMITER}\n\n".join(entries) + f"{ABSTRACT_DELIMITER}\n\n"
 
 
 class PubMedFetcher:
@@ -124,60 +120,60 @@ class PubMedFetcher:
 
     def _fetch_batch(self, batch: list[str]) -> dict:
         """Fetch a single batch of PMIDs with retry logic."""
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                with Entrez.efetch(
-                    db="pubmed", id=batch, retmode="xml", rettype="abstract"
-                ) as efetch:
-                    output = Entrez.read(efetch)
 
-                returned_pmids = []
-                returned_contents = []
-                delimiter = f"\n\n{ABSTRACT_DELIMITER}\n\n"
-                skipped_min_wc_pmids = []
+        def _attempt() -> dict:
+            with Entrez.efetch(
+                db="pubmed", id=batch, retmode="xml", rettype="abstract"
+            ) as efetch:
+                output = Entrez.read(efetch)
 
-                for paper in output.get("PubmedArticle", []):
-                    pmid = str(paper["MedlineCitation"]["PMID"])
-                    article = paper["MedlineCitation"]["Article"]
-                    pub_year = self._extract_publication_year(paper)
+            returned_pmids = []
+            returned_contents = []
+            delimiter = f"\n\n{ABSTRACT_DELIMITER}\n\n"
+            skipped_min_wc_pmids = []
 
-                    title = article.get("ArticleTitle", "No title available")
-                    abstract_text = " ".join(
-                        article.get("Abstract", {}).get(
-                            "AbstractText", ["No abstract available"]
-                        )
+            for paper in output.get("PubmedArticle", []):
+                pmid = str(paper["MedlineCitation"]["PMID"])
+                article = paper["MedlineCitation"]["Article"]
+                pub_year = self._extract_publication_year(paper)
+
+                title = article.get("ArticleTitle", "No title available")
+                abstract_text = " ".join(
+                    article.get("Abstract", {}).get(
+                        "AbstractText", ["No abstract available"]
                     )
-
-                    if len(abstract_text.split()) >= self.config.min_word_count:
-                        returned_pmids.append(pmid)
-                        self.pmid_years[pmid] = int(pub_year)
-                        content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
-                        returned_contents.append(content)
-                    else:
-                        skipped_min_wc_pmids.append(pmid)
-
-                if skipped_min_wc_pmids:
-                    logger.debug(
-                        f"Excluded {len(skipped_min_wc_pmids)} PMIDs due to MIN_WORD_COUNT="
-                        f"{self.config.min_word_count}. Example: {skipped_min_wc_pmids[:5]}"
-                    )
-
-                return {
-                    "pmids": returned_pmids,
-                    "contents": returned_contents,
-                }
-
-            except Exception as e:
-                logger.error(
-                    f"Attempt {attempt} - Error fetching abstracts for batch: {e}"
                 )
-                if attempt < self.max_retries:
-                    sleep_time = self.backoff_factor * (2 ** (attempt - 1))
-                    logger.info(f"Retrying after {sleep_time} seconds...")
-                    time.sleep(sleep_time)
+
+                if len(abstract_text.split()) >= self.config.min_word_count:
+                    returned_pmids.append(pmid)
+                    self.pmid_years[pmid] = int(pub_year)
+                    content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
+                    returned_contents.append(content)
                 else:
-                    logger.error("Max retries reached for batch. Skipping.")
-                    return {}
+                    skipped_min_wc_pmids.append(pmid)
+
+            if skipped_min_wc_pmids:
+                logger.debug(
+                    f"Excluded {len(skipped_min_wc_pmids)} PMIDs due to MIN_WORD_COUNT="
+                    f"{self.config.min_word_count}. Example: {skipped_min_wc_pmids[:5]}"
+                )
+
+            return {
+                "pmids": returned_pmids,
+                "contents": returned_contents,
+            }
+
+        def _on_retryable(exc: BaseException, attempt: int) -> None:
+            logger.error(f"Attempt {attempt} - Error fetching abstracts for batch: {exc}")
+
+        return retry_call(
+            _attempt,
+            max_retries=self.max_retries,
+            delay=self.backoff_factor,
+            backoff_factor=2.0,
+            on_retryable=_on_retryable,
+            default={},
+        )
 
     def fetch_abstracts(self, pmids: list[str]) -> dict[str, str]:
         """Fetch abstracts for a list of PMIDs."""
@@ -227,70 +223,35 @@ class PubMedFetcher:
             return self.pmid_years.get(pmid, 0)
         return 0
 
-    def interleave_abstracts(
-        self,
-        text: str,
-        n: int | None = None,
-        top_n_most_cited: int = 0,
-        top_n_most_recent: int = 0,
-    ) -> str:
-        """Interleave abstracts based on citation count and recency.
-
-        If top_n_most_cited is 0, only returns most recent abstracts.
-        If top_n_most_recent is 0, only returns most cited abstracts.
-        Otherwise, interleaves based on the ratio of cited:recent.
-        """
-        if not isinstance(text, str) or text == "[]":
-            return ""
-
-        entries = _split_entries(text)
-        if not entries:
-            return ""
-
-        # Original order represents most-cited ranking
-        cited_entries = entries.copy()
-
-        logger.debug("Original order (most cited):")
-        for entry in cited_entries[:3]:
-            pmid = extract_pmid(entry)
-            if pmid:
-                logger.debug(f"PMID: {pmid}, Year: {self.pmid_years.get(pmid, 0)}")
-
-        # Create year-sorted version (newest first)
-        recent_entries = sorted(
-            [e for e in entries if extract_pmid(e)],
-            key=self._get_year_for_entry,
-            reverse=True,
-        )
-
-        logger.debug("\nYear-sorted order (most recent):")
-        logged_pmids: set[str] = set()
-        for entry in recent_entries[:15]:
-            pmid = extract_pmid(entry)
-            if pmid and pmid not in logged_pmids:
-                logger.debug(f"PMID: {pmid}, Year: {self.pmid_years.get(pmid, 0)}")
-                logged_pmids.add(pmid)
-
-        # Calculate interleaving ratio
+    @staticmethod
+    def _compute_interleave_ratio(
+        top_n_most_cited: int, top_n_most_recent: int,
+    ) -> float:
+        """Return the cited-to-recent interleaving ratio."""
         if top_n_most_recent > 0:
-            ratio = top_n_most_cited / top_n_most_recent
-        elif top_n_most_cited > 0:
-            ratio = float("inf")
-        else:
-            ratio = 1.0
-        logger.debug(
-            f"Interleaving ratio (cited:recent) = "
-            f"{ratio if ratio != float('inf') else 'inf'}"
-        )
+            return top_n_most_cited / top_n_most_recent
+        if top_n_most_cited > 0:
+            return float("inf")
+        return 1.0
 
-        # Interleave based on ratio
+    @staticmethod
+    def _execute_interleave(
+        cited_entries: list[str],
+        recent_entries: list[str],
+        ratio: float,
+        n: int | None,
+    ) -> list[str]:
+        """Merge *cited_entries* and *recent_entries* according to *ratio*.
+
+        Entries are de-duplicated by PMID.  At most *n* entries are returned
+        (``None`` means no limit).
+        """
         result: list[str] = []
         cited_idx = 0
         recent_idx = 0
         used_pmids: set[str] = set()
 
         def add_entry(entry: str) -> bool:
-            """Add entry if not already present and limit not reached."""
             if n is not None and len(result) >= n:
                 return False
             pmid = extract_pmid(entry)
@@ -306,7 +267,6 @@ class PubMedFetcher:
             made_progress = False
 
             if ratio > 1 and cited_idx < len(cited_entries):
-                # More cited than recent
                 expected_cited = round(recent_idx * ratio)
                 while cited_idx < min(expected_cited, len(cited_entries)):
                     if add_entry(cited_entries[cited_idx]):
@@ -322,7 +282,6 @@ class PubMedFetcher:
                     cited_idx += 1
 
             elif ratio < 1 and recent_idx < len(recent_entries):
-                # More recent than cited
                 if ratio > 0:
                     expected_recent = round(cited_idx / ratio)
                 else:
@@ -341,7 +300,6 @@ class PubMedFetcher:
                     recent_idx += 1
 
             elif ratio == 1:
-                # Equal numbers of cited and recent
                 if cited_idx < len(cited_entries):
                     if add_entry(cited_entries[cited_idx]):
                         made_progress = True
@@ -366,13 +324,67 @@ class PubMedFetcher:
             logger.debug(f"Unique PMIDs in result: {len(used_pmids)}")
             logger.debug(f"Final interleaved list contains {len(result)} entries")
 
+        return result
+
+    def interleave_abstracts(
+        self,
+        text: str,
+        n: int | None = None,
+        top_n_most_cited: int = 0,
+        top_n_most_recent: int = 0,
+    ) -> str:
+        """Interleave abstracts based on citation count and recency.
+
+        The input *text* is a delimiter-separated string of abstracts in
+        most-cited order.  This method creates a year-sorted copy, computes an
+        interleaving ratio from the ``top_n_most_cited`` / ``top_n_most_recent``
+        parameters, and merges the two orderings into a single de-duplicated
+        list capped at *n* entries.
+        """
+        if not isinstance(text, str) or text == "[]":
+            return ""
+
+        entries = split_abstract_entries(text)
+        if not entries:
+            return ""
+
+        cited_entries = entries.copy()
+
+        logger.debug("Original order (most cited):")
+        for entry in cited_entries[:3]:
+            pmid = extract_pmid(entry)
+            if pmid:
+                logger.debug(f"PMID: {pmid}, Year: {self.pmid_years.get(pmid, 0)}")
+
+        recent_entries = sorted(
+            [e for e in entries if extract_pmid(e)],
+            key=self._get_year_for_entry,
+            reverse=True,
+        )
+
+        logger.debug("\nYear-sorted order (most recent):")
+        logged_pmids: set[str] = set()
+        for entry in recent_entries[:15]:
+            pmid = extract_pmid(entry)
+            if pmid and pmid not in logged_pmids:
+                logger.debug(f"PMID: {pmid}, Year: {self.pmid_years.get(pmid, 0)}")
+                logged_pmids.add(pmid)
+
+        ratio = self._compute_interleave_ratio(top_n_most_cited, top_n_most_recent)
+        logger.debug(
+            f"Interleaving ratio (cited:recent) = "
+            f"{ratio if ratio != float('inf') else 'inf'}"
+        )
+
+        result = self._execute_interleave(cited_entries, recent_entries, ratio, n)
+
         if not result:
             return ""
 
         logger.debug(
             f"Returning {len(result)} abstracts from interleave_abstracts"
         )
-        return _join_entries(result)
+        return join_abstract_entries(result)
 
     def optimize_text_length(
         self,
@@ -396,7 +408,7 @@ class PubMedFetcher:
 
         tokens_per_intersection = max_tokens // num_intersections
 
-        entries = _split_entries(text)
+        entries = split_abstract_entries(text)
         optimized_entries = []
         current_tokens = 0
 
@@ -419,4 +431,4 @@ class PubMedFetcher:
         logger.debug(
             f"Returning {len(optimized_entries)} abstracts from optimize_text_length"
         )
-        return _join_entries(optimized_entries)
+        return join_abstract_entries(optimized_entries)

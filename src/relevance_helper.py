@@ -11,7 +11,7 @@ import pandas as pd
 from src.utils import (
     Config, RaggedTensor, sanitize_term_for_filename,
     strip_pipe, normalize_entries, write_to_json,
-    extract_pmid, clean_term_for_display,
+    extract_pmid, get_hypothesis,
 )
 from src.pubmed_fetcher import PubMedFetcher
 from src.classifier import calculate_relevance_ratios, process_single_row
@@ -38,41 +38,6 @@ def _dedup_by_pmid(abstracts, seen_pmids):
         deduped.append(text)
     return deduped
 
-
-def get_hypothesis(
-    config: Config, a_term: str = None, b_term: str = None, c_term: str = None
-) -> str:
-
-    # Clean terms for hypothesis generation (strips pipes and replaces ampersands)
-    if a_term:
-        a_term = clean_term_for_display(a_term)
-    if b_term:
-        b_term = clean_term_for_display(b_term)
-    if c_term:
-        c_term = clean_term_for_display(c_term)
-
-    if config.is_km_with_gpt:
-        assert a_term and b_term and not c_term
-        hypothesis_template = config.km_hypothesis
-        return hypothesis_template.format(a_term=a_term, b_term=b_term)
-    elif config.is_skim_with_gpt:
-        assert (
-            (a_term and b_term and not c_term)
-            or (b_term and c_term and not a_term)
-            or (a_term and c_term and not b_term)
-        )
-
-        if a_term and b_term and not c_term:
-            hypothesis_template = config.skim_hypotheses["AB"]
-            return hypothesis_template.format(a_term=a_term, b_term=b_term)
-        elif b_term and c_term and not a_term:
-            hypothesis_template = config.skim_hypotheses["BC"]
-            return hypothesis_template.format(b_term=b_term, c_term=c_term)
-        elif a_term and c_term and not b_term:
-            hypothesis_template = config.skim_hypotheses["rel_AC"]
-            return hypothesis_template.format(a_term=a_term, c_term=c_term)
-
-    return f"No valid hypothesis for the provided {config.job_type}."
 
 
 def prompt(abstract, hyp) -> str:
@@ -214,6 +179,76 @@ def process_dataframe(out_df: pd.DataFrame, config: Config, pubmed_fetcher: PubM
     return out_df
 
 
+def _normalize_fractions(
+    total1: int, total2: int, min_floor: float, target_total: int,
+) -> tuple[int, int]:
+    """Compute sample counts for two pools, enforcing a minimum fraction and target total.
+
+    Returns:
+        ``(n1, n2)`` — the number of items to sample from each pool.
+    """
+    total = total1 + total2
+    if total == 0:
+        return 0, 0
+
+    s1 = total1 / total
+    s2 = total2 / total
+
+    if total1 > 0:
+        s1 = max(s1, min_floor)
+    if total2 > 0:
+        s2 = max(s2, min_floor)
+
+    if s1 == 0 and s2 > 0:
+        s2 = 1.0
+    elif s2 == 0 and s1 > 0:
+        s1 = 1.0
+    else:
+        sum_s = s1 + s2
+        s1 = s1 / sum_s if sum_s > 0 else 0.0
+        s2 = s2 / sum_s if sum_s > 0 else 0.0
+
+    n1 = int(round(s1 * target_total)) if total1 > 0 else 0
+    n2 = int(round(s2 * target_total)) if total2 > 0 else 0
+
+    diff = target_total - (n1 + n2)
+    if diff > 0:
+        for _ in range(diff):
+            cap1 = total1 - n1
+            cap2 = total2 - n2
+            if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
+                n1 += 1 if cap1 > 0 else 0
+            else:
+                n2 += 1 if cap2 > 0 else 0
+    elif diff < 0:
+        for _ in range(-diff):
+            if n1 >= n2 and n1 > 0:
+                n1 -= 1
+            elif n2 > 0:
+                n2 -= 1
+
+    n1 = min(n1, total1)
+    n2 = min(n2, total2)
+
+    remaining = target_total - (n1 + n2)
+    if remaining > 0:
+        add1 = min(remaining, total1 - n1)
+        n1 += add1
+        remaining -= add1
+        if remaining > 0:
+            add2 = min(remaining, total2 - n2)
+            n2 += add2
+
+    return n1, n2
+
+
+def _sample_entries(entries: list, count: int) -> list:
+    """Randomly sample *count* items from *entries* (returns [] when count is 0)."""
+    if count > 0:
+        return random.sample(entries, count)
+    return []
+
+
 def sample_consolidated_abstracts(v1, v2, config: Config):
     """Sample from two abstract collections; return consolidated text, sampled count, total deduped count.
 
@@ -246,66 +281,15 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     logger.debug(f"entities_in_candidate1: {total1}")
     logger.debug(f"entities_in_candidate2: {total2}")
-    total = total1 + total2
-    logger.debug(f"entities_total: {total}")
+    logger.debug(f"entities_total: {total1 + total2}")
 
     min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
     target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
 
-    n1 = 0
-    n2 = 0
-    if total > 0:
-        s1 = total1 / total
-        s2 = total2 / total
+    n1, n2 = _normalize_fractions(total1, total2, min_floor, target_total)
 
-        if total1 > 0:
-            s1 = max(s1, min_floor)
-        if total2 > 0:
-            s2 = max(s2, min_floor)
-
-        if s1 == 0 and s2 > 0:
-            s2 = 1.0
-        elif s2 == 0 and s1 > 0:
-            s1 = 1.0
-        else:
-            sum_s = s1 + s2
-            s1 = s1 / sum_s if sum_s > 0 else 0.0
-            s2 = s2 / sum_s if sum_s > 0 else 0.0
-
-        n1 = int(round(s1 * target_total)) if total1 > 0 else 0
-        n2 = int(round(s2 * target_total)) if total2 > 0 else 0
-
-        diff = target_total - (n1 + n2)
-        if diff != 0:
-            if diff > 0:
-                for _ in range(diff):
-                    cap1 = total1 - n1
-                    cap2 = total2 - n2
-                    if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
-                        n1 += 1 if cap1 > 0 else 0
-                    else:
-                        n2 += 1 if cap2 > 0 else 0
-            else:
-                for _ in range(-diff):
-                    if n1 >= n2 and n1 > 0:
-                        n1 -= 1
-                    elif n2 > 0:
-                        n2 -= 1
-
-        n1 = min(n1, total1)
-        n2 = min(n2, total2)
-
-        remaining = target_total - (n1 + n2)
-        if remaining > 0:
-            add1 = min(remaining, total1 - n1)
-            n1 += add1
-            remaining -= add1
-            if remaining > 0:
-                add2 = min(remaining, total2 - n2)
-                n2 += add2
-
-    sampled1 = random.sample(list1, n1) if n1 > 0 else []
-    sampled2 = random.sample(list2, n2) if n2 > 0 else []
+    sampled1 = _sample_entries(list1, n1)
+    sampled2 = _sample_entries(list2, n2)
 
     sampled_pmids1 = [extract_pmid(abstract) for abstract in sampled1]
     sampled_pmids2 = [extract_pmid(abstract) for abstract in sampled2]

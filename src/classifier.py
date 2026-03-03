@@ -5,7 +5,8 @@ import time
 from typing import Any
 
 from src import prompt_library as prompts_module
-from src.utils import Config, clean_term_for_display, extract_json_from_markdown, extract_pmids
+from src.retry import retry_call
+from src.utils import Config, clean_term_for_display, extract_json_from_markdown, extract_pmids, get_hypothesis
 
 logger = logging.getLogger(__name__)
 
@@ -17,17 +18,6 @@ _NON_RETRYABLE_ERRORS = (
     openai.AuthenticationError,
     openai.PermissionDeniedError,
     openai.NotFoundError,
-)
-
-# OpenAI errors that are retryable (should sleep then continue)
-_RETRYABLE_ERRORS = (
-    openai.BadRequestError,
-    openai.ConflictError,
-    openai.UnprocessableEntityError,
-    openai.RateLimitError,
-    openai.APITimeoutError,
-    openai.APIConnectionError,
-    openai.APIStatusError,
 )
 
 
@@ -137,13 +127,13 @@ def process_single_row(row, config: Config):
         analyses = [
             ("A_B_C", "A_B_C_Relationship",
              f"{a_term} - {b_term} - {c_term}",
-             config.skim_hypotheses["ABC"].format(
-                 a_term=a_term, b_term=b_term, c_term=c_term),
+             get_hypothesis(config, a_term=a_term, b_term=b_term, c_term=c_term,
+                            relationship_type="A_B_C", clean_terms=False),
              ["AB", "BC"]),
             ("A_C", "A_C_Relationship",
              f"{a_term} - {c_term}",
-             config.skim_hypotheses["AC"].format(
-                 a_term=a_term, c_term=c_term),
+             get_hypothesis(config, a_term=a_term, c_term=c_term,
+                            relationship_type="A_C", clean_terms=False),
              ["AC"]),
         ]
 
@@ -163,7 +153,8 @@ def process_single_row(row, config: Config):
         analyses = [
             ("A_B", "A_B_Relationship",
              f"{a_term} - {b_term}",
-             config.km_hypothesis.format(a_term=a_term, b_term=b_term),
+             get_hypothesis(config, a_term=a_term, b_term=b_term,
+                            relationship_type="A_B", clean_terms=False),
              ["AB"]),
         ]
 
@@ -366,28 +357,12 @@ def generate_prompt(
             consolidated_abstracts=content,
         )
 
-    # Determine hypothesis template
-    if config.is_km_with_gpt:
-        hypothesis_template = config.km_hypothesis.format(b_term=b_term, a_term=a_term)
-    elif config.is_skim_with_gpt:
-        hypothesis_map = {
-            "A_B_C": lambda: config.skim_hypotheses["ABC"].format(
-                a_term=a_term, b_term=b_term, c_term=c_term
-            ),
-            "A_C": lambda: config.skim_hypotheses["AC"].format(
-                a_term=a_term, c_term=c_term
-            ),
-            "A_B": lambda: config.skim_hypotheses["AB"].format(
-                a_term=a_term, b_term=b_term
-            ),
-        }
-        generator = hypothesis_map.get(relationship_type)
-        if not generator:
-            logger.error(f"Unknown relationship type for skim_with_gpt: {relationship_type}")
-            return ""
-        hypothesis_template = generator()
-    else:
-        logger.error(f"Unknown job type: {config.job_type}")
+    hypothesis_template = get_hypothesis(
+        config, a_term=a_term, b_term=b_term, c_term=c_term,
+        relationship_type=relationship_type, clean_terms=False,
+    )
+    if not hypothesis_template:
+        logger.error(f"Failed to generate hypothesis for {relationship_type} / {config.job_type}")
         return ""
 
     # Select the appropriate prompt function
@@ -454,57 +429,50 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         "model": "deepseek-reasoner" if config.model == "r1" else config.model,
     }
 
-    retry_delay = config.retry_delay
+    def _attempt():
+        api_start = time.time()
+        resp = client.chat.completions.create(**params)
+        api_duration = time.time() - api_start
 
-    for _ in range(config.max_retries):
-        try:
-            api_start = time.time()
-            resp = client.chat.completions.create(**params)
-            api_duration = time.time() - api_start
+        total_tokens = resp.usage.total_tokens if getattr(resp, "usage", None) else "N/A"
+        abstracts_count = expected_per_abstract_count or "N/A"
+        logger.info(
+            f"OpenAI API call completed in {api_duration:.2f}s "
+            f"(model={params['model']}, abstracts={abstracts_count}, tokens={total_tokens})"
+        )
 
-            total_tokens = resp.usage.total_tokens if getattr(resp, "usage", None) else "N/A"
-            abstracts_count = expected_per_abstract_count or "N/A"
-            logger.info(
-                f"OpenAI API call completed in {api_duration:.2f}s "
-                f"(model={params['model']}, abstracts={abstracts_count}, tokens={total_tokens})"
-            )
+        content = resp.choices[0].message.content
+        if not content:
+            raise ValueError("Empty response content from API.")
 
-            content = resp.choices[0].message.content
-            if not content:
-                raise ValueError("Empty response content from API.")
+        payload = extract_json_from_markdown(content)
+        _validate_payload(payload, config, expected_per_abstract_count)
+        return payload
 
-            payload = extract_json_from_markdown(content)
-            _validate_payload(payload, config, expected_per_abstract_count)
-            return payload
+    def _on_non_retryable(exc: BaseException, attempt: int) -> None:
+        logger.error(f"{type(exc).__name__}: {exc}")
 
-        except _NON_RETRYABLE_ERRORS as e:
-            logger.error(f"{type(e).__name__}: {e}")
-            # DeepSeek-specific: 402 (insufficient balance) is also non-retryable
-            break
-
-        except _RETRYABLE_ERRORS as e:
-            logger.warning(f"{type(e).__name__}: {e}")
-            time.sleep(retry_delay)
-            continue
-
-        except openai.APIError as e:
-            # Catch-all for remaining API errors not in the tuples above
-            status_code = getattr(e, "status_code", None)
+    def _on_retryable(exc: BaseException, attempt: int) -> None:
+        # DeepSeek-specific status codes that should abort or continue
+        if isinstance(exc, openai.APIError):
+            status_code = getattr(exc, "status_code", None)
             if config.model == "r1" and status_code == 402:
                 logger.error("Insufficient Balance: Please add funds.")
-                break
+                raise StopIteration
             if config.model == "r1" and status_code == 503:
                 logger.error("Server Overloaded: Retrying after delay.")
-                time.sleep(retry_delay)
-                continue
-            raise
+                return
+        logger.warning(f"{type(exc).__name__}: {exc}")
 
-        except Exception as e:
-            logger.error(f"Unexpected error during API call: {e}")
-            time.sleep(retry_delay)
-            continue
-
-    return None
+    return retry_call(
+        _attempt,
+        max_retries=config.max_retries,
+        delay=config.retry_delay,
+        non_retryable=_NON_RETRYABLE_ERRORS,
+        on_non_retryable=_on_non_retryable,
+        on_retryable=_on_retryable,
+        default=None,
+    )
 
 
 def _validate_payload(
