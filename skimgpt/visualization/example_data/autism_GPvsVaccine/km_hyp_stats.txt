@@ -1,0 +1,186 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1990	ONLY1		genetic predisposition	NA	
+1991	ONLY1		genetic predisposition	NA	
+1992	ONLY1		genetic predisposition	NA	
+1993	ONLY1		genetic predisposition	NA	
+1994	ONLY1		genetic predisposition	NA	
+1995	ONLY1		genetic predisposition	NA	
+1996	ONLY1		genetic predisposition	NA	
+1997	ONLY1		genetic predisposition	NA	
+1998	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.690640736	0.0566394	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1998	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.297414388	0.021595142	Reporting on z test of proportions.
+1998	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1998	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.683438394	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.4153767619581632-27.813328179614533    CI2: 1.0252721187578735-2.829951890445916 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+1998	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.342404708	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1998	chisq		3.076719841	0.079420551	
+1998	tost		2.21418944	0.986592125	
+1999	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.697529737	0.029111441	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1999	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.650324136	0.008041458	Reporting on z test of proportions.
+1999	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.647549531	NOTSURE	Small number of window hits make p-value calculation difficult.
+1999	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.68698206	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.942435755612995-25.62825952110602    CI2: 1.2190322171736265-3.004059599239652 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+1999	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.140786637	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1999	chisq		4.747558186	0.0293399	
+1999	tost		2.447684911	0.992811134	
+2000	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.703790919	0.07033952	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2000	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.984674062	0.047180746	Reporting on z test of proportions.
+2000	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2000	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.689433441	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.6626099521857862-21.92860633870952    CI2: 1.5185577857815196-3.3193151090907707 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2000	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.612432643	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2000	chisq		2.483582089	0.115039982	
+2000	tost		1.858526037	0.968452825	
+2001	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.620916254	0.002749436	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2001	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.671139471	0.000241472	Reporting on z test of proportions.
+2001	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.769550058	NOTSURE	Small number of window hits make p-value calculation difficult.
+2001	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.596255681	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.010341532512382-24.895327015645268    CI2: 2.0027300790213105-3.85456747884588 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2001	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.696170045	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2001	chisq		11.13692942	0.000846259	
+2001	tost		3.171777704	0.999242455	
+2002	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.396291882	0.000788234	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2002	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.073064166	4.64E-05	Reporting on z test of proportions.
+2002	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.258762118	NOTSURE	Small number of window hits make p-value calculation difficult.
+2002	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.361714911	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.289010105571562-25.11713376356495    CI2: 2.605431943187817-4.511728742932163 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2002	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.521709557	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2002	chisq		14.38602364	0.000148903	
+2002	tost		3.452487267	0.999722278	
+2003	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.804071362	0.001417811	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2003	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.700832693	0.000214893	Reporting on z test of proportions.
+2003	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.166330984	NOTSURE	Small number of window hits make p-value calculation difficult.
+2003	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.76142299	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.6416387680836-23.654025422627562    CI2: 3.3148783960276007-5.279306308053154 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2003	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.344227549	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2003	chisq		11.99142462	0.000534459	
+2003	tost		3.087164348	0.998989621	
+2004	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.433420125	0.003689316	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2004	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.409216791	0.000651497	Reporting on z test of proportions.
+2004	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.087323944	NOTSURE	Small number of window hits make p-value calculation difficult.
+2004	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.387250543	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.7301276225721045-21.764449494953535    CI2: 3.813234064300629-5.738818847352746 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2004	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.262406001	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2004	chisq		10.24220059	0.001372637	
+2004	tost		2.777389963	0.99726013	
+2005	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.396802871	0.001957556	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2005	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.563865288	0.000365434	Reporting on z test of proportions.
+2005	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.977602108	NOTSURE	Small number of window hits make p-value calculation difficult.
+2005	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.351428289	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.756017476575127-20.16487538922276    CI2: 3.78149967708519-5.551241248376186 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2005	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.257671741	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2005	chisq		11.34057665	0.000758318	
+2005	tost		2.877371358	0.997994983	
+2006	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.520984174	0.000362679	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2006	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.192966798	2.75E-05	Reporting on z test of proportions.
+2006	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.848016848	NOTSURE	Small number of window hits make p-value calculation difficult.
+2006	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.474243004	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 6.351846110390849-19.632040369393707    CI2: 3.773560835444449-5.397956102570572 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2006	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.277540389	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2006	chisq		16.06787454	6.11E-05	
+2006	tost		3.381927853	0.999640105	
+2007	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.490293169	0.000193819	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2007	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.325733148	1.52E-05	Reporting on z test of proportions.
+2007	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.114567901	NOTSURE	Small number of window hits make p-value calculation difficult.
+2007	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.447821964	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.969270223378863-17.54582578637259    CI2: 3.52352860156838-4.960867146949056 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2007	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.284152244	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2007	chisq		17.21602249	3.34E-05	
+2007	tost		3.470677244	0.999740426	
+2008	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.375087417	0.000225458	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2008	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.181461449	2.90E-05	Reporting on z test of proportions.
+2008	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.122723276	NOTSURE	Small number of window hits make p-value calculation difficult.
+2008	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.338218902	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.27042820879776-15.140601191376254    CI2: 3.2413636649457493-4.502885756041468 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2008	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.279916314	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2008	chisq		16.10021142	6.01E-05	
+2008	tost		3.321513646	0.999552347	
+2009	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.31821218	0.000243915	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2009	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.226409898	2.37E-05	Reporting on z test of proportions.
+2009	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.749274311	NOTSURE	Small number of window hits make p-value calculation difficult.
+2009	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.284483003	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.940646109975309-13.616927674885796    CI2: 3.0704354237710922-4.198431266637977 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2009	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.279108571	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2009	chisq		16.52354401	4.80E-05	
+2009	tost		3.331068287	0.999567433	
+2010	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.236401008	0.000188035	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2010	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.193395743	2.75E-05	Reporting on z test of proportions.
+2010	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.477446809	NOTSURE	Small number of window hits make p-value calculation difficult.
+2010	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.206141176	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.5409267514304625-12.061143405631714    CI2: 2.891376289963594-3.8919007945897146 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2010	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.275539577	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2010	chisq		16.3183982	5.35E-05	
+2010	tost		3.268889997	0.999460149	
+2011	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.484855155	5.26E-06	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2011	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	5.238781485	1.62E-07	Reporting on z test of proportions.
+2011	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	5.072424651	NOTSURE	Small number of window hits make p-value calculation difficult.
+2011	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.457088114	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.837629308685124-11.742368564236843    CI2: 2.6597849085560705-3.5375314917818117 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2011	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.344639554	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2011	chisq		25.87801348	3.64E-07	
+2011	tost		4.153765758	0.999983648	
+2012	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.496573817	1.86E-06	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2012	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	5.49204795	3.97E-08	Reporting on z test of proportions.
+2012	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.610451128	NOTSURE	Small number of window hits make p-value calculation difficult.
+2012	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.473332749	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.479494621651448-10.480727495215564    CI2: 2.4145911368825557-3.178423408574932 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2012	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.379279138	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2012	chisq		28.56416096	9.06E-08	
+2012	tost		4.349611287	0.999993181	
+2013	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.519375052	5.95E-07	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2013	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	5.767449785	8.05E-09	Reporting on z test of proportions.
+2013	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.835775047	NOTSURE	Small number of window hits make p-value calculation difficult.
+2013	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.500557271	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.142172641821803-9.381218891936728    CI2: 2.182578134508615-2.8473709758966512 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2013	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.427359831	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2013	chisq		31.62116932	1.87E-08	
+2013	tost		4.567302406	0.99999753	
+2014	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.65470165	3.90E-08	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2014	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	6.473020184	9.61E-11	Reporting on z test of proportions.
+2014	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.653775322	NOTSURE	Small number of window hits make p-value calculation difficult.
+2014	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.640067993	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.04534849741557-8.744171187036828    CI2: 1.9807150120891037-2.562255154101579 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2014	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.523022375	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2014	chisq		40.06725948	2.45E-10	
+2014	tost		5.1563421	0.999999874	
+2015	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.911871352	9.68E-11	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2015	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	7.712049125	1.24E-14	Reporting on z test of proportions.
+2015	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	6.37003818	NOTSURE	Small number of window hits make p-value calculation difficult.
+2015	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	2.901666499	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.1940472411677-8.534755256814348    CI2: 1.8208780003169884-2.334793898966391 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2015	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.687428888	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2015	chisq		57.26095554	3.82E-14	
+2015	tost		6.194669611	1	
+2016	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.01310266	3.88E-12	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2016	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	8.334029739	7.81E-17	Reporting on z test of proportions.
+2016	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.788388695	NOTSURE	Small number of window hits make p-value calculation difficult.
+2016	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.006944845	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.043819754723999-7.975634494791005    CI2: 1.6734873970823547-2.13149178120661 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2016	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	0.842410532	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2016	chisq		67.06624889	2.63E-16	
+2016	tost		6.706812332	1	
+2017	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.124285818	7.31E-14	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2017	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	9.054018726	1.38E-19	Reporting on z test of proportions.
+2017	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.865427509	NOTSURE	Small number of window hits make p-value calculation difficult.
+2017	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.121742566	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.977921975131891-7.594430606411788    CI2: 1.5660199504985879-1.9795205551881925 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2017	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.024498831	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2017	chisq		79.36869908	5.15E-19	
+2017	tost		7.298086308	1	
+2018	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.132179036	7.27E-15	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2018	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	9.421751159	4.44E-21	Reporting on z test of proportions.
+2018	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.20783982	NOTSURE	Small number of window hits make p-value calculation difficult.
+2018	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.132043304	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.8206054604779496-7.1221493399330456    CI2: 1.4874514817948987-1.8648544579458455 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2018	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.165042183	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2018	chisq		86.08677286	1.72E-20	
+2018	tost		7.590262395	1	
+2019	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.199468989	1.19E-16	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2019	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	10.07870347	6.86E-24	Reporting on z test of proportions.
+2019	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.012640449	NOTSURE	Small number of window hits make p-value calculation difficult.
+2019	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.202143764	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.763515631691139-6.813118174474588    CI2: 1.4180815702104383-1.7634241372294788 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2019	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.378577125	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2019	chisq		98.70389427	2.93E-23	
+2019	tost		8.123677457	1	
+2020	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.359431237	2.19E-19	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2020	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	11.0657665	1.84E-28	Reporting on z test of proportions.
+2020	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	6.296892596	NOTSURE	Small number of window hits make p-value calculation difficult.
+2020	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.366219802	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.732776416553954-6.565019734324228    CI2: 1.3230442512872633-1.6345894912989276 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2020	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	1.847834546	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2020	chisq		119.2273245	9.34E-28	
+2020	tost		8.934861331	1	
+2021	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.680318933	5.41E-24	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2021	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	12.65607784	1.04E-36	Reporting on z test of proportions.
+2021	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	11.01705194	NOTSURE	Small number of window hits make p-value calculation difficult.
+2021	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.69410206	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.7053918382722904-6.31922383473654    CI2: 1.1817226229411524-1.451993091323544 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2021	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	3.306945408	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2021	chisq		156.3152873	7.22E-36	
+2021	tost		10.23884985	1	
+2022	ratio_of_ratios_FET_ratios_directly	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.1340114	2.68E-30	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2022	ratio_of_ratios_zprop	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	14.68714434	7.79E-49	Reporting on z test of proportions.
+2022	windowed_ratio_of_rat_or_int	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	18.42577987	NOTSURE	Small number of window hits make p-value calculation difficult.
+2022	ratio_of_fet_stats	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	4.157520997	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.715592372885185-6.157681746730053    CI2: 1.040093989407927-1.2726348523500388 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2022	ratio_of_pred_scores	"genetic predisposition,vaccine|vaccines|vaccination|vaccinal"	7.992225908	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2022	chisq		210.9263733	8.63E-48	
+2022	tost		11.87684791	1	
+2023	ONLY1		genetic predisposition	NA	
+2024	ONLY1		genetic predisposition	NA	

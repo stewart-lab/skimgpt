@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from src.utils import setup_wrapper_logger
+from skimgpt.utils import setup_wrapper_logger
 
 logger = logging.getLogger(__name__)
 

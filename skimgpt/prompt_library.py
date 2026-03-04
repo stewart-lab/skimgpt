@@ -1,5 +1,5 @@
-import src.scoring_guidelines as sg
-from src.utils import extract_pmids as _extract_pmids
+import skimgpt.scoring_guidelines as sg
+from skimgpt.utils import extract_pmids as _extract_pmids
 
 def extract_pmids(consolidated_abstracts):
     pmids = _extract_pmids(consolidated_abstracts)

@@ -8,7 +8,7 @@ from collections import Counter
 
 import htcondor2 as htcondor
 
-from src.utils import Config
+from skimgpt.utils import Config
 
 logger = logging.getLogger(__name__)
 

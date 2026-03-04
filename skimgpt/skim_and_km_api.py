@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 import time
 import ast
-from src.utils import Config, sanitize_term_for_filename, strip_pipe, apply_a_term_suffix
+from skimgpt.utils import Config, sanitize_term_for_filename, strip_pipe, apply_a_term_suffix
 
 logger = logging.getLogger(__name__)
 

@@ -1,19 +1,24 @@
 """
-skimgpt.src - Core modules for Scientific Knowledge Mining with GPT
+skimgpt - Scientific Knowledge Mining with GPT
 
-This package contains the core functionality for biomedical literature analysis
-and hypothesis evaluation using large language models.
+A biomedical literature analysis tool for knowledge discovery and hypothesis
+evaluation using large language models.
 
-Initialise *skimgpt.src* sub-package.
-
-Keep it entirely lightweight so that a submission host without BioPython /
+Keep this file lightweight so that a submission host without BioPython /
 openai / vllm can still import modules that do **not** require those heavy
-dependencies (e.g. ``src.eval_JSON_results``).
+dependencies (e.g. ``skimgpt.eval_JSON_results``).
 
 Heavier sub-modules are loaded lazily on first access.
 """
 
-import os
+try:
+    from importlib.metadata import version
+    __version__ = version("skimgpt")
+except Exception:
+    __version__ = "unknown"
+__author__ = "Jack Freeman"
+__email__ = "jfreeman@morgridge.org"
+
 from importlib import import_module
 from types import ModuleType
 from typing import Any
@@ -31,6 +36,7 @@ _EXPOSED = {
     "relevance_helper",  # shared helpers used by both relevance_triton and relevance_chtc
     "relevance_triton",  # Triton remote inference (with CHTC fallback)
     "relevance_chtc",    # vLLM / torch – GPU container only (standalone for CHTC jobs)
+    "visualization",     # hypothesis comparison stats & plots (optional: matplotlib, scipy)
 }
 
 __all__ = list(_EXPOSED)

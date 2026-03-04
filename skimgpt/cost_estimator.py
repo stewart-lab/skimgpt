@@ -2,13 +2,13 @@ import logging
 import os
 from typing import List, Tuple
 import pandas as pd
-from src.prompt_library import (
+from skimgpt.prompt_library import (
     km_with_gpt,
     skim_with_gpt,
     skim_with_gpt_ac,
     km_with_gpt_direct_comp,
 )
-from src.utils import Config
+from skimgpt.utils import Config
 
 logger = logging.getLogger(__name__)
 

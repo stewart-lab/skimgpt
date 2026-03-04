@@ -10,7 +10,7 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from src.utils import setup_wrapper_logger
+from skimgpt.utils import setup_wrapper_logger
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +45,8 @@ def update_censor_year(config_path, year, depth):
         json.dump(data, f, indent=4)
 
 def copy_project_src(src_root, dst_root):
-    s = os.path.join(src_root, "src")
-    d = os.path.join(dst_root, "src")
+    s = os.path.join(src_root, "skimgpt")
+    d = os.path.join(dst_root, "skimgpt")
     if os.path.isdir(s):
         if os.path.exists(d):
             shutil.rmtree(d)
@@ -118,7 +118,7 @@ def flatten_and_cleanup(parent_dir):
                     if os.path.exists(src):
                         shutil.move(src, dst)
             shutil.rmtree(inner_tmp)
-        for junk in ("src", "token", "secrets.json"):
+        for junk in ("skimgpt", "token", "secrets.json"):
             p = os.path.join(cy_path, junk)
             if os.path.isdir(p):
                 shutil.rmtree(p)
@@ -172,7 +172,7 @@ def main():
     os.environ["CENSOR_YEAR_INCREMENT"] = str(args.censor_year_increment)
     os.environ["CENSOR_YEAR_DEPTH"]     = str(args.censor_year_depth)
 
-    main_py = os.path.join(project_dir, "main.py")
+    main_py = os.path.join(project_dir, "skimgpt", "main.py")
 
     # ── 1) Serial first‐year (for cost prompt) ───────────────────────────────
     first = years[0]

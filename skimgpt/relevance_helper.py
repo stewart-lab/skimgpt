@@ -8,13 +8,13 @@ from itertools import chain
 from typing import Callable
 
 import pandas as pd
-from src.utils import (
+from skimgpt.utils import (
     Config, RaggedTensor, sanitize_term_for_filename,
     strip_pipe, normalize_entries, write_to_json,
     extract_pmid, get_hypothesis,
 )
-from src.pubmed_fetcher import PubMedFetcher
-from src.classifier import calculate_relevance_ratios, process_single_row
+from skimgpt.pubmed_fetcher import PubMedFetcher
+from skimgpt.classifier import calculate_relevance_ratios, process_single_row
 
 logger = logging.getLogger(__name__)
 

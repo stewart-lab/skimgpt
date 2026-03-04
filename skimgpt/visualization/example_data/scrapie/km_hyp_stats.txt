@@ -1,0 +1,279 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1975	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1976	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1977	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1978	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1979	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1980	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1981	ONLY1		virus infection|viral infectious particle|viral infection	NA	
+1982	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	0.8619011157295998	1.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1982	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	-0.2156986189907035	0.8292226777669308	Reporting on z test of proportions.
+1982	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0.5892036753445636	NOTSURE	Small number of window hits make p-value calculation difficult.
+1982	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	0.855072037530008	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.3910761990876175-67.11679572020559    CI2: 6.613454946653833-47.06899817863709 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1982	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	0.5180334382272174	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1982	chisq		0.0	1.0	
+1982	tost		0.246701775426542	0.40256951621835513	
+1983	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	1.1080876795162509	1.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1983	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	0.16392331053627845	0.8697915161637224	Reporting on z test of proportions.
+1983	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1983	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	1.1023491844340694	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.680404502347625-62.23375856537755    CI2: 5.806417990916891-41.282192286234526 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1983	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	0.7154960597005078	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1983	chisq		0.0	1.0	
+1983	tost		-0.05198454749004959	0.47927050304076235	
+1984	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	1.6042554953015689	0.39488456632491065	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1984	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	0.8580682883997942	0.3908547567471192	Reporting on z test of proportions.
+1984	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1984	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	1.603168567995425	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 7.510852301159151-62.33522142529889    CI2: 5.064790860228494-35.96688552525671 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1984	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	1.1592608443425096	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1984	chisq		0.319918545212278	0.5716566004047401	
+1984	tost		0.5627150147739778	0.7131855208193126	
+1985	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	1.8178824721377913	0.2724150993262543	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1985	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	1.1355740462980077	0.25613487601811324	Reporting on z test of proportions.
+1985	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1985	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	1.820129031944719	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 7.834808585653217-55.60970364654435    CI2: 4.306200886766279-30.540794538418815 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1985	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	1.3986560415741216	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1985	chisq		0.7303198869174563	0.3927795203457414	
+1985	tost		0.8048056502219819	0.7895340796880947	
+1986	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	2.862527777777778	0.02099646957905921	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1986	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	2.4518967993178795	0.014210541145258096	Reporting on z test of proportions.
+1986	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	8.152173913043478	NOTSURE	Small number of window hits make p-value calculation difficult.
+1986	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	2.889717765385804	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.607913475918226-66.15249893120375    CI2: 4.447490821320892-27.801305302108613 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1986	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	2.555077197875594	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1986	chisq		4.9282702713769355	0.026420751065077932	
+1986	tost		1.9349146980455671	0.9734996178808193	
+1987	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	3.667932982661212	0.002703496669442019	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1987	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	3.2520107595012337	0.0011459168391480226	Reporting on z test of proportions.
+1987	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1987	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	3.7215983556620613	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 18.6582650733026-66.13113905872098    CI2: 3.777155972897367-23.58594821613254 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1987	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	3.650879356058104	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1987	chisq		9.226738637359167	0.0023850610250481068	
+1987	tost		2.5989963459732643	0.9953251615741857	
+1988	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	4.693290006271022	2.0514659751160015e-05	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1988	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	4.390323293899809	1.1318225929230494e-05	Reporting on z test of proportions.
+1988	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	11.417366946778712	NOTSURE	Small number of window hits make p-value calculation difficult.
+1988	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	4.802324300989228	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 26.07379441690791-74.36095857332045    CI2: 3.8659743949335565-21.746395084708183 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1988	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	5.160873828349482	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1988	chisq		17.651912981823227	2.6524835529572943e-05	
+1988	tost		3.5010630412875123	0.9997682968948476	
+1989	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	6.669833806771803	5.508851765868141e-09	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1989	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	5.914477772335182	3.3293019188718555e-09	Reporting on z test of proportions.
+1989	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1989	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	6.917346406563426	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.85384009232419-85.3126934176597    CI2: 3.3722972712734776-18.955900910490403 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1989	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	8.657967878536683	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1989	chisq		32.99529291402121	9.238226674836075e-09	
+1989	tost		4.614568301591005	0.9999980304338979	
+1990	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	7.525258966401678	1.114845754413536e-10	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1990	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	6.497567521264771	8.162905981338056e-11	Reporting on z test of proportions.
+1990	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1990	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	7.831744099762416	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.616581899320565-79.67325694902225    CI2: 2.87009646148132-16.119491543923107 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1990	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	10.884833517812183	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1990	chisq		40.13307266608706	2.3723830820181545e-10	
+1990	tost		5.011899413929011	0.9999997305231197	
+1991	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	9.004879796407481	1.26857555931617e-13	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1991	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	7.409209444172621	1.2705451390454834e-13	Reporting on z test of proportions.
+1991	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1991	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	9.429930559532238	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.52452566384503-77.63897544705289    CI2: 2.416278561426495-13.55910478075993 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1991	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	14.960654048961263	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1991	chisq		52.63576358537599	4.015108130415687e-13	
+1991	tost		5.601727400387175	0.9999999893886934	
+1992	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	8.231593098019793	1.217056044835335e-14	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1992	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	7.705487926004989	1.3034430068945435e-14	Reporting on z test of proportions.
+1992	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	4.684824902723736	NOTSURE	Small number of window hits make p-value calculation difficult.
+1992	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	8.640075911332415	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.63568717761786-74.20599677334353    CI2: 2.802330565320428-13.350095520645539 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1992	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	13.725780119858305	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1992	chisq		57.14847664706551	4.0412074632472355e-14	
+1992	tost		5.8854696004849165	0.9999999980153733	
+1993	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	8.428595949193271	1.1244434416390873e-16	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1993	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	8.201395874513596	2.376116493908259e-16	Reporting on z test of proportions.
+1993	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	10.343772760378734	NOTSURE	Small number of window hits make p-value calculation difficult.
+1993	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	8.875841258010833	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.65409021477145-71.04005024576307    CI2: 2.7598472621183934-12.303008337594125 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1993	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	14.958632090785471	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1993	chisq		64.98794778937472	7.535756317807693e-16	
+1993	tost		6.246666803532791	0.9999999997903479	
+1994	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	9.98319168310821	3.68128296440826e-21	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1994	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	9.240567477208774	2.4519334963898458e-20	Reporting on z test of proportions.
+1994	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1994	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	10.603493107079949	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 40.585683595134775-72.12061182383158    CI2: 2.417337635131158-10.76953711426779 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1994	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	20.436782323832464	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1994	chisq		82.90089425659062	8.627214305588634e-20	
+1994	tost		6.890613139848116	0.9999999999972223	
+1995	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	10.98020798389802	2.4799997316026857e-24	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1995	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	9.863390826911706	5.998858515783883e-23	Reporting on z test of proportions.
+1995	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1995	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	11.73259979434697	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 41.469567393982324-71.16669012441739    CI2: 2.1940850182894485-9.771569086510034 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1995	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	25.12519152999361	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1995	chisq		94.70463885567439	2.210206275803099e-22	
+1995	tost		7.2586811293623335	0.9999999999998046	
+1996	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	11.381862539663535	1.1529236571737765e-25	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1996	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	10.114002585315273	4.788696155142449e-24	Reporting on z test of proportions.
+1996	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1996	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	12.170639108930727	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.22870653030267-66.10365228499028    CI2: 1.9830421231673294-8.828170966320986 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1996	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	28.70927536628314	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1996	chisq		99.72367859033345	1.752138387711245e-23	
+1996	tost		7.404584144319231	0.9999999999999342	
+1997	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	11.857980784542702	2.1606409259746328e-27	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1997	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	10.405152110697705	2.3488067045748366e-25	Reporting on z test of proportions.
+1997	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1997	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	12.699250561101172	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.203139293938996-61.40283452547343    CI2: 1.7841024071240539-7.939479739806661 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1997	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	33.556761847874725	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1997	chisq		105.70675400381919	8.549547750928943e-25	
+1997	tost		7.571604969283315	0.9999999999999816	
+1998	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	12.573613086770981	5.738420393999129e-30	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1998	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	10.819889430284396	2.771114882162824e-27	Reporting on z test of proportions.
+1998	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1998	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	13.513829653258068	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 36.7495126051201-59.233770516513836    CI2: 1.6368701577172806-7.281986184707884 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1998	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	39.93580871244972	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1998	chisq		114.47982825068493	1.0230163530856931e-26	
+1998	tost		7.803211554774394	0.999999999999997	
+1999	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	12.790237802551822	2.654481080640556e-31	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1999	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	10.95663407205869	6.17536356905617e-28	Reporting on z test of proportions.
+1999	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+1999	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	13.74746230893609	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 34.32903856545891-54.53390285719558    CI2: 1.4924308148192071-6.637261641309798 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1999	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	45.50221684487864	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1999	chisq		117.50823031955991	2.221762163878641e-27	
+1999	tost		7.8808450620408035	0.9999999999999983	
+2000	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	14.114247568186151	7.523384544235637e-36	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2000	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	11.66161017699088	2.0021978640823123e-31	Reporting on z test of proportions.
+2000	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2000	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	15.260501704738436	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.126865138713285-54.23357220794357    CI2: 1.3564578288464362-6.030643895920566 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2000	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	57.796909606444885	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2000	chisq		133.33820178457862	7.6250371882747645e-31	
+2000	tost		8.255840139265882	0.9999999999999999	
+2001	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	14.29275830991889	1.3476965127332376e-39	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2001	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	12.24786275355795	1.7248166109238919e-34	Reporting on z test of proportions.
+2001	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	14.741176470588236	NOTSURE	Small number of window hits make p-value calculation difficult.
+2001	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	15.523631295666672	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.367635836714065-53.197660342439    CI2: 1.3645268027800679-5.721762845983732 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2001	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	63.248180949359075	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2001	chisq		147.2682927897142	6.856167765051943e-34	
+2001	tost		8.649927351298809	1.0	
+2002	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	15.952765432336808	3.7126901724868775e-46	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2002	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	13.103404486410172	3.148131016538692e-39	Reporting on z test of proportions.
+2002	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2002	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	17.458707888703884	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 36.86668513839856-53.97316978624464    CI2: 1.247912629795008-5.231227856099853 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2002	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	82.08387029537171	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2002	chisq		168.77158007789234	1.3723700091076888e-38	
+2002	tost		9.081229867560968	1.0	
+2003	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	16.056732594452267	2.722848490742716e-50	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2003	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	13.664746974361623	1.6487587471743293e-42	Reporting on z test of proportions.
+2003	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	15.846703475154271	NOTSURE	Small number of window hits make p-value calculation difficult.
+2003	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	17.655261067050052	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.316555225105475-53.54793967234609    CI2: 1.2692569724675429-5.0506406078027055 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2003	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	87.93092277552634	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2003	chisq		183.69540641234462	7.561489775643008e-42	
+2003	tost		9.456260943543175	1.0	
+2004	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	18.27714255899584	1.0659980127717265e-59	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2004	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	14.76258963614653	2.552870741295976e-49	Reporting on z test of proportions.
+2004	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2004	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	20.292398057796476	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.497538888071304-55.21203593708236    CI2: 1.153809903747551-4.589895407571048 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2004	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	118.3987347733846	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2004	chisq		214.5945603084791	1.3661968330970855e-48	
+2004	tost		9.977607730323797	1.0	
+2005	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	19.74499797295686	7.34095457638332e-66	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2005	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	15.450508522350598	7.485059019213694e-54	Reporting on z test of proportions.
+2005	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2005	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	22.036722248780745	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.73038023692231-54.61390758305268    CI2: 1.0599464203175875-4.21549000945303 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2005	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	134.26080237019363	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2005	chisq		235.21326457722486	4.34981270603538e-53	
+2005	tost		10.290434029343244	1.0	
+2006	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.130992285182227	3.865023140036413e-72	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2006	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	16.07289018295907	3.952216156052194e-58	Reporting on z test of proportions.
+2006	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2006	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	23.6463840014631	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.09626416042811-52.981089880217134    CI2: 0.9652434266910603-3.837866110836651 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2006	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	155.6767995243878	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2006	chisq		254.68592017848837	2.4711774047518797e-57	
+2006	tost		10.564159871935175	1.0	
+2007	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	17.87265796744852	3.431722307913117e-76	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2007	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	16.557947900198027	1.4029806524095561e-61	Reporting on z test of proportions.
+2007	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	5.879316912138141	NOTSURE	Small number of window hits make p-value calculation difficult.
+2007	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	20.08195476621534	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.53555949602464-52.76254721444098    CI2: 1.2370454880445756-4.181345019119512 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2007	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	100.88457010922548	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2007	chisq		270.3738934225081	9.406347447650267e-61	
+2007	tost		11.225259975193438	1.0	
+2008	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	18.071761176862957	5.113602383348499e-82	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2008	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	17.13248259809685	8.495105807285619e-66	Reporting on z test of proportions.
+2008	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	20.80189125295508	NOTSURE	Small number of window hits make p-value calculation difficult.
+2008	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	20.394879795956424	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.69420913823913-52.335922880095424    CI2: 1.23546863347283-4.042527812416195 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2008	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	99.7751981727767	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2008	chisq		289.5806466107524	6.136628695383409e-65	
+2008	tost		11.588350021491001	1.0	
+2009	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	19.034873430691086	8.002317353961312e-88	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2009	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	17.66310959767939	8.067039606852343e-70	Reporting on z test of proportions.
+2009	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2009	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	21.528841246099756	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 39.15068495406494-51.136900188981926    CI2: 1.1490703087793712-3.759117056631696 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2009	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	112.1458493568177	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2009	chisq		307.9239726544065	6.186971315368909e-69	
+2009	tost		11.83070610034155	1.0	
+2010	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	18.8823740605403	1.1868630819773766e-91	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2010	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	18.04401156128652	8.792348157667251e-73	Reporting on z test of proportions.
+2010	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	17.327709279688513	NOTSURE	Small number of window hits make p-value calculation difficult.
+2010	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	21.401084344896283	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 38.671813464894996-50.130800475853974    CI2: 1.154662997058866-3.665830429678035 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2010	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	110.25656144154075	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2010	chisq		321.47422518673244	6.914891142367661e-72	
+2010	tost		12.102487042274545	1.0	
+2011	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	19.599038277159085	2.0299383404834077e-96	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2011	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	18.440878438400983	6.173017481647367e-76	Reporting on z test of proportions.
+2011	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2011	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	22.25445378470527	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 37.96384765330258-48.883305189504505    CI2: 1.086472060234928-3.448882060155035 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2011	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	122.84652412006885	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2011	chisq		335.9165172071808	4.945339365087635e-75	
+2011	tost		12.281074983040385	1.0	
+2012	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	19.98434691001628	4.667680332410715e-99	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2012	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	18.65238971035661	1.207571907860223e-77	Reporting on z test of proportions.
+2012	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2012	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	22.699174418179155	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 36.963827870242575-47.3873359699828    CI2: 1.0349082806245262-3.284862895386181 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2012	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	134.71052804667067	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2012	chisq		343.81390904623737	9.425024303966121e-77	
+2012	tost		12.375862303276602	1.0	
+2013	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	20.39468384788153	5.692403338355298e-102	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2013	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	18.87473914012896	1.8403028924930685e-79	Reporting on z test of proportions.
+2013	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2013	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	23.179595410828465	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 36.07808011193602-46.050334866125525    CI2: 0.9870636274359565-3.132703987446702 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2013	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	148.06929184586096	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2013	chisq		352.20509701648484	1.4026610474378212e-78	
+2013	tost		12.474483489552764	1.0	
+2014	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.04531904598936	3.005303289778672e-106	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2014	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	19.218861905978876	2.5735295879401894e-82	Reporting on z test of proportions.
+2014	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2014	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	23.978855604561673	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.87585296029767-45.56179393868782    CI2: 0.9464616086336806-3.003607247739971 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2014	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	161.88150079037413	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2014	chisq		365.30226961441707	1.972663827910783e-81	
+2014	tost		12.624074958336685	1.0	
+2015	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.679016545028233	2.812668576260596e-110	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2015	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	19.54767351812694	4.317666769843447e-85	Reporting on z test of proportions.
+2015	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2015	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	24.75256317618653	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.64530720612464-45.0631817969385    CI2: 0.9089461003120507-2.8843351923527547 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2015	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	177.11836861201974	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2015	chisq		378.04324608471586	3.318793080220352e-84	
+2015	tost		12.764940455440843	1.0	
+2016	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.22115829797022	4.475293939322106e-113	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2016	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	19.790893234148275	3.566644818291057e-87	Reporting on z test of proportions.
+2016	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	13.378288929339732	NOTSURE	Small number of window hits make p-value calculation difficult.
+2016	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	24.265352027298384	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 35.44272980716004-44.6402249688632    CI2: 0.9330703151265669-2.8798241760592873 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2016	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	168.16169564723867	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2016	chisq		387.62997826920014	2.7154251943653056e-86	
+2016	tost		12.97721831846485	1.0	
+2017	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.586633094282448	8.905760405086156e-116	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2017	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	19.984496637398333	7.514119095805848e-89	Reporting on z test of proportions.
+2017	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2017	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	24.695860585568273	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 34.913789059818015-43.85481856958998    CI2: 0.9019239142085358-2.7835310522109187 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2017	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	182.06595169823666	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2017	chisq		395.379796962166	5.580964021695624e-88	
+2017	tost		13.060319894651055	1.0	
+2018	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.77373830682322	3.465210750137642e-117	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2018	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	20.083152655606586	1.0360611681567458e-89	Reporting on z test of proportions.
+2018	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2018	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	24.903803271223396	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 34.28084538981258-42.984164115860565    CI2: 0.8774278744039276-2.7078040165727173 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2018	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	194.8439611034018	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2018	chisq		399.41696207181315	7.37657747756494e-89	
+2018	tost		13.102901627616472	1.0	
+2019	ratio_of_ratios_FET_ratios_directly	protein&infection,virus infection|viral infectious particle|viral infection	21.85180974317481	5.74411079041682e-118	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2019	ratio_of_ratios_zprop	protein&infection,virus infection|viral infectious particle|viral infection	20.125746876604257	4.3910554087346825e-90	Reporting on z test of proportions.
+2019	windowed_ratio_of_rat_or_int	protein&infection,virus infection|viral infectious particle|viral infection	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2019	ratio_of_fet_stats	protein&infection,virus infection|viral infectious particle|viral infection	24.989287965499724	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 33.66808956476227-42.151740157019134    CI2: 0.8581607491825607-2.648241408827476 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2019	ratio_of_pred_scores	protein&infection,virus infection|viral infectious particle|viral infection	206.37223589420756	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2019	chisq		401.23219336389786	2.969632219199781e-89	
+2019	tost		13.122027483862277	1.0	
+2020	ONLY1		protein&infection	NA	
+2021	ONLY1		protein&infection	NA	
+2022	ONLY1		protein&infection	NA	
+2023	ONLY1		protein&infection	NA	
+2024	ONLY1		protein&infection	NA	

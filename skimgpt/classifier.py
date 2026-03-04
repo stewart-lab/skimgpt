@@ -4,9 +4,9 @@ import re
 import time
 from typing import Any
 
-from src import prompt_library as prompts_module
-from src.retry import retry_call
-from src.utils import Config, clean_term_for_display, extract_json_from_markdown, extract_pmids, get_hypothesis
+from skimgpt import prompt_library as prompts_module
+from skimgpt.retry import retry_call
+from skimgpt.utils import Config, clean_term_for_display, extract_json_from_markdown, extract_pmids, get_hypothesis
 
 logger = logging.getLogger(__name__)
 

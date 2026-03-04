@@ -1,0 +1,133 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1975	ONLY1		psychological&stress	NA	
+1976	ONLY1		psychological&stress	NA	
+1977	ONLY1		psychological&stress	NA	
+1978	ONLY1		psychological&stress	NA	
+1979	ONLY1		psychological&stress	NA	
+1980	ONLY1		psychological&stress	NA	
+1981	ONLY1		psychological&stress	NA	
+1982	ONLY1		psychological&stress	NA	
+1983	ONLY1		psychological&stress	NA	
+1984	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-3.019767389114549	0.0025296888719865806	Reporting on z test of proportions.
+1984	ci_of_oddsratio	bacteria&infection,psychological&stress	0.0747950287600001	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -2.3152122190984983-2.837890481898965    CI2: 2.2031164635748066-4.7850252814818015 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1984	chisq		6.1647415348550805	0.013032141346356642	
+1985	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-2.523195027247504	0.0116293884421277	Reporting on z test of proportions.
+1985	ci_of_oddsratio	bacteria&infection,psychological&stress	0.15055700160245536	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -1.355253393127044-2.2891786684673354    CI2: 1.8109306180955558-4.392203513164008 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1985	chisq		4.139245333731551	0.04189984510325925	
+1986	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-3.050364538546064	0.0022856375953951413	Reporting on z test of proportions.
+1986	ci_of_oddsratio	bacteria&infection,psychological&stress	0.15334053065091455	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -0.8529249717929417-2.123179861833308    CI2: 3.08740768413271-5.196474500494322 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1986	chisq		7.018557282482539	0.008066920307692661	
+1987	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-2.3617996773616166	0.018186466440095413	Reporting on z test of proportions.
+1987	ci_of_oddsratio	bacteria&infection,psychological&stress	0.2638325403002467	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -0.19451140306826908-2.111428161000581    CI2: 2.578627535561999-4.687029520049193 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1987	chisq		4.01224044022527	0.045171087789589316	
+1988	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-2.3321782397613133	0.01969131642301529	Reporting on z test of proportions.
+1988	ci_of_oddsratio	bacteria&infection,psychological&stress	0.2677780787189058	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -0.28550690483647945-2.020283048019867    CI2: 2.1852596058231413-4.293150245658506 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1988	chisq		3.9025160483893537	0.04821385077250117	
+1989	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-1.9962013238563503	0.04591201342352068	Reporting on z test of proportions.
+1989	ci_of_oddsratio	bacteria&infection,psychological&stress	0.3333769653219736	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: -0.11583140303853268-1.9892187003865431    CI2: 1.756046281248286-3.8633800505581237 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1989	chisq		2.751216711868908	0.09718045148757147	
+1990	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-1.2456831833726922	0.212880729857283	Reporting on z test of proportions.
+1990	ci_of_oddsratio	bacteria&infection,psychological&stress	0.5240346306865434	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 0.4201562737931457-2.1394787904266774    CI2: 1.3888130713333078-3.4956638588772355 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1990	chisq		0.8991162607576642	0.3430187846678171	
+1991	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-0.42106298321646596	0.6737090909791325	Reporting on z test of proportions.
+1991	ci_of_oddsratio	bacteria&infection,psychological&stress	0.8266102107226663	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.4297414506011847-2.7202020674250003    CI2: 1.5348665633572605-3.4855692650340746 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1991	chisq		0.03371826190766953	0.8543073903404704	
+1992	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-1.2101835671654821	0.22620846226099445	Reporting on z test of proportions.
+1992	ci_of_oddsratio	bacteria&infection,psychological&stress	0.6343438421740228	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.6747944488113315-2.859242615471482    CI2: 2.795155721663443-4.352445883081018 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1992	chisq		1.0000734506308804	0.3172927356132322	
+1993	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-0.9265494958101976	0.3541604872983565	Reporting on z test of proportions.
+1993	ci_of_oddsratio	bacteria&infection,psychological&stress	0.7199150730674019	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.0157031518080317-3.0925521945625936    CI2: 2.802329519756617-4.293306531597966 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1993	chisq		0.5379539763725106	0.46328190402719016	
+1994	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-0.8805606757802122	0.3785556507498772	Reporting on z test of proportions.
+1994	ci_of_oddsratio	bacteria&infection,psychological&stress	0.7316778816546201	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.835464746780338-2.912159602004901    CI2: 2.4990034343936145-3.9896775382345817 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1994	chisq		0.4741590786973367	0.4910799945838671	
+1995	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	-0.4330650095646848	0.6649675419415311	Reporting on z test of proportions.
+1995	ci_of_oddsratio	bacteria&infection,psychological&stress	0.8659626780632828	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.30721658904763-3.266489377769601    CI2: 2.5021170738275647-3.934310393557948 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1995	chisq		0.06731813773443579	0.795282353651084	
+1996	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	0.13955151488347683	0.8890143511530204	Reporting on z test of proportions.
+1996	ci_of_oddsratio	bacteria&infection,psychological&stress	1.0461294106351875	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.898740891125293-3.7484642883647408    CI2: 2.4870105786014953-3.867083964495226 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1996	chisq		0.0	1.0	
+1997	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	0.49031374433348107	0.6239119026504031	Reporting on z test of proportions.
+1997	ci_of_oddsratio	bacteria&infection,psychological&stress	1.1603234336764647	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.2190624871824634-4.007530751085397    CI2: 2.4474207481607593-3.78066448094689 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1997	chisq		0.11778457286762584	0.7314498317584033	
+1998	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	1.015089218759491	0.31006330037624696	Reporting on z test of proportions.
+1998	ci_of_oddsratio	bacteria&infection,psychological&stress	1.3387478765732017	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 3.7166943461310127-4.434050315300011    CI2: 2.3987325111006292-3.689601822840215 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1998	chisq		0.7698103734885398	0.3802757211932819	
+1999	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	1.4398801932710783	0.14990129770402777	Reporting on z test of proportions.
+1999	ci_of_oddsratio	bacteria&infection,psychological&stress	1.470745950584177	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.286533005995534-4.938648013826891    CI2: 2.5276488651764897-3.744801530595945 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1999	chisq		1.7206674450258541	0.18960715280596296	
+2000	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	1.9423559179011956	0.052094027950289785	Reporting on z test of proportions.
+2000	ci_of_oddsratio	bacteria&infection,psychological&stress	1.6669927829217404	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.5322251494960275-5.146686012391663    CI2: 2.294626127612296-3.511584469726614 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2000	chisq		3.304865365737549	0.06907500555076766	
+2001	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	2.3853859821099714	0.01706121014118727	Reporting on z test of proportions.
+2001	ci_of_oddsratio	bacteria&infection,psychological&stress	1.8560165940923108	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.67397834864117-5.2603381385776595    CI2: 2.0678602758404057-3.284633079466706 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2001	chisq		5.125554308340291	0.02357603948909881	
+2002	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	2.1236987856710954	0.03369533900284146	Reporting on z test of proportions.
+2002	ci_of_oddsratio	bacteria&infection,psychological&stress	1.6612178390017833	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.729455449548111-5.294550280967374    CI2: 2.466609854344506-3.567520947272009 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2002	chisq		4.03513634297522	0.044562074422994216	
+2003	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	2.319172046873468	0.02038570949365997	Reporting on z test of proportions.
+2003	ci_of_oddsratio	bacteria&infection,psychological&stress	1.7158609074920959	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.777710454465332-5.32369697711848    CI2: 2.4052077819284747-3.481870469855955 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2003	chisq		4.871171772374401	0.02730895111241059	
+2004	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	2.639762746582963	0.00829640848288895	Reporting on z test of proportions.
+2004	ci_of_oddsratio	bacteria&infection,psychological&stress	1.8173240270385382	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.934460521733519-5.457794677076085    CI2: 2.3322505116172128-3.3861877218466017 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2004	chisq		6.403738201082696	0.011388033072061942	
+2005	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	3.2746209988983566	0.001058038173745276	Reporting on z test of proportions.
+2005	ci_of_oddsratio	bacteria&infection,psychological&stress	2.070143642068457	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.292881483179834-5.787049566590588    CI2: 2.149227453799904-3.2030248366254694 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2005	chisq		10.03346947510444	0.0015372122109840085	
+2006	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	3.666142054367879	0.0002462371766561546	Reporting on z test of proportions.
+2006	ci_of_oddsratio	bacteria&infection,psychological&stress	2.2073247958986886	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.5130513605825096-5.986310260591327    CI2: 2.0885898538036156-3.1210474603515928 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2006	chisq		12.684172586364895	0.0003687637354202531	
+2007	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	3.8256280932193985	0.00013043908765862406	Reporting on z test of proportions.
+2007	ci_of_oddsratio	bacteria&infection,psychological&stress	2.245933152459402	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.485334787504541-5.949033858576574    CI2: 2.039388282314968-3.0517555184521856 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2007	chisq		13.859869007301532	0.0001969596360543741	
+2008	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	3.7754527252669625	0.0001597173148465766	Reporting on z test of proportions.
+2008	ci_of_oddsratio	bacteria&infection,psychological&stress	2.1700142364850796	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.355946188907647-5.814133864733093    CI2: 2.0859499340017047-3.0615186244229085 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2008	chisq		13.506512962195098	0.00023773689342919857	
+2009	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	3.9733215044890486	7.087727699140782e-05	Reporting on z test of proportions.
+2009	ci_of_oddsratio	bacteria&infection,psychological&stress	2.1984818577226433	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.449106214423704-5.893674322364269    CI2: 2.108432250368107-3.0509373832470184 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2009	chisq		15.018307933643904	0.00010647322619995636	
+2010	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.253273099732945	2.1066839027597282e-05	Reporting on z test of proportions.
+2010	ci_of_oddsratio	bacteria&infection,psychological&stress	2.3106670115523853	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.381999645351659-5.818603688090484    CI2: 1.952472485764194-2.894873876755256 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2010	chisq		17.275845494234513	3.232701875681109e-05	
+2011	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.23836132862259	2.2515718783046355e-05	Reporting on z test of proportions.
+2011	ci_of_oddsratio	bacteria&infection,psychological&stress	2.252927610143564	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.276996565241639-5.707507988248645    CI2: 1.9815820402369086-2.8940759720461915 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2011	chisq		17.169772741101415	3.418325717109277e-05	
+2012	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.1529045779875835	3.2828165267149126e-05	Reporting on z test of proportions.
+2012	ci_of_oddsratio	bacteria&infection,psychological&stress	2.175501750351111	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.081248920451626-5.508754777739067    CI2: 1.9912936653742759-2.87655059008612 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2012	chisq		16.48564362626552	4.901984926666053e-05	
+2013	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.176392422735628	2.961687096795231e-05	Reporting on z test of proportions.
+2013	ci_of_oddsratio	bacteria&infection,psychological&stress	2.143810849305286	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.981554837312318-5.403334784739492    CI2: 1.9919034138198446-2.8522224685624997 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2013	chisq		16.692928872496413	4.394449011552007e-05	
+2014	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.519025747470496	6.212484031506702e-06	Reporting on z test of proportions.
+2014	ci_of_oddsratio	bacteria&infection,psychological&stress	2.2449411917743767	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.045232865366658-5.453764891556546    CI2: 1.9140826867031515-2.7626535215290624 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2014	chisq		19.62436620720616	9.425941800808021e-06	
+2015	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.308304975337427	1.645104440275181e-05	Reporting on z test of proportions.
+2015	ci_of_oddsratio	bacteria&infection,psychological&stress	2.083154651658527	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 5.005040856062302-5.4061702693447495    CI2: 2.100616695769609-2.8971932926141375 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2015	chisq		17.82704562128347	2.4192003610997655e-05	
+2016	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.242999795731914	2.2055163654772322e-05	Reporting on z test of proportions.
+2016	ci_of_oddsratio	bacteria&infection,psychological&stress	2.0333263116851183	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.833280615320645-5.231975702402646    CI2: 2.0859417746927287-2.864201377382903 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2016	chisq		17.293763996393032	3.2023606231941134e-05	
+2017	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.117442048851188	3.831008195935898e-05	Reporting on z test of proportions.
+2017	ci_of_oddsratio	bacteria&infection,psychological&stress	1.9568558565228515	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.69926860519441-5.094436158802825    CI2: 2.1258868748685416-2.8789297708499255 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2017	chisq		16.280945934987997	5.4610339891212005e-05	
+2018	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.381060872955762	1.1810286744071769e-05	Reporting on z test of proportions.
+2018	ci_of_oddsratio	bacteria&infection,psychological&stress	2.021887943664113	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.68718077151222-5.074565284939191    CI2: 2.041457266839828-2.78657788072673 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2018	chisq		18.487962793049647	1.7098077530469334e-05	
+2019	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	4.798713970664412	1.596876506714412e-06	Reporting on z test of proportions.
+2019	ci_of_oddsratio	bacteria&infection,psychological&stress	2.1474628638018403	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.718779698750737-5.0968200163755935    CI2: 1.912865970752839-2.65792306619885 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2019	chisq		22.26221562677483	2.3784086256920253e-06	
+2020	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	5.18290771974549	2.1845313737247204e-07	Reporting on z test of proportions.
+2020	ci_of_oddsratio	bacteria&infection,psychological&stress	2.270475820393425	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.611672356158976-4.984769119179419    CI2: 1.7408192397589468-2.485802065406741 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2020	chisq		26.044634180806455	3.3361474525643106e-07	
+2021	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	5.886089992419099	3.954390505367462e-09	Reporting on z test of proportions.
+2021	ci_of_oddsratio	bacteria&infection,psychological&stress	2.5104388952889463	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.576436069765414-4.942047407391321    CI2: 1.523331654739795-2.268229850708111 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2021	chisq		33.72654685712414	6.34291588485643e-09	
+2022	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	6.386519552556169	1.6970374423783173e-10	Reporting on z test of proportions.
+2022	ci_of_oddsratio	bacteria&infection,psychological&stress	2.6713306317727223	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.492794969046407-4.853063688151514    CI2: 1.3806826490027897-2.1178953802529574 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2022	chisq		39.80354535623217	2.8083486483501775e-10	
+2023	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	6.797723063440306	1.06285510218596e-11	Reporting on z test of proportions.
+2023	ci_of_oddsratio	bacteria&infection,psychological&stress	2.824750362132439	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.405016492266985-4.760999403012197    CI2: 1.2538677381335077-1.991026401240863 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2023	chisq		45.173049112602904	1.803702910608423e-11	
+2024	ratio_of_ratios_zprop	bacteria&infection,psychological&stress	6.836142576219575	8.135397942706223e-12	Reporting on z test of proportions.
+2024	ci_of_oddsratio	bacteria&infection,psychological&stress	2.8388486100290313	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.417779508854845-4.772932991876757    CI2: 1.2501610810437758-1.9873178279275672 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2024	chisq		45.69158887656696	1.3841585016260257e-11	

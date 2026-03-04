@@ -1,12 +1,13 @@
 from __future__ import annotations
+import argparse
 import logging
 import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from src.utils import Config, RaggedTensor
-from src.triton_client import TritonClient
-from src.relevance_helper import run_relevance_pipeline
+from skimgpt.utils import Config, RaggedTensor, configure_logging
+from skimgpt.triton_client import TritonClient
+from skimgpt.relevance_helper import run_relevance_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ def _run_chtc_fallback(config: Config, km_output_path: str) -> None:
     Stages all required files into the output directory and uses HTCondorHelper
     to submit, monitor, retrieve, and clean up the job.
     """
-    from src.htcondor_helper import HTCondorHelper
+    from skimgpt.htcondor_helper import HTCondorHelper
 
     if not config.using_htcondor:
         raise RuntimeError(
@@ -297,3 +298,32 @@ def _run_chtc_fallback(config: Config, km_output_path: str) -> None:
         if token_file:
             _remove_token_file(token_file)
             logger.info("HTCondor token file removed for security")
+
+
+def main():
+    """CLI entry point: Triton-first relevance analysis with CHTC fallback."""
+    parser = argparse.ArgumentParser(
+        description="kmGPT relevance analysis (Triton remote inference, CHTC fallback)"
+    )
+    parser.add_argument("--km_output", type=str, required=True,
+                        help="TSV file to run relevance filtering on.")
+    parser.add_argument("--config", type=str, required=True,
+                        help="Config file for kmGPT run.")
+    args = parser.parse_args()
+
+    configure_logging()
+    config = Config(args.config)
+
+    km_output_path = args.km_output
+    if os.path.basename(km_output_path) == "files.txt":
+        with open(km_output_path, "r") as f:
+            tsv_filename = f.readline().strip()
+        if tsv_filename:
+            km_output_path = os.path.join(os.path.dirname(km_output_path), tsv_filename)
+            logger.debug(f"Resolved files.txt -> {km_output_path}")
+
+    run_relevance_analysis(config, km_output_path)
+
+
+if __name__ == "__main__":
+    main()

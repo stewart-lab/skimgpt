@@ -18,8 +18,8 @@ os.environ["TIKTOKEN_CACHE_DIR"] = str(tiktoken_cache_dir)
 
 import tiktoken
 
-from src.retry import retry_call
-from src.utils import (
+from skimgpt.retry import retry_call
+from skimgpt.utils import (
     ABSTRACT_DELIMITER,
     Config,
     extract_pmid,

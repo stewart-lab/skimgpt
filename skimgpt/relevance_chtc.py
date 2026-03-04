@@ -58,8 +58,8 @@ for _key, _val in {
 
 import argparse
 import logging
-from src.utils import Config, RaggedTensor, configure_logging
-from src.relevance_helper import run_relevance_pipeline
+from skimgpt.utils import Config, RaggedTensor, configure_logging
+from skimgpt.relevance_helper import run_relevance_pipeline
 
 logger = logging.getLogger(__name__)
 

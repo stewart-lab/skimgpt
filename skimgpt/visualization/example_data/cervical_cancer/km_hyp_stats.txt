@@ -1,0 +1,303 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1975	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1976	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1977	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1978	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1979	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1980	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1981	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1982	ONLY1		herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	NA	
+1983	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	1.993075751280986	0.14992334868845844	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1983	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	1.379575721898182	0.1677173168506284	Reporting on z test of proportions.
+1983	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.7305236270753515	NOTSURE	Small number of window hits make p-value calculation difficult.
+1983	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	1.9345753805619215	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 13.902857963548025-186.8941881049292    CI2: 19.722264147576183-35.20236143428994 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1983	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	0.2450448430507088	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1983	chisq		1.0214468223544513	0.31217606450606505	
+1983	tost		1.2863035324302132	0.90083142491501	
+1984	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.948863029785417	0.012464994904998148	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1984	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.8999046882739097	0.0037327614498766227	Reporting on z test of proportions.
+1984	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	12.629032258064516	NOTSURE	Small number of window hits make p-value calculation difficult.
+1984	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.8896579092351957	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 26.135657695994304-187.73601414499393    CI2: 18.27136470847554-32.160084109018456 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+1984	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	0.3717978534728745	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1984	chisq		6.444457048949488	0.011129905267746409	
+1984	tost		2.5535694277259107	0.9946687490498387	
+1985	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.032016530934727	5.386345075497597e-07	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1985	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.679160771667573	2.4031441692341537e-11	Reporting on z test of proportions.
+1985	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	11.239772727272728	NOTSURE	Small number of window hits make p-value calculation difficult.
+1985	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.026534221170065	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 60.535953943403705-225.8499297064437    CI2: 17.74823523396061-30.48883899087318 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1985	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	0.6872849415748195	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1985	chisq		39.304361441575246	3.626304108361955e-10	
+1985	tost		5.56253553873265	0.9999999867058569	
+1986	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	7.395236501028266	8.319371366209214e-17	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1986	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	11.811627363721268	3.399176249870381e-32	Reporting on z test of proportions.
+1986	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	13.522727272727273	NOTSURE	Small number of window hits make p-value calculation difficult.
+1986	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	7.570821481703584	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 104.83801229844373-265.0673585376492    CI2: 16.9822855617592-28.54912996366752 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1986	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	1.1557543219718693	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1986	chisq		126.5666487121034	2.3110842702596735e-29	
+1986	tost		9.401735871459465	1.0	
+1987	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	8.041165458250157	9.809217820821734e-26	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1987	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	14.70916389387103	5.62987124024844e-49	Reporting on z test of proportions.
+1987	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	12.809352517985612	NOTSURE	Small number of window hits make p-value calculation difficult.
+1987	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	8.313685356961951	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 119.00851282581732-251.76980736472265    CI2: 16.177061612945693-26.79753631646863 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1987	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	1.4675263211160907	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1987	chisq		198.29151175385965	4.927993043090299e-45	
+1987	tost		11.528948449956012	1.0	
+1988	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	9.718224333211545	2.1348023156471815e-43	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1988	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	19.387799533480095	9.783371863143832e-84	Reporting on z test of proportions.
+1988	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	19.38943894389439	NOTSURE	Small number of window hits make p-value calculation difficult.
+1988	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	10.259535096273188	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 148.69300389115503-270.98348699267325    CI2: 15.306017161962187-25.010121594897697 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1988	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.085647665956414	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1988	chisq		344.24523758781413	7.59189139843917e-77	
+1988	tost		14.790500215902538	1.0	
+1989	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	10.89344594986374	1.097406235559025e-68	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1989	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	23.94622981386454	1.0114874243734957e-126	Reporting on z test of proportions.
+1989	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	13.01739735560195	NOTSURE	Small number of window hits make p-value calculation difficult.
+1989	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	11.750079509649584	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 171.38502141034687-277.5533040306469    CI2: 14.654976103864042-23.509995137767937 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1989	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	2.874243418267983	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1989	chisq		523.7310089954744	6.528554030754679e-116	
+1989	tost		17.91299178233547	1.0	
+1990	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	12.524903536408367	9.806699270093171e-103	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1990	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	28.76746800392894	5.477440862299409e-182	Reporting on z test of proportions.
+1990	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	23.948412698412696	NOTSURE	Small number of window hits make p-value calculation difficult.
+1990	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	13.854549130433776	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 194.86208954778616-291.3274907032001    CI2: 13.65604142677081-21.657045237279306 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1990	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.6517794530303087	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1990	chisq		751.3292305023157	2.0624306060559301e-165	
+1990	tost		21.0036048484328	1.0	
+1991	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	13.352636524551473	1.5559322857280257e-131	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1991	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	31.728584018304723	6.270044364615142e-221	Reporting on z test of proportions.
+1991	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	28.856887298747765	NOTSURE	Small number of window hits make p-value calculation difficult.
+1991	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	15.006301791868886	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 203.5082770135866-290.1249285939599    CI2: 12.90505290892698-20.317018774720815 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1991	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.6899518017344226	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1991	chisq		912.761337676771	1.6507481259380688e-200	
+1991	tost		22.8594949871222	1.0	
+1992	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	14.180121467650455	6.152624109135936e-175	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1992	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	35.542023309090396	1.1034901854443363e-276	Reporting on z test of proportions.
+1992	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	13.741885426095951	NOTSURE	Small number of window hits make p-value calculation difficult.
+1992	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	16.32092756668122	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 220.17529945669395-299.30169802264066    CI2: 12.646468418391542-19.562251491648315 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1992	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.546657502938372	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1992	chisq		1138.656329673619	1.3100346193356226e-249	
+1992	tost		25.28356957938884	1.0	
+1993	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	14.552949984563135	2.4061019387785724e-215	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1993	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	38.530410880983865	0.0	Reporting on z test of proportions.
+1993	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	11.746558704453442	NOTSURE	Small number of window hits make p-value calculation difficult.
+1993	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	17.074121288967078	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 231.4158205976398-304.7442646743483    CI2: 12.620343424928384-19.16817162878888 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1993	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.3399216771888436	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1993	chisq		1331.5298849096225	1.5900042959602512e-291	
+1993	tost		27.23487480684527	1.0	
+1994	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	14.778469757418463	3.4376632492164506e-253	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1994	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	40.90494674135457	0.0	Reporting on z test of proportions.
+1994	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	14.046563192904655	NOTSURE	Small number of window hits make p-value calculation difficult.
+1994	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	17.59595164110644	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 235.0705137157508-302.318097254798    CI2: 12.378809170606402-18.542057114664946 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1994	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.199665532596876	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1994	chisq		1497.2883114569365	0.0	
+1994	tost		28.781566322205883	1.0	
+1995	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	15.95821094738892	1.6293928900083e-311	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1995	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	44.554942580743905	0.0	Reporting on z test of proportions.
+1995	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	27.92221391174271	NOTSURE	Small number of window hits make p-value calculation difficult.
+1995	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	19.457686711652112	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 247.48652904198318-310.9939233201077    CI2: 11.699070848565727-17.376795250608694 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1995	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.2395890090515027	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1995	chisq		1765.454901235841	0.0	
+1995	tost		30.858017306660816	1.0	
+1996	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	16.955337784509055	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1996	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	47.974505645736265	0.0	Reporting on z test of proportions.
+1996	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	25.478854024556618	NOTSURE	Small number of window hits make p-value calculation difficult.
+1996	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	21.106881087802673	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 257.9997620076127-318.44696262865745    CI2: 11.198442956461548-16.468371193103778 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1996	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.2277198206541464	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1996	chisq		2034.898415948655	0.0	
+1996	tost		32.80164566536488	1.0	
+1997	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	18.49657397251436	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1997	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	51.36316176208869	0.0	Reporting on z test of proportions.
+1997	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	120.67605633802818	NOTSURE	Small number of window hits make p-value calculation difficult.
+1997	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	23.472886586449068	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 265.9595534643514-323.69559131737725    CI2: 10.32056212751094-15.139656657589137 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1997	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.3957910237504825	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1997	chisq		2321.475437081958	0.0	
+1997	tost		34.48383775736843	1.0	
+1998	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	19.340104712041885	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1998	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	53.65488396946339	0.0	Reporting on z test of proportions.
+1998	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.67328767123287	NOTSURE	Small number of window hits make p-value calculation difficult.
+1998	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	24.764313270417638	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 263.2399219228097-317.1392514241304    CI2: 9.654163661128523-14.100500059334546 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1998	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.4781784272040737	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1998	chisq		2529.899455926866	0.0	
+1998	tost		35.66643540923171	1.0	
+1999	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	20.86396984367315	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1999	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	56.989454452343224	0.0	Reporting on z test of proportions.
+1999	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	88.72243672243671	NOTSURE	Small number of window hits make p-value calculation difficult.
+1999	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	27.19219814411091	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 269.0236560778403-320.44680636871243    CI2: 8.949171057807257-13.027916800199947 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+1999	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.641799332545189	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+1999	chisq		2840.1381116514003	0.0	
+1999	tost		37.25485491835978	1.0	
+2000	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	22.498681189101966	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2000	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	61.693874602517575	0.0	Reporting on z test of proportions.
+2000	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	35.914979338842976	NOTSURE	Small number of window hits make p-value calculation difficult.
+2000	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	30.200461005858756	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 288.4585352299571-339.1942983254112    CI2: 8.62883573616847-12.432331757387802 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2000	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.6465362402651182	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2000	chisq		3295.521617173931	0.0	
+2000	tost		39.63535002206499	1.0	
+2001	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	24.639356374681885	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2001	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	65.94214109155091	0.0	Reporting on z test of proportions.
+2001	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	123.30742857142857	NOTSURE	Small number of window hits make p-value calculation difficult.
+2001	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	33.94069183569807	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 303.5766191490148-353.41079234408255    CI2: 8.051734959022609-11.566907855535463 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2001	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.8459206433106754	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2001	chisq		3736.092603349177	0.0	
+2001	tost		41.48050794288137	1.0	
+2002	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	26.326080868340377	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2002	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	70.16211695951344	0.0	Reporting on z test of proportions.
+2002	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.405241935483865	NOTSURE	Small number of window hits make p-value calculation difficult.
+2002	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	37.16508679880121	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 318.2107702864494-367.1909366319271    CI2: 7.700353428392065-10.985652727826217 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2002	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	3.9172578002287524	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2002	chisq		4195.0324295718965	0.0	
+2002	tost		43.43066901226887	1.0	
+2003	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	28.37549567035155	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2003	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	74.83270550653921	0.0	Reporting on z test of proportions.
+2003	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	64.08401777299044	NOTSURE	Small number of window hits make p-value calculation difficult.
+2003	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	41.25718082880569	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 335.81040618053953-384.04508197829506    CI2: 7.308763156025117-10.366529126256347 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2003	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.0449685916292575	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2003	chisq		4728.377584585403	0.0	
+2003	tost		45.45831481804558	1.0	
+2004	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	30.00325516371987	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2004	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	78.5751330151801	0.0	Reporting on z test of proportions.
+2004	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	69.5825479930192	NOTSURE	Small number of window hits make p-value calculation difficult.
+2004	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	44.4292647999893	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 342.6256932239098-389.22653201325494    CI2: 6.918179179152291-9.76545098469569 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2004	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.175045710728942	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2004	chisq		5179.897620530157	0.0	
+2004	tost		47.05490854783404	1.0	
+2005	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	32.29661030569932	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2005	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	83.20304648395762	0.0	Reporting on z test of proportions.
+2005	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	94.51928020565553	NOTSURE	Small number of window hits make p-value calculation difficult.
+2005	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	49.23687722998961	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 358.9662583551434-404.8442911038048    CI2: 6.529464796774803-9.180853588990521 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2005	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.374073909209325	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2005	chisq		5755.948949108511	0.0	
+2005	tost		48.87332058751407	1.0	
+2006	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	33.30453538955823	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2006	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	87.73243206228545	0.0	Reporting on z test of proportions.
+2006	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	32.06735069718495	NOTSURE	Small number of window hits make p-value calculation difficult.
+2006	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.301576611681014	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 375.72541117369997-420.87040576313666    CI2: 6.445600372809825-8.968628187983283 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2006	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.286514045287558	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2006	chisq		6336.349183636027	0.0	
+2006	tost		51.03540076349477	1.0	
+2007	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	35.607715109558065	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2007	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	93.02685628733416	0.0	Reporting on z test of proportions.
+2007	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	67.39086127547667	NOTSURE	Small number of window hits make p-value calculation difficult.
+2007	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	57.967127221298824	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 394.8852520996794-439.29416750619816    CI2: 6.107467850535346-8.452819716248476 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2007	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.466985093430558	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2007	chisq		7044.699982910431	0.0	
+2007	tost		53.09571915528726	1.0	
+2008	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	37.79068090405086	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2008	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	97.74431939628467	0.0	Reporting on z test of proportions.
+2008	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	86.32443511297741	NOTSURE	Small number of window hits make p-value calculation difficult.
+2008	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	63.40237386252054	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 406.9371305766371-450.0015647436094    CI2: 5.7483553316453415-7.924770590679448 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2008	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.692139987787487	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2008	chisq		7707.590807357131	0.0	
+2008	tost		54.82607154605872	1.0	
+2009	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	39.654798667942345	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2009	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	102.59818729256656	0.0	Reporting on z test of proportions.
+2009	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	59.91159289370672	NOTSURE	Small number of window hits make p-value calculation difficult.
+2009	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	68.68755400248763	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 419.6294439075511-461.4215120329915    CI2: 5.471101359057706-7.5012377122244285 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2009	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	4.8530271914165946	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2009	chisq		8409.899663106142	0.0	
+2009	tost		56.68345031813359	1.0	
+2010	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	42.0271118749155	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2010	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	106.75626663613033	0.0	Reporting on z test of proportions.
+2010	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	257.12264150943395	NOTSURE	Small number of window hits make p-value calculation difficult.
+2010	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	74.51434587612815	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 424.2709854084632-464.3275087639595    CI2: 5.0904717167408-6.969954308901431 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2010	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.203883695664882	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2010	chisq		9044.53029966166	0.0	
+2010	tost		57.969589185663494	1.0	
+2011	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	44.28152793155688	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2011	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	110.87477813413955	0.0	Reporting on z test of proportions.
+2011	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	182.44532803180914	NOTSURE	Small number of window hits make p-value calculation difficult.
+2011	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	80.27537210642278	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 428.83837069387386-467.321489918038    CI2: 4.770269535577102-6.519312758684459 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2011	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.537548314085392	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2011	chisq		9693.82160370096	0.0	
+2011	tost		59.2541174892786	1.0	
+2012	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	44.84737114106852	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2012	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	114.88674107835449	0.0	Reporting on z test of proportions.
+2012	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	41.56846168570152	NOTSURE	Small number of window hits make p-value calculation difficult.
+2012	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	82.85736998844601	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 429.03534979139926-465.59325275383117    CI2: 4.631852194497175-6.281780750177608 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2012	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.51702308158021	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2012	chisq		10341.001236809443	0.0	
+2012	tost		61.01929423539285	1.0	
+2013	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	46.47673830908188	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2013	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	118.38771330838337	0.0	Reporting on z test of proportions.
+2013	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	126.72149643705464	NOTSURE	Small number of window hits make p-value calculation difficult.
+2013	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	87.18430920825546	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 424.39594977708873-458.7896676259018    CI2: 4.350823499863072-5.887578787713971 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2013	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.770836944120435	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2013	chisq		10931.789373915119	0.0	
+2013	tost		62.12996788479547	1.0	
+2014	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	46.61600118012341	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2014	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	121.83059256156511	0.0	Reporting on z test of proportions.
+2014	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	38.11473230900101	NOTSURE	Small number of window hits make p-value calculation difficult.
+2014	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	88.7121618626368	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 420.17638609708985-452.59957344229724    CI2: 4.240564861675091-5.698436926530548 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2014	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.672332781162576	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2014	chisq		11520.966956519002	0.0	
+2014	tost		63.69657186582203	1.0	
+2015	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	47.75162649985929	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2015	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	125.02892910524919	0.0	Reporting on z test of proportions.
+2015	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	86.2936624907885	NOTSURE	Small number of window hits make p-value calculation difficult.
+2015	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	91.62126399149537	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 410.80123195244573-441.0797685779691    CI2: 4.013753011441231-5.377812708281857 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2015	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	5.882161595465976	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2015	chisq		12090.025062777475	0.0	
+2015	tost		64.79724375669882	1.0	
+2016	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	48.43024104636113	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2016	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	127.72024728839314	0.0	Reporting on z test of proportions.
+2016	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	71.1277437927312	NOTSURE	Small number of window hits make p-value calculation difficult.
+2016	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	93.43946809896649	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 402.1121336734287-430.56389558023835    CI2: 3.853423756407374-5.1460891101263995 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2016	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.011775141036594	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2016	chisq		12591.06829711754	0.0	
+2016	tost		65.81059629083198	1.0	
+2017	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	48.91677035764272	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2017	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	130.08195141923795	0.0	Reporting on z test of proportions.
+2017	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	68.57975236707941	NOTSURE	Small number of window hits make p-value calculation difficult.
+2017	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	94.44290549263555	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 390.45839928300205-417.0688001623941    CI2: 3.703350562769717-4.930023261591887 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2017	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.148572248543092	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2017	chisq		13047.525604641907	0.0	
+2017	tost		66.73814741433804	1.0	
+2018	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	49.33659441685781	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2018	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	132.81796388909856	0.0	Reporting on z test of proportions.
+2018	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	56.41571886847478	NOTSURE	Small number of window hits make p-value calculation difficult.
+2018	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	95.81041589235315	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 383.1705633950431-408.27807450463547    CI2: 3.584922782700311-4.753822251347663 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2018	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.217296220162418	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2018	chisq		13568.862295169396	0.0	
+2018	tost		67.83968830265155	1.0	
+2019	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	49.908992922824375	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2019	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	135.547391073975	0.0	Reporting on z test of proportions.
+2019	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	66.34239130434783	NOTSURE	Small number of window hits make p-value calculation difficult.
+2019	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	97.1348757704703	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 373.1219630477081-396.6483326997702    CI2: 3.445073692248163-4.553103811375732 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2019	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.364739745466596	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2019	chisq		14102.222126432962	0.0	
+2019	tost		68.88677589492939	1.0	
+2020	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	50.88559690221812	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2020	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	138.46053005956605	0.0	Reporting on z test of proportions.
+2020	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	96.97629179331308	NOTSURE	Small number of window hits make p-value calculation difficult.
+2020	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	99.15773622304586	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 363.70473399860066-385.7775493195251    CI2: 3.2900064213710394-4.337464683344205 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2020	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.610357224329675	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2020	chisq		14684.18184617822	0.0	
+2020	tost		69.87902104254083	1.0	
+2021	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	50.56766095175219	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2021	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	141.64750998520108	0.0	Reporting on z test of proportions.
+2021	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	39.66906611701284	NOTSURE	Small number of window hits make p-value calculation difficult.
+2021	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	98.63656031660635	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 354.15669688804275-374.7957669613608    CI2: 3.227322029240849-4.227386880322526 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2021	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.48896546625907	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2021	chisq		15327.788788536394	0.0	
+2021	tost		71.4508217035536	1.0	
+2022	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.005399548532736	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2022	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	145.31518133937507	0.0	Reporting on z test of proportions.
+2022	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	121.01980911219161	NOTSURE	Small number of window hits make p-value calculation difficult.
+2022	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	101.98794490905162	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 349.2006142926925-368.7810810716348    CI2: 3.077827793303214-4.022551691277757 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2022	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.780249576856235	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2022	chisq		16075.326825911172	0.0	
+2022	tost		72.60719851259645	1.0	
+2023	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.0752685279532	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2023	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	148.87329500323187	0.0	Reporting on z test of proportions.
+2023	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	46.604166666666664	NOTSURE	Small number of window hits make p-value calculation difficult.
+2023	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	102.81653561596735	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 346.71626184632964-365.4532994476169    CI2: 3.036808655763125-3.9469601135050834 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2023	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.65026724331111	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2023	chisq		16812.342485487414	0.0	
+2023	tost		74.19104909017318	1.0	
+2024	ratio_of_ratios_FET_ratios_directly	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	52.152943182715866	0.0	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2024	ratio_of_ratios_zprop	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	149.00425350226115	0.0	Reporting on z test of proportions.
+2024	windowed_ratio_of_rat_or_int	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2024	ratio_of_fet_stats	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	102.98393128295749	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 346.5801554711456-365.28381896765194    CI2: 3.0305793679046613-3.9388508111270784 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2024	ratio_of_pred_scores	hpv|human papillomavirus,herpes|herpes simplex|herpes simplex virus|HSV|HSV2|herpes simplex virus-2	6.667671827080041	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2024	chisq		16840.2927199989	0.0	
+2024	tost		74.2218541107192	1.0	
