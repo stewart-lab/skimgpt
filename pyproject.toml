@@ -40,12 +40,15 @@ dependencies = [
     "openai>=1.0.0",
     "biopython>=1.79",
     "requests>=2.25.0",
-    "vllm>=0.6.0",
     "tiktoken>=0.7.0",
-    "htcondor>=24.6.1",
+    "torch>=2.11.0",
 ]
 
 [project.optional-dependencies]
+gpu = [
+    "vllm>=0.6.0",
+    "htcondor>=24.6.1",
+]
 dev = [
     "pytest>=6.0",
     "black>=21.0",

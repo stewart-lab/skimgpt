@@ -24,9 +24,10 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
  2. **Install Dependencies (with conda)**
     Install the required packages using pip:
     ```bash
-    conda create --name {myenv} python=3.9
+    conda create --name {myenv} python>=3.10
     conda activate {myenv}
     pip install -r requirements.txt
+    pip install --no-build-isolation -e .
     ```
    
   3. **Environment Variables**
@@ -45,8 +46,16 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
   
      ```bash
      
-     python main.py
+     python skimgpt/main.py
    
+     ```
+
+     or if running multiple years, censor_year_range sets the upper and lower bounds of the years to run, censor_year_increment sets the increment between years, and censor_year_depth sets the depth of the censor year (1 means the lower bound is the same as the upper bound, 2 means the lower bound is one less than the upper bound, etc.)
+
+     ```bash
+
+     python main_wrapper.py -censor_year_range 2020-2025 -censor_year_increment 1 -censor_year_depth 1
+
      ```
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 <a name="config-overview"></a>
