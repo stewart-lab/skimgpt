@@ -136,8 +136,34 @@ This configuration file contains various settings for different job types. Below
 
 This configuration is critical for tailoring the behavior of the system to specific job types and requirements. Ensure all file paths and parameters are correctly set before execution to avoid runtime errors.
 
-## Visualizing a Bayesian credible interval
-The bayes_citest.R script uses a beta distribution to find the credible interval of a KM-GPT score.
+## Visualizing KM-GPT runs over time
+
+All visualization scripts are found in the skimgpt/visualization folder.
+
+Need output from KM-GPT run (km_with_gpt_wrapper_results.tsv) where file has the following header:
+censor_year	Hypothesis	B_term	support	refute	inconclusive	iter_number	o3_score<img width="521" height="17" alt="image" src="https://github.com/user-attachments/assets/f3d8e834-7cc7-4a44-86d2-fca07e32d91d" />
+
+Arguments:
+
+* projpath # path where input file is
+* -datatype # km or skim
+* -discover # discover date of hypothesis
+* -accept # acceptance date of hypothesis
+* -x_date # extra date line
+* -labels # comma-separated term labels for legend
+* -title # title of plot
+* -labels2 # comma-separated labels for discovery and acceptance
+* -move # move label positions (4 comma-sep numbers)
+* -xinterval # interval for x-axis labels
+
+Run plot_separate_runs.py
+```
+python plot_separate_runs.py <projpath> -datatype <km> -discover <date> -accept <date> -labels <Bterm1,Bterm2> -title <title> -labels2 <disocvery,acceptance> -xinterval <1>
+```
+
+## Visualizing a Bayesian credible interval for KM-GPT-DCH
+
+Script uses a beta distribution to find the credible interval of a KM-GPT score.
 
 Note: You must have more than one run of the  **same** direct hypothesis comparison for the **same** year (ideally at least 3) in order to calculate a credible interval.
 
@@ -156,23 +182,25 @@ Use KM-GPT-DCH output results.tsv file where the tab-delimited file has the foll
   * both:                     number of abstracts supporting both hypotheses
   * neither_or_inconclusive:  number of abstracts not supporting either hypothesis
 
-### Running bayesian credible interval over multiple years
+### Running bayesian credible interval over multiple years 
 
 bayesian_ci.py
 
 Arguments:
-  * -p or --projpath <input dir> # directory where either km_hyp_stats.txt or skim_hyp_stats.txt is located
-  * -f or --filename <file name> # file name with the above headers
-  * -d or --discover <year> # optional: year of discovery
-  * -a or --accept <year> # optional: year of acceptance
-  * -t or --title <title of graph> # optional: title for figure- default is "Aterm: aterm Co-occurrence terms: term1 vs. term2 Years: year1-lastyear km or skim data"
-  * -x or --labels2 <list of labels> # optional: Comma-separated list of labels for discovery and acceptance (e.g., 'discover,accept')
-  * -m or --move <list of numbers to move discovery & acceptance labels> # optional: move discovery/acceptance labels. Comma separated list of 4 numbers required: x, y for discovery, x, y for acceptance. e.g. -m '0.1,0.1,0.1,0.1'
+  * <projpath> # directory where results.txt or results.tsv file (KM-GPT-DCH output) is located
+  * <filename> # input CSV filename with the above headers
+  * -discover <year> # optional: year of discovery
+  * -accept <year> # optional: year of acceptance
+  * -x_date <year> # extra date line
+  * -title <title of graph> # optional: title for figure- default is "Aterm: aterm Co-occurrence terms: term1 vs. term2 Years: year1-lastyear km or skim data"
+  * -labels <label1,label2> # optional: Comma-separated list of labels for discovery and acceptance (e.g., 'discover,accept')
+  * -move <list of numbers> # optional: move discovery/acceptance labels. Comma separated list of 4 numbers required: x, y for discovery, x, y for acceptance. e.g. -m '0.1,0.1,0.1,0.1'
+  * -xinterval <int> # interval for x-axis labels, default is 1
 
 
 To Run:
 ```
-python bayesian_ci.py -p <project path> -f <input filename> -d <discovery date> -a <acceptance date> -t <title> -l <list of labels> -x <list of labels2> -m <"0.1,0.1,0.1,0.1">
+python bayesian_ci.py <projpath> <filename> -discover <discovery date> -accept <acceptance date> -title <title> -labels <list of labels> -move <"0.1,0.1,0.1,0.1"> -xinterval 1
 ```
 
 Output:
@@ -183,7 +211,7 @@ Output:
 
 To Run:
 ```
-python plot_separate_runs.py
+Rscript bayes_citest_violinplot.R
 ```
 
 Output:
@@ -193,15 +221,6 @@ Output:
 # Running KM co-occurrence only
 
 All scripts, environmental variables, and example data are found in the skimgpt/visualization folder
-
-## Set up environment
-* use yaml file to set up the environment, and double check requirements.txt to see that all packages are installed
-```
-# create
-conda env create -n KM_Skim --file KM_Skim.yml
-# activate
-conda activate KM_Skim
- ```
 
 ## Running KM/Skim Direct Hypothesis Comparison (DCH) only
 
@@ -281,24 +300,24 @@ Output:
 * use visualizeStatsHyp1vsHyp2.R to show scatterplot of selected stat across years
 
   Arguments:
-  * -i or --datatype <km or skim> # which type of comparison to visualize (km or skim)
-  * -p or --projpath <input dir> # directory where either km_hyp_stats.txt or skim_hyp_stats.txt is located
-  * -s or --stattype <type of stat> # this is from the StatType column in the *_hyp_stats.txt file. Which stat to visualize
-  * -d or --discover <year> # optional: year of discovery
-  * -a or --accept <year> # optional: year of acceptance
-  * -l or --labels <list of labels> # optional: Comma-separated list of labels to relabel samples in legend (e.g., 'microbiome,vaccines')
-  * -t or --title <title of graph> # optional: title for figure- default is "Aterm: aterm Co-occurrence terms: term1 vs. term2 Years: year1-lastyear km or skim data"
-  * -x or --labels2 <list of labels> # optional: Comma-separated list of labels for discovery and acceptance (e.g., 'discover,accept')
-  * -m or --move <list of numbers to move discovery & acceptance labels> # optional: move discovery/acceptance labels. Comma separated list of 4 numbers required: x, y for discovery, x, y for acceptance. e.g. -m '0.1,0.1,0.1,0.1'
+
+  * <projpath> # directory where either km_hyp_stats.txt or skim_hyp_stats.txt is located
+  * -datatype <km or skim> # which type of comparison to visualize (km or skim)
+  * -stattype <ratio_of_ratios_zprop> # this is from the StatType column in the *_hyp_stats.txt file. Which stat to visualize
+  * -discover <year> # optional: year of discovery
+  * -accept <year> # optional: year of acceptance
+  * -x_date <year> # optional: extra date line
+  * -labels <list of labels> # optional: Comma-separated list of labels to relabel samples in legend (e.g., 'microbiome,vaccines')
+  * -title <title of graph> # optional: title for figure- default is "Aterm: aterm Co-occurrence terms: term1 vs. term2 Years: year1-lastyear km or skim data"
+  * -labels2 <list of labels> # optional: Comma-separated list of labels for discovery and acceptance (e.g., 'discover,accept')
+  * -move <list of numbers to move discovery & acceptance labels> # optional: move discovery/acceptance labels. Comma separated list of 4 numbers required: x, y for discovery, x, y for acceptance. e.g. -m '0.1,0.1,0.1,0.1'
+  * -xinterval <integer> # optional: interval for x-axis labels
 
 To run:
 ```
-Rscript visualizeStatsHyp1vsHyp2.R -i <datatype> -p <input dir> -s < stat type> -d <year of discovery> -a <year of acceptance> -l <labels> -t <title> -x <labels2> -m <"0.1,0.1,0.1,0.1">
+python plot_hyp_stats.py <projpath> -datatype <datatype> -stattype < stat type> -discover <year> -accept <year> -labels <label1,label2> -title <title> -labels2 <labelA,labelB> -m <"0.1,0.1,0.1,0.1">
 ```
-Example:
-```
-Rscript visualizeStatsHyp1vsHyp2.R -i km -p ~/km_skim_stats/Hyp1_Hyp2_data_for_Beth/Only1_example/out_stats_autism_kegg_causes09042024_microbiomeVsVaccines/2024_09_26_15_53_25_autism_Microbiome_Vac_fet0.05/ -s ratio_of_ratios_zprop -d 2010 -a 2016 -l "Microbiome_only,MicrobiomeVS.Vaccine,Vaccine_only" -t AutismandMicrobiomevsVaccines_ztest
-```
+
 Output (in visualize folder that is in the input stat folder):
 
 * pdf file of figure
