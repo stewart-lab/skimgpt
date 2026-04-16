@@ -208,10 +208,14 @@ Output:
 * ribbon plot of scores across time where shaded region is the credible interval
 
 ### Running bayesian credible interval for one year
+bayes_ci_violinplot.py
 
+Arguments:
+  * <projpath> # directory where output directory for km-gpt-dch is that contains results.txt/results.tsv
+    
 To Run:
 ```
-Rscript bayes_citest_violinplot.R
+python bayes_ci_violinplot.py <projpath>
 ```
 
 Output:
@@ -220,7 +224,7 @@ Output:
 
 # Running KM co-occurrence only
 
-All scripts, environmental variables, and example data are found in the skimgpt/visualization folder
+The steps of KM are typically run from the command line. The first step involves querying a database to create co-occurrence numbers for statistical analysis.  We provide the output for this step for the three main historical hypotheses involving cervical cancer, scrapie, and peptic ulcer. All scripts, environmental variables, and example data are found in the skimgpt/visualization folder
 
 ## Running KM/Skim Direct Hypothesis Comparison (DCH) only
 
@@ -297,7 +301,7 @@ Output:
   lines from km_hyp.txt or skim_hyp.txt kept based on p-value cutoff
 
 ## Visualize stats
-* use visualizeStatsHyp1vsHyp2.R to show scatterplot of selected stat across years
+* use plot_hyp_stats.py to show scatterplot of selected stat across years
 
   Arguments:
 
