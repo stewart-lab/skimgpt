@@ -32,7 +32,7 @@
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
         "submit_host": "ap2002.chtc.wisc.edu",
-        "docker_image": "docker://lexu27/kmgpt_filter:v0.6"
+        "docker_image": "docker://stewartlab/skimgpt:2.0.1"
     },
     "relevance_filter": {
         "SERVER_URL": "https://xdddev.chtc.io/triton",
@@ -58,7 +58,6 @@
             "censor_year_upper": 1980,
             "censor_year_lower": 0
         },
-        
         "skim_with_gpt": {
             "position": false,
             "A_TERM_LIST": true,
