@@ -50,15 +50,47 @@ Biomedical Abstracts (verbatim):
 
 Available PMIDs for citation: {pmid_list}
 
-Task:
-Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above that mention terms relevant to either hypothesis. 
-Classify each abstract, produce tallies, assign a continuous 0–100 score, and choose a decision.
-
 Hypothesis 1:
 {hypothesis_1}
 
 Hypothesis 2:
 {hypothesis_2}
+
+Task:
+Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above. Each abstract must
+receive an INDEPENDENT verdict for each hypothesis (H1_label and H2_label, each one of
+supports / refutes / inconclusive). Then produce tallies, assign a continuous 0–100 score,
+and choose a decision.
+
+Instructions:
+1. Read each abstract and ask, separately for each hypothesis: does the evidence in this
+   abstract directly align with the claim AS STATED, directly contradict it, or neither?
+2. Assess directionality. A treatment study showing "X reduces / inhibits / suppresses Y"
+   REFUTES a claim that "X causes Y" — they are opposite causal directions. Do not let
+   topical co-mention be mistaken for support.
+3. Be vigilant for evidence that contradicts a hypothesis. The schema includes refutes
+   precisely so that contradicting evidence is captured, not collapsed into supports or
+   inconclusive.
+4. Most abstracts come from a single B-term's intersection list and will not address the
+   other hypothesis. Mark those with H{{1,2}}_label = inconclusive — that is the correct
+   label for "this abstract does not bear on this hypothesis."
+5. Cite only PMIDs from the list above when justifying your verdicts in evidence and
+   score_rationale. Do not reference outside literature.
+
+Worked examples:
+
+  • Hypothesis 1: "{{a_term}} is caused by inhibition of {{b_term1}}"
+    Hypothesis 2: "{{a_term}} is caused by inhibition of {{b_term2}}"
+    Abstract (paraphrased): "Compound X inhibits {{b_term1}} and reduces {{a_term}} growth
+    in xenograft models, supporting EGFR-pathway inhibition as a therapeutic strategy."
+    Correct labels: H1_label = refutes  (treatment effect, opposite direction to "causes"),
+                    H2_label = inconclusive  (abstract does not address {{b_term2}}).
+
+  • Same hypotheses.
+    Abstract (paraphrased): "{{b_term1}} and {{b_term2}} are both expressed in {{a_term}}
+    cell lines; the abstract reports expression levels but no functional or causal claim."
+    Correct labels: H1_label = inconclusive,  H2_label = inconclusive.
+    (Topical match is NOT supports.)
 
 Continuous Scoring Guidelines (0–100):
 {sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}
@@ -401,16 +433,20 @@ def km_with_gpt_direct_comp_json_schema():
                 "additionalProperties": False,
                 "properties": {
                     "pmid": {"type": "string", "pattern": "^[0-9]+$"},
-                    "label": {
+                    "H1_label": {
                         "type": "string",
-                        "enum": ["supports_H1","supports_H2","both","neither","inconclusive"]
+                        "enum": ["supports", "refutes", "inconclusive"]
+                    },
+                    "H2_label": {
+                        "type": "string",
+                        "enum": ["supports", "refutes", "inconclusive"]
                     },
                     "evidence": {
                         "type": "array",
                         "items": {"type": "string", "maxLength": 300}
                     },
                 },
-                "required": ["pmid","label"]
+                "required": ["pmid", "H1_label", "H2_label"]
             }
         },
         "score_rationale": {
@@ -423,12 +459,17 @@ def km_with_gpt_direct_comp_json_schema():
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "support_H1": {"type": "integer", "minimum": 0},
-                "support_H2": {"type": "integer", "minimum": 0},
-                "both": {"type": "integer", "minimum": 0},
-                "neither_or_inconclusive": {"type": "integer", "minimum": 0}
+                "support_H1":      {"type": "integer", "minimum": 0},
+                "refute_H1":       {"type": "integer", "minimum": 0},
+                "inconclusive_H1": {"type": "integer", "minimum": 0},
+                "support_H2":      {"type": "integer", "minimum": 0},
+                "refute_H2":       {"type": "integer", "minimum": 0},
+                "inconclusive_H2": {"type": "integer", "minimum": 0}
             },
-            "required": ["support_H1","support_H2","both","neither_or_inconclusive"]
+            "required": [
+                "support_H1", "refute_H1", "inconclusive_H1",
+                "support_H2", "refute_H2", "inconclusive_H2"
+            ]
         },
         "score": {"type": "number", "minimum": 0, "maximum": 100},
         "decision": {"type": "string", "enum": ["H1","H2","tie","insufficient_evidence"]}
@@ -440,15 +481,26 @@ def km_with_gpt_direct_comp_json_schema():
 def km_with_gpt_direct_comp_system_instructions():
     return """\
 You compare two competing biomedical hypotheses using ONLY the provided PubMed abstracts.
+
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
 - Ground the output with evidence extracted from the abstracts (≤300 chars each).
 - Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
 - Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
-- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, number supporting both, and number that support neither or are inconclusive.
-- Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
-- The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+
+Per-abstract labeling — independent verdicts for each hypothesis:
+- Each abstract gets BOTH H1_label AND H2_label, drawn from {supports, refutes, inconclusive}.
+- supports: the abstract's evidence directly aligns with the hypothesis AS STATED, including its causal direction.
+- refutes: the abstract's evidence directly contradicts the hypothesis as stated. A treatment study showing "X reduces Y" REFUTES a claim that "X causes Y".
+- inconclusive: the abstract does not address this hypothesis, addresses it without supporting OR refuting it, or its evidence is genuinely mixed.
+- IMPORTANT: topical match alone does NOT equal supports. An abstract that mentions both terms in the hypothesis but does not address the claim's direction is inconclusive, not supports. Most abstracts come from a single B-term's intersection list and will be inconclusive for the OTHER hypothesis.
+
+Tallies — six counts, three per hypothesis:
+- support_H1, refute_H1, inconclusive_H1, support_H2, refute_H2, inconclusive_H2.
+- Each tally must equal the number of per_abstract entries with the corresponding label for that hypothesis. The tallies for each hypothesis must sum to the total number of abstracts.
+
+The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the scoring guidelines and the provided evidence set only.
 """
 
 

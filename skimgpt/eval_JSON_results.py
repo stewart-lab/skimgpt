@@ -41,7 +41,11 @@ def extract_and_write_scores(directory):
         HEADERS = ["Score", "Decision"]
         if has_iterations:
             HEADERS.append("Iteration")
-        HEADERS.extend(["H1", "H2", "Neither", "Both", "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2"])
+        HEADERS.extend([
+            "support_H1", "refute_H1", "inconclusive_H1",
+            "support_H2", "refute_H2", "inconclusive_H2",
+            "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2",
+        ])
 
     # Build list of (iteration_value, results_dir) to scan
     targets = []
@@ -93,19 +97,15 @@ def extract_and_write_scores(directory):
                         score = result_entry.get("score", "")
                         decision = result_entry.get("decision", "")
                         tallies = result_entry.get("tallies", {}) or {}
-                        count_h1 = to_int(tallies.get("support_H1", 0))
-                        count_h2 = to_int(tallies.get("support_H2", 0))
-                        count_neither = to_int(tallies.get("neither_or_inconclusive", 0))
                         per_abs = result_entry.get("per_abstract", []) or []
                         if not isinstance(per_abs, list):
                             per_abs = []
-                        if "both" in tallies and tallies.get("both") is not None:
-                            count_both = to_int(tallies.get("both"), 0)
-                        else:
-                            try:
-                                count_both = sum(1 for it in per_abs if isinstance(it, dict) and it.get("label") == "both")
-                            except Exception:
-                                count_both = 0
+                        sup_h1 = to_int(tallies.get("support_H1", 0))
+                        ref_h1 = to_int(tallies.get("refute_H1", 0))
+                        inc_h1 = to_int(tallies.get("inconclusive_H1", 0))
+                        sup_h2 = to_int(tallies.get("support_H2", 0))
+                        ref_h2 = to_int(tallies.get("refute_H2", 0))
+                        inc_h2 = to_int(tallies.get("inconclusive_H2", 0))
                         total_relevant = rec.get("total_relevant_abstracts")
                         if not isinstance(total_relevant, int):
                             total_relevant = len(per_abs)
@@ -114,10 +114,8 @@ def extract_and_write_scores(directory):
                         if has_iterations:
                             row.append(str(iter_value))
                         row.extend([
-                            str(count_h1),
-                            str(count_h2),
-                            str(count_neither),
-                            str(count_both),
+                            str(sup_h1), str(ref_h1), str(inc_h1),
+                            str(sup_h2), str(ref_h2), str(inc_h2),
                             str(total_relevant),
                             str(hypothesis1),
                             str(hypothesis2),

@@ -499,7 +499,10 @@ def _validate_payload(
     # Validate tallies depending on mode
     tallies = payload.get("tallies", {})
     if config.is_dch:
-        required_tallies = ["support_H1", "support_H2", "both", "neither_or_inconclusive"]
+        required_tallies = [
+            "support_H1", "refute_H1", "inconclusive_H1",
+            "support_H2", "refute_H2", "inconclusive_H2",
+        ]
     else:
         required_tallies = ["support", "refute", "inconclusive"]
 
