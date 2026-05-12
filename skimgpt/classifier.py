@@ -506,3 +506,29 @@ def _validate_payload(
     for tally_key in required_tallies:
         if tally_key not in tallies:
             raise ValueError(f"Missing required tally '{tally_key}' in model output.")
+
+    # DCH consistency: tallies MUST equal the per_abstract label counts. The
+    # prompt asks for this explicitly but unguarded LLM responses drift by
+    # ±1-2 per bucket on roughly half of payloads (measured against
+    # SKiM_web's km_query 26 in 2026-05). Failing here triggers the caller's
+    # retry loop, which is cheap relative to silently shipping mis-tallied
+    # results downstream.
+    if config.is_dch:
+        per_abstract = payload.get("per_abstract", []) or []
+        counts = {"support_H1": 0, "support_H2": 0, "both": 0, "neither_or_inconclusive": 0}
+        for entry in per_abstract:
+            label = (entry.get("label") if isinstance(entry, dict) else "") or ""
+            if label == "supports_H1":
+                counts["support_H1"] += 1
+            elif label == "supports_H2":
+                counts["support_H2"] += 1
+            elif label == "both":
+                counts["both"] += 1
+            elif label in ("neither", "inconclusive"):
+                counts["neither_or_inconclusive"] += 1
+        for k, expected in counts.items():
+            actual = int(tallies.get(k, 0) or 0)
+            if actual != expected:
+                raise ValueError(
+                    f"Tally '{k}' = {actual} does not match per_abstract count {expected}."
+                )

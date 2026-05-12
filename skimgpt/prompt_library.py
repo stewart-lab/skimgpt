@@ -50,15 +50,93 @@ Biomedical Abstracts (verbatim):
 
 Available PMIDs for citation: {pmid_list}
 
-Task:
-Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above that mention terms relevant to either hypothesis. 
-Classify each abstract, produce tallies, assign a continuous 0–100 score, and choose a decision.
-
 Hypothesis 1:
 {hypothesis_1}
 
 Hypothesis 2:
 {hypothesis_2}
+
+Task:
+Compare Hypothesis 1 vs Hypothesis 2 using ONLY the abstracts above. Assign each abstract
+a SINGLE label from {{supports_H1, supports_H2, both, neither, inconclusive}}. Then produce
+the 4-key tally, assign a continuous 0–100 score, and choose a decision.
+
+Label definitions — read these carefully, they are the most common source of error:
+
+  • supports_H1 — the abstract presents evidence that directly aligns with Hypothesis 1
+    AS STATED, including its causal direction. Reporting that the relationship is widely
+    discussed, believed, hypothesized, or feared is NOT support — only evidence that the
+    claim itself holds.
+
+  • supports_H2 — same standard as supports_H1, but for Hypothesis 2.
+
+  • both — independent evidence in the abstract aligns with each hypothesis. This is rare
+    and should only be used when the abstract makes affirmative claims that match each
+    hypothesis's direction. Do not use 'both' for abstracts that merely mention both topics.
+
+  • neither — the abstract addresses the topic but the evidence does NOT support either
+    hypothesis as stated. Use this when:
+      – the abstract reports the OPPOSITE causal direction to a hypothesis (a treatment
+        study showing "X reduces Y" does not support "X causes Y" — label it neither);
+      – the abstract reports beliefs, opinions, surveys, attitudes, perceptions, fears,
+        or media coverage about a claim rather than evidence of the claim ("N% of parents
+        believe X causes Y" is NOT evidence that X causes Y);
+      – the abstract co-mentions the terms without endorsing either causal claim.
+
+  • inconclusive — the abstract does not bear on either hypothesis, or its evidence is
+    genuinely ambiguous / mixed.
+
+Instructions:
+1. For each abstract, decide on a single label by asking, in order:
+   (a) Is there direct evidence aligning with H1 in the stated direction? With H2?
+   (b) If yes to both independently, label = both.
+   (c) If yes to exactly one, label = supports_H1 or supports_H2.
+   (d) If the abstract addresses the topic but the evidence does NOT support either
+       hypothesis (opposite direction, belief/attitude reporting, topical co-mention
+       without endorsement) — label = neither.
+   (e) Otherwise — label = inconclusive.
+2. Topical match alone is NOT support. An abstract that mentions both terms in a
+   hypothesis but does not affirmatively assert the causal claim is at best inconclusive,
+   and is neither when it addresses the topic without endorsing the claim.
+3. Assess directionality. A treatment study showing "X reduces / inhibits / suppresses Y"
+   does NOT support "X causes Y" — they are opposite causal directions; label that
+   abstract neither (or supports_H2 only if H2 is the opposite causal claim).
+4. Most abstracts come from a single B-term's intersection list and will not bear on the
+   other hypothesis. That alone does not make them supports_H1 or supports_H2 — apply the
+   same evidence standard to the hypothesis they do address.
+5. Cite only PMIDs from the list above when justifying your labels in evidence and
+   score_rationale. Do not reference outside literature.
+
+Worked examples:
+
+  • Hypotheses: H1 = "{{a_term}} is caused by inhibition of {{b_term1}}",
+               H2 = "{{a_term}} is caused by inhibition of {{b_term2}}".
+    Abstract (paraphrased): "Compound X inhibits {{b_term1}} and reduces {{a_term}} growth
+    in xenograft models, supporting {{b_term1}} inhibition as a therapeutic strategy."
+    Correct label: neither.
+    Why: the study shows that inhibiting {{b_term1}} REDUCES {{a_term}} — the opposite of
+    H1's "inhibition of {{b_term1}} CAUSES {{a_term}}". It does not address {{b_term2}}.
+
+  • Same hypotheses.
+    Abstract (paraphrased): "{{b_term1}} and {{b_term2}} are both expressed in {{a_term}}
+    cell lines; the abstract reports expression levels but no functional or causal claim."
+    Correct label: inconclusive.
+    Why: topical co-mention without any causal evidence.
+
+  • Hypothesis 1: "Autism is caused by Genetic predisposition";
+    Hypothesis 2: "Autism is caused by Vaccines".
+    Abstract (paraphrased): "16.5% of caregivers in a parent survey endorsed vaccines as
+    perceived causes of autism; we analyse demographic correlates of this belief."
+    Correct label: neither.
+    Why: the abstract reports BELIEFS about a causal claim, not evidence for it. Belief-
+    prevalence surveys, attitude studies, and media-coverage analyses are not evidence of
+    causation — they are evidence about what people think.
+
+  • Same hypotheses.
+    Abstract (paraphrased): "Whole-exome sequencing identifies de novo loss-of-function
+    variants in CHD8 enriched in autism probands relative to unaffected siblings."
+    Correct label: supports_H1.
+    Why: direct genetic evidence aligned with H1's causal direction.
 
 Continuous Scoring Guidelines (0–100):
 {sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}
@@ -440,15 +518,33 @@ def km_with_gpt_direct_comp_json_schema():
 def km_with_gpt_direct_comp_system_instructions():
     return """\
 You compare two competing biomedical hypotheses using ONLY the provided PubMed abstracts.
+
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
 - Ground the output with evidence extracted from the abstracts (≤300 chars each).
 - Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
 - Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
-- Tally counts as requested: number supporting Hypothesis 1, number supporting Hypothesis 2, number supporting both, and number that support neither or are inconclusive.
-- Labels per abstract: supports_H1, supports_H2, both, neither, inconclusive.
-- The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+
+Per-abstract labeling — a single label per abstract from
+{supports_H1, supports_H2, both, neither, inconclusive}:
+- supports_H1: the abstract's evidence directly aligns with Hypothesis 1 AS STATED, including its causal direction.
+- supports_H2: the abstract's evidence directly aligns with Hypothesis 2 AS STATED, including its causal direction.
+- both: independent evidence in the abstract aligns with both H1 and H2 — rare; use only for genuine dual-support, not for topical co-mention.
+- neither: the abstract addresses the topic but the evidence does NOT support either hypothesis. This is the correct label for:
+    (a) evidence in the opposite causal direction (a treatment study showing "X reduces Y" does not support "X causes Y" — label it neither);
+    (b) reports of beliefs, opinions, surveys, attitudes, perceptions, fears, or media coverage about a claim rather than evidence of the claim ("N% of parents believe X causes Y" is NOT evidence that X causes Y — label it neither);
+    (c) topical co-mention without affirmative endorsement of either claim.
+- inconclusive: the abstract does not bear on either hypothesis, or its evidence is genuinely ambiguous / mixed.
+- IMPORTANT: topical match alone is NOT supports. Apply the same evidence standard whether the abstract came from H1's intersection list or H2's. Do not collapse refute-shaped evidence (opposite causal direction) into 'supports' for the other hypothesis unless that other hypothesis is itself the opposite causal claim.
+
+Tallies — four counts, equal to the number of per_abstract entries with each label
+(neither_or_inconclusive merges 'neither' and 'inconclusive'):
+- support_H1, support_H2, both, neither_or_inconclusive.
+- The four tallies MUST sum to the total number of abstracts (len(per_abstract)).
+- support_H1 = count of entries with label == "supports_H1"; support_H2 = count of "supports_H2"; both = count of "both"; neither_or_inconclusive = count of "neither" + count of "inconclusive".
+
+The final 'decision' is one of: H1, H2, tie, insufficient_evidence; choose based on the scoring guidelines and the provided evidence set only.
 """
 
 
