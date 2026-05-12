@@ -1,0 +1,35 @@
+{
+  "description": "Clean positive controls — abstracts with direct biomedical evidence aligned with one hypothesis. Guards against the prompt becoming so cautious that it labels everything 'neither'.",
+  "hypothesis_1": "Autism is caused by Genetic predisposition.",
+  "hypothesis_2": "Autism is caused by Vaccines.",
+  "items": [
+    {
+      "pmid": "EXAMPLE_GENETIC_1",
+      "title": "De novo CHD8 loss-of-function variants in autism",
+      "abstract_excerpt": "Whole-exome sequencing across 2,500 trios identifies de novo loss-of-function variants in CHD8 significantly enriched in autism probands relative to unaffected siblings (OR 12.5, p < 1e-6).",
+      "expected_label": "supports_H1",
+      "why": "Direct genetic evidence in autism cases — aligns with 'autism is caused by genetic predisposition'."
+    },
+    {
+      "pmid": "EXAMPLE_GENETIC_2",
+      "title": "Heritability of autism spectrum disorder in a Swedish twin cohort",
+      "abstract_excerpt": "MZ-DZ twin concordance analysis estimates ASD heritability at 0.83 (95% CI 0.79-0.87), with shared environmental factors contributing negligibly.",
+      "expected_label": "supports_H1",
+      "why": "Quantitative heritability evidence; direct biomedical evidence that genetic factors cause ASD."
+    },
+    {
+      "pmid": "EXAMPLE_TOPICAL_NULL",
+      "title": "Vaccine-coverage rates in autism families: a retrospective cohort",
+      "abstract_excerpt": "We compared vaccination coverage between 1,200 children with autism and 4,800 matched controls. Coverage was modestly lower in autism families (76% vs 81%, p = 0.02); no difference in vaccine timing was observed.",
+      "expected_label": "inconclusive",
+      "why": "Mentions both autism and vaccines but reports coverage rates, not causation. Does not bear on either hypothesis's causal claim."
+    },
+    {
+      "pmid": "EXAMPLE_REFUTE_DIRECTION",
+      "title": "Population-based study finds no association between MMR vaccination and autism risk",
+      "abstract_excerpt": "Cohort of 657,461 children; HR for ASD after MMR vaccination = 0.93 (95% CI 0.85-1.02). Stratification by autism susceptibility, age, and post-vaccination interval showed no signal.",
+      "expected_label": "neither",
+      "why": "Direct evidence AGAINST H2 (vaccines cause autism). The schema has no 'refutes' label, so refute-shaped evidence for H2 lands in 'neither' (it also does not provide evidence for H1)."
+    }
+  ]
+}
