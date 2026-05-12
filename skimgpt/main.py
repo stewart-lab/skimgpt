@@ -77,23 +77,31 @@ def organize_output(directory: Path) -> None:
     DEBUG_EXTENSIONS = (".tsv", ".log", ".err", ".sub", ".out")
     TOP_LEVEL_FILES = {"config.json", "results.tsv"}
 
-    # Move iteration directories into results/
-    for item in directory.iterdir():
-        if not (item.is_dir() and item.name.startswith("iteration_")):
+    # Move iteration_* directories into results/. The Triton path writes them
+    # at <directory>/iteration_N; the CHTC fallback receives them nested at
+    # <directory>/output/iteration_N because HTCondor's transfer_output_files
+    # brings the container's output/ dir back wholesale. Check both shapes so
+    # downstream classification sees a single canonical layout.
+    iteration_parents = [directory, directory / "output"]
+    for parent in iteration_parents:
+        if not parent.is_dir():
             continue
-        dest_path = results_dir / item.name
-        if dest_path.exists():
-            # Merge contents into existing destination
-            for src_file in item.rglob("*"):
-                if not src_file.is_file():
-                    continue
-                tgt = dest_path / src_file.relative_to(item)
-                tgt.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src_file), str(tgt))
-            shutil.rmtree(str(item), ignore_errors=True)
-        else:
-            shutil.move(str(item), str(dest_path))
-        logger.info(f"Moved {item.name} -> results/{item.name}")
+        for item in parent.iterdir():
+            if not (item.is_dir() and item.name.startswith("iteration_")):
+                continue
+            dest_path = results_dir / item.name
+            if dest_path.exists():
+                # Merge contents into existing destination
+                for src_file in item.rglob("*"):
+                    if not src_file.is_file():
+                        continue
+                    tgt = dest_path / src_file.relative_to(item)
+                    tgt.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(src_file), str(tgt))
+                shutil.rmtree(str(item), ignore_errors=True)
+            else:
+                shutil.move(str(item), str(dest_path))
+            logger.info(f"Moved {item.name} -> results/{item.name}")
 
     # Classify remaining files (skip results/ and debug/ subtrees)
     skip_prefixes = (str(results_dir.resolve()), str(debug_dir.resolve()))
