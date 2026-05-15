@@ -209,7 +209,20 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
                 "Missing 'ab_abstracts' or 'bc_abstracts'."
             )
             return [SCORE_NA_RESPONSE], "", urls
-        consolidated_abstracts = ab_abstracts + bc_abstracts
+        # Tag each pool with an explicit section header so the chain-extraction
+        # prompt knows which abstracts speak to A↔B vs B↔C. Without this the
+        # model sees a flat blob and has to infer pool from the term names —
+        # which it does badly, defaulting to "inconclusive" on most entries
+        # because no single abstract contains all three terms.
+        ab_header = (
+            f"\n=== AB POOL — each abstract relates {a_term} and {b_term} "
+            f"(does NOT contain {c_term}; that's expected) ===\n\n"
+        )
+        bc_header = (
+            f"\n=== BC POOL — each abstract relates {b_term} and {c_term} "
+            f"(does NOT contain {a_term}; that's expected) ===\n\n"
+        )
+        consolidated_abstracts = ab_header + ab_abstracts + bc_header + bc_abstracts
 
     elif relationship_type == "A_C":
         a_term = row.get("a_term", "")
@@ -328,6 +341,7 @@ def analyze_abstract_with_frontier_LLM(
         prompt_text,
         config,
         expected_per_abstract_count=final_expected_count,
+        relationship_type=relationship_type,
     )
     logger.debug(f"LLM response: {response}")
     result = [response] if response else []
@@ -397,15 +411,41 @@ def generate_prompt(
     return prompt_function(**kwargs)
 
 
-def _schema_for(config) -> dict | None:
-    """Return the JSON schema for the active job type, or None if no schema is registered."""
+def _schema_for(config, relationship_type: str | None = None) -> dict | None:
+    """Return the JSON schema for the active job type, or None if no schema is registered.
+
+    SKiM-GPT has two schemas: A-C (direct, single-label per abstract) and
+    A-B-C (mediated chain, per-abstract relation tuples). The caller must pass
+    `relationship_type` for SKiM so we pick the right one; for DCH and KM the
+    schema is unambiguous.
+    """
     if config.is_dch:
         return prompts_module.km_with_gpt_direct_comp_json_schema()
     if config.is_km_with_gpt:
         return prompts_module.km_with_gpt_json_schema()
     if config.is_skim_with_gpt:
+        if relationship_type == "A_B_C":
+            return prompts_module.skim_with_gpt_abc_json_schema()
+        # A_C or unspecified → direct-relationship schema (each abstract has both terms)
         return prompts_module.skim_with_gpt_json_schema()
     return None
+
+
+def _system_instructions_for(config, relationship_type: str | None = None) -> str:
+    """Return system instructions for the active job type + relationship_type.
+
+    Mirrors _schema_for's job/relationship branching so the system instructions
+    always match the schema being enforced via response_format.
+    """
+    if config.is_dch:
+        return prompts_module.km_with_gpt_direct_comp_system_instructions()
+    if config.is_km_with_gpt:
+        return prompts_module.km_with_gpt_system_instructions()
+    if config.is_skim_with_gpt:
+        if relationship_type == "A_B_C":
+            return prompts_module.skim_with_gpt_abc_system_instructions()
+        return prompts_module.skim_with_gpt_system_instructions()
+    raise ValueError(f"Unknown job type: {config.job_type}")
 
 
 def _supports_strict_structured_outputs(model: str) -> bool:
@@ -419,37 +459,45 @@ def _supports_strict_structured_outputs(model: str) -> bool:
     return model not in ("r1", "deepseek-reasoner")
 
 
-def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None):
-    """Call the OpenAI-compatible API, validate the JSON response, and retry on transient errors."""
+def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None,
+                     relationship_type: str | None = None):
+    """Call the OpenAI-compatible API, validate the JSON response, and retry on transient errors.
+
+    `relationship_type` lets SKiM-GPT distinguish A_C (direct) from A_B_C
+    (mediated chain) so the right schema and system instructions are sent.
+    """
     # Build messages with system + user for all models
+    system_instructions = _system_instructions_for(config, relationship_type)
     if config.is_dch:
-        system_instructions = prompts_module.km_with_gpt_direct_comp_system_instructions()
         irrelevant_label = "neither"
-    elif config.is_km_with_gpt:
-        system_instructions = prompts_module.km_with_gpt_system_instructions()
-        irrelevant_label = "inconclusive"
-    elif config.is_skim_with_gpt:
-        system_instructions = prompts_module.skim_with_gpt_system_instructions()
-        irrelevant_label = "inconclusive"
     else:
-        raise ValueError(f"Unknown job type: {config.job_type}")
+        # SKiM-ABC uses 'direction: absent' instead of an irrelevant_label,
+        # but keep the per-entry-must-appear guidance the same.
+        irrelevant_label = "inconclusive"
 
     messages = [{"role": "system", "content": system_instructions}]
     if expected_per_abstract_count is not None:
-        messages.append({
-            "role": "system",
-            "content": (
+        if config.is_skim_with_gpt and relationship_type == "A_B_C":
+            extra = (
+                f"You MUST return exactly {expected_per_abstract_count} items in the "
+                "per_abstract array — one entry per PMID across BOTH the AB and BC pools. "
+                "For abstracts that do not establish a directional relation between the "
+                "expected terms (topical co-mention, belief/survey, mixed/absent evidence), "
+                "set direction='absent' and supports_chain=false. Do not omit any."
+            )
+        else:
+            extra = (
                 f"You MUST return exactly {expected_per_abstract_count} items in the "
                 "per_abstract array. Include one entry per PMID listed. If an abstract "
                 f"is irrelevant, label it '{irrelevant_label}' but still include it. "
                 "Do not omit any."
-            ),
-        })
+            )
+        messages.append({"role": "system", "content": extra})
     messages.append({"role": "user", "content": prompt})
 
     model_name = "deepseek-reasoner" if config.model == "r1" else config.model
     use_strict = _supports_strict_structured_outputs(config.model)
-    schema = _schema_for(config) if use_strict else None
+    schema = _schema_for(config, relationship_type) if use_strict else None
 
     params: dict = {
         "messages": messages,
@@ -459,19 +507,27 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         # Strict mode forces the model output to conform to the JSON schema and
         # guarantees raw JSON (no Markdown fences). Schema declaration order is
         # the emission order, which we use as a CoT-forcing pattern in the DCH
-        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema).
+        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema)
+        # and in SKiM-ABC's `expected_chain` → `per_abstract` ordering
+        # (see prompt_library.skim_with_gpt_abc_json_schema).
+        schema_name = f"{config.job_type}_evaluation"
+        if config.is_skim_with_gpt and relationship_type:
+            schema_name = f"{config.job_type}_{relationship_type.lower()}_evaluation"
         params["response_format"] = {
             "type": "json_schema",
             "json_schema": {
-                "name": f"{config.job_type}_evaluation",
+                "name": schema_name,
                 "strict": True,
                 "schema": schema,
             },
         }
-    if config.is_dch and use_strict:
-        # DCH is the highest-stakes call type — competing hypotheses, direction-aware
-        # reasoning, belief-vs-evidence distinctions. Burn the extra reasoning budget.
-        # Single-hypothesis KM/SKiM-GPT calls stay at the default.
+    # High reasoning effort on the high-stakes evaluations: DCH (competing
+    # hypotheses) and SKiM-ABC (chain composition across two pools). Direct-
+    # relationship KM and SKiM-AC stay at the default.
+    if use_strict and (
+        config.is_dch
+        or (config.is_skim_with_gpt and relationship_type == "A_B_C")
+    ):
         params["reasoning_effort"] = "high"
 
     def _attempt():
@@ -496,7 +552,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
             payload = json.loads(content)
         else:
             payload = extract_json_from_markdown(content)
-        _validate_payload(payload, config, expected_per_abstract_count)
+        _validate_payload(payload, config, expected_per_abstract_count, relationship_type)
         return payload
 
     def _on_non_retryable(exc: BaseException, attempt: int) -> None:
@@ -526,13 +582,22 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
 
 
 def _validate_payload(
-    payload: dict, config: Config, expected_per_abstract_count: int | None
+    payload: dict, config: Config, expected_per_abstract_count: int | None,
+    relationship_type: str | None = None,
 ) -> None:
     """Validate that the parsed LLM payload contains all required fields.
 
     Raises ValueError on validation failure so the retry loop can catch it.
+
+    SKiM-ABC has a different shape from KM/SKiM-AC/DCH — it carries an
+    `expected_chain` block and per-leg tallies. `relationship_type` lets the
+    validator branch on that variant.
     """
+    is_skim_abc = config.is_skim_with_gpt and relationship_type == "A_B_C"
+
     required_fields = ["per_abstract", "score_rationale", "tallies", "score", "decision"]
+    if is_skim_abc:
+        required_fields = ["expected_chain"] + required_fields
     for key in required_fields:
         if key not in payload:
             raise ValueError(f"Missing required field '{key}' in model output.")
@@ -550,6 +615,12 @@ def _validate_payload(
     tallies = payload.get("tallies", {})
     if config.is_dch:
         required_tallies = ["support_H1", "support_H2", "both", "neither_or_inconclusive"]
+    elif is_skim_abc:
+        required_tallies = [
+            "ab_establishes_leg", "ab_opposes_leg",
+            "bc_establishes_leg", "bc_opposes_leg",
+            "irrelevant",
+        ]
     else:
         required_tallies = ["support", "refute", "inconclusive"]
 
@@ -557,7 +628,7 @@ def _validate_payload(
         if tally_key not in tallies:
             raise ValueError(f"Missing required tally '{tally_key}' in model output.")
 
-    # DCH consistency: tallies MUST equal the per_abstract label counts. The
+    # Per-mode consistency: tallies MUST equal the per_abstract counts. The
     # prompt asks for this explicitly but unguarded LLM responses drift by
     # ±1-2 per bucket on roughly half of payloads (measured against
     # SKiM_web's km_query 26 in 2026-05). Failing here triggers the caller's
@@ -576,6 +647,39 @@ def _validate_payload(
                 counts["both"] += 1
             elif label in ("neither", "inconclusive"):
                 counts["neither_or_inconclusive"] += 1
+        for k, expected in counts.items():
+            actual = int(tallies.get(k, 0) or 0)
+            if actual != expected:
+                raise ValueError(
+                    f"Tally '{k}' = {actual} does not match per_abstract count {expected}."
+                )
+    elif is_skim_abc:
+        # Reconstruct per-leg counts from per_abstract relations. The model's
+        # `direction` and `supports_chain` fields drive bucket assignment:
+        #   - direction == 'absent'              -> irrelevant
+        #   - supports_chain == true             -> {ab,bc}_establishes_leg
+        #   - supports_chain == false (not absent) -> {ab,bc}_opposes_leg
+        per_abstract = payload.get("per_abstract", []) or []
+        counts = {
+            "ab_establishes_leg": 0, "ab_opposes_leg": 0,
+            "bc_establishes_leg": 0, "bc_opposes_leg": 0,
+            "irrelevant": 0,
+        }
+        for entry in per_abstract:
+            if not isinstance(entry, dict):
+                continue
+            pool = (entry.get("pool") or "").upper()
+            direction = (entry.get("direction") or "").lower()
+            supports = bool(entry.get("supports_chain"))
+            if direction == "absent":
+                counts["irrelevant"] += 1
+            elif pool == "AB":
+                counts["ab_establishes_leg" if supports else "ab_opposes_leg"] += 1
+            elif pool == "BC":
+                counts["bc_establishes_leg" if supports else "bc_opposes_leg"] += 1
+            else:
+                # Unknown pool — treat as irrelevant rather than crash.
+                counts["irrelevant"] += 1
         for k, expected in counts.items():
             actual = int(tallies.get(k, 0) or 0)
             if actual != expected:

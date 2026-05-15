@@ -269,193 +269,64 @@ Output policy:
 
 
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
+    """User prompt for SKiM A-B-C (mediated) chain evaluation.
+
+    Walks the model through the chain-composition task: extract a directional
+    relation from each abstract within its pool, judge whether that relation
+    fits its leg of the chain, and synthesise the leg verdicts into an overall
+    chain decision. No single abstract contains all three terms — that's the
+    whole point of LBD — so per-abstract "supports A↔C" is a meaningless
+    question; per-abstract "establishes its leg of the chain" is the right one.
+    """
     pmid_list = extract_pmids(consolidated_abstracts)
 
-    return f"""Biomedical Abstracts for Analysis:
+    return f"""Biomedical Abstracts for Analysis (pre-tagged into AB and BC pools):
 {consolidated_abstracts}
 
 Available PMIDs for Citation: {pmid_list}
 
-Assessment Task:
-Evaluate the degree of support for the hypothesis, which posits an interaction between {a_term} and {c_term} through their own interactions with {b_term}. Use only the provided abstracts from PubMed, each containing only two of the three terms at a time ({a_term} + {b_term}, or {b_term} + {c_term}), to inform your analysis.
-
-IMPORTANT: You must only cite PMIDs that are explicitly provided in the abstracts above. Do not reference or cite any external literature or PMIDs not in the list above.
-
-Your evaluation should:
-
-- **Integrate evidence from all abstracts** to discern how {a_term}, {b_term}, and {c_term} might be interconnected.
-
-- **Assess the directionality and nature of each interaction** (e.g., activation, inhibition, reactivation) to determine whether it **aligns with** or **contradicts** the hypothesis.
-
-- **Identify and analyze any opposing mechanisms** where one interaction may negate the effects of another.
-
-- **Employ logical reasoning**, drawing logical inferences where appropriate, based on {a_term}-{b_term} and {b_term}-{c_term} interactions.
-
-- **Assess the nature and directionality of the interactions**, determining whether they are beneficial or detrimental to the proposed outcome in the hypothesis.
-
-- **Be vigilant for any evidence that contradicts or challenges the hypothesis**, explicitly addressing any contradictions in your reasoning.
-
-- **Avoid inferring effects not supported by the texts**, ensuring that all conclusions are grounded in the provided information.
-
-- **Ensure that your scoring reflects an unbiased assessment based solely on the provided evidence**, considering logical inferences from indirect evidence.
-
-- **When citing evidence, use the PMID format (e.g., "PMID: 12345678") and only cite PMIDs from the list above.**
-
-**Examples:**
-
-- **Example 1: Strong Positive Outcome**
-
-  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
-
-  - **Evidence:**
-
-    - Multiple abstracts show that {c_term} **inhibits** {b_term}.
-
-    - Inhibition of {b_term} significantly **improves** {a_term} in various contexts.
-
-  - **Logical Conclusion:**
-
-    - Since {c_term} inhibits {b_term}, and inhibition of {b_term} improves {a_term}, there is strong, consistent indirect evidence supporting the hypothesis.
-
-  - **Scoring:**
-
-    - The interactions are consistent and beneficial.
-
-    - **Assigned Score:** **+2**
-
-- **Example 2: Likely Positive Outcome**
-
-  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
-
-  - **Evidence:**
-
-    - Some abstracts suggest that {c_term} **may activate** {b_term}.
-
-    - Activation of {b_term} **might improve** {a_term}, but evidence is limited or not robust.
-
-  - **Logical Conclusion:**
-
-    - There is evidence indicating potential beneficial interactions, but some uncertainty exists due to limited data or minor contradictions.
-
-  - **Scoring:**
-
-    - The hypothesis is likely supported by the evidence.
-
-    - **Assigned Score:** **+1**
-
-- **Example 3: Neutral Outcome**
-
-  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
-
-  - **Evidence:**
-
-    - Abstracts provide insufficient or inconclusive information about the interactions.
-
-    - Evidence might be mixed or does not directly relate to the hypothesis.
-
-  - - **Logical Conclusion:**
-
-    - There is not enough evidence to support or refute the hypothesis.
-
-  - **Scoring:**
-
-    - The evidence is inconclusive.
-
-    - **Assigned Score:** **0**
-
-- **Example 4: Likely Negative Outcome**
-
-  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
-
-  - **Evidence:**
-
-    - Some abstracts indicate that {c_term} **activates** {b_term}.
-
-    - Activation of {b_term} **may worsen** {a_term}, but evidence is limited or not definitive.
-
-  - **Logical Conclusion:**
-
-    - There is moderate indication that the interactions may be detrimental to the proposed outcome, but some uncertainty or exceptions exist.
-
-  - **Scoring:**
-
-    - The hypothesis is likely refuted based on the evidence.
-
-    - **Assigned Score:** **-1**
-
-- **Example 5: Strong Negative Outcome**
-
-  - **Hypothesis:** {c_term} treats {a_term} through {b_term}.
-
-  - **Evidence:**
-
-    - Multiple abstracts consistently show that {c_term} **inhibits** {b_term}.
-
-    - Inhibition of {b_term} **clearly worsens** {a_term} across various studies.
-
-    - No evidence suggests any interaction aligns with supporting the hypothesis.
-
-  - **Logical Conclusion:**
-
-    - Since {c_term} inhibits {b_term}, and inhibition of {b_term} worsens {a_term}, the hypothesis is clearly refuted by strong, consistent evidence.
-
-  - **Scoring:**
-
-    - The interactions do not align with supporting the hypothesis.
-
-    - **Assigned Score:** **-2**
-
-Your goal is to determine the degree of support for the hypothesis:
-
+Hypothesis under evaluation:
 {hypothesis_template}
 
-**Instructions:**
+Terms:
+- A = {a_term}
+- B = {b_term}  (the mediator)
+- C = {c_term}
 
-1. **Review each abstract** to understand how {a_term}, {b_term}, and {c_term} might be interconnected based on the available information.
+Task — chain extraction and composition:
 
-2. **Identify and assess the nature of each interaction** between the terms (e.g., activation, inhibition, reactivation).
+The abstracts above are pre-divided into two pools (look for "=== AB POOL ===" and "=== BC POOL ===" section headers):
 
-3. **Determine whether each interaction aligns with or contradicts the hypothesis** based on its nature:
-   
-   - **Alignment:** Interactions that **support** the hypothesis (e.g., inhibition of {b_term} by {c_term} leading to improvement in {a_term}).
-   
-   - **Contradiction:** Interactions that **oppose** the hypothesis (e.g., activation or reactivation of {b_term} by {c_term} leading to worsening of {a_term}).
+  • AB POOL: abstracts that mention {a_term} and {b_term}. These can only speak to the A↔B leg of the chain. They never contain {c_term}; that's expected, not a deficiency.
+  • BC POOL: abstracts that mention {b_term} and {c_term}. These can only speak to the B↔C leg. They never contain {a_term}; expected.
 
-4. **Synthesize the findings from multiple abstracts**, considering how the interactions fit together to support or refute the hypothesis: {hypothesis_template}.
+A single AB abstract cannot tell you whether the full chain A-B-C holds — but it can tell you whether the A-B leg is the right shape for the hypothesis. Same for BC. The chain verdict comes from COMPOSING the two legs.
 
-5. **Provide a justification for your scoring decision** based on the analysis. **Explain your reasoning step-by-step** in terms understandable to an undergraduate biochemist. Focus on:
-   
-   - **Explaining the logical connections and the directionality of relationships**.
-   
-   - **Determining whether the interactions support or contradict the hypothesis**, using indirect evidence and logical inferences.
-   
-   - **Assessing if the interactions are beneficial or detrimental** to the proposed outcome.
+Do (in this exact order):
 
-6. **Be vigilant for any evidence that contradicts or challenges the hypothesis**. Address any contradictions explicitly in your reasoning.
+1. State `expected_chain.ab_expectation` and `expected_chain.bc_expectation`. These describe what each leg must look like for the hypothesis to hold — derived FROM THE HYPOTHESIS TEXT, before reading any abstract. For "{c_term} treats {a_term} through {b_term}" the typical pattern is something like:
+   - ab_expectation: "{b_term} is elevated in / causes / worsens {a_term}" (so reducing B improves A)
+   - bc_expectation: "{c_term} decreases / inhibits {b_term}"
+   ...but read the hypothesis carefully; the direction can be the opposite (e.g. a protective intermediate).
 
-7. **Verify any assumptions about the roles and effects** of {a_term}, {b_term}, and {c_term} as presented in the abstracts. **Avoid inferring effects not supported by the texts**.
+2. For EACH abstract in EACH pool, emit a `per_abstract` entry:
+   - Echo `pmid` and `pool` (from the section header).
+   - Cite ≥1 short verbatim `evidence` quote from THIS abstract.
+   - Extract the directional relation: `subject`, `object`, `direction` (one of: increases, decreases, associated_with, no_effect, absent).
+   - Decide `supports_chain` — does this relation match the leg this pool is responsible for, in the direction your `expected_chain` says is needed?
 
-8. In your final assessment, **explicitly cite the scoring guideline** that corresponds to your conclusion. **Explain why the evidence meets the criteria for that specific score**.
+3. Tally per leg and synthesise. In `score_rationale`, at least one bullet must walk the chain explicitly, e.g.:
+   "BC abstracts establish {c_term} ↓ {b_term} (PMIDs X, Y); AB abstracts establish {b_term} ↑ {a_term} (PMIDs Z, W); composition supports {c_term} → ↓{b_term} → ↓{a_term} → hypothesis SUPPORTED."
 
-**Note:** Pay close attention to the nature of the interactions between entities. An interaction that **activates** a harmful process may be detrimental, while inhibition of a beneficial process may also be detrimental. **Consider whether such interactions contradict the hypothesis**.
+4. Final `score` (-2..+2) and `decision` per the scoring guidelines.
 
-**Definitions:**
+IMPORTANT — cite only PMIDs that appear in the abstracts above. Do not invent abstracts. Do not pull in external literature.
 
-- **Evidence:** Multiple sources agree and provide clear indications supporting a particular interaction and its effects.
-
-- **Contradictory Evidence:** Evidence that directly opposes the hypothesis, showing that the proposed mechanism of action does not produce the expected outcome.
-
-- **Directionality of Interaction:** The specific effect an interaction has (e.g., activation, inhibition, reactivation) and whether it supports or opposes the hypothesis.
-
-**Checklist Before Finalizing Your Response:**
-
-- Have you **addressed whether the interactions support or contradict the hypothesis**?
-
-- Have you **assessed if the interactions are beneficial or detrimental**?
-
-- Have you **explicitly cited the scoring guideline** that matches your conclusion?
-
-- Have you **explained why the evidence meets the criteria** for the assigned score?
+CRITICAL pitfalls to avoid:
+- An AB-pool abstract that doesn't mention {c_term} is NOT irrelevant — {c_term} ISN'T SUPPOSED to be there. Judge it on its A-B relation only.
+- A BC-pool abstract that doesn't mention {a_term} is NOT irrelevant — same reason.
+- An abstract that mentions a term but takes no position on its relation to another (review article, belief survey, topical co-mention) is `direction: absent`, NOT a supporting entry.
+- "May" / "could" / "has been suggested" language is weaker than direct findings — reflect that in `supports_chain` and in your score.
 
 **Scoring Guidelines:**
 {sg.abc_scoring_guidelines(a_term, b_term, c_term)}
@@ -463,7 +334,7 @@ Your goal is to determine the degree of support for the hypothesis:
 Output policy:
 - Return ONLY a single JSON object matching the schema below. The API's response_format guarantees raw JSON output; do NOT wrap it in Markdown code fences.
 - JSON schema (for reference; do not print this schema):
-{skim_with_gpt_json_schema()}
+{skim_with_gpt_abc_json_schema()}
 """
 
 
@@ -671,8 +542,15 @@ def skim_with_gpt_json_schema():
 
 
 def skim_with_gpt_system_instructions():
+    """System instructions for the SKiM A-C (direct) relationship evaluation.
+
+    Each abstract in this path contains BOTH the A and C terms, so the model can
+    judge per-abstract whether the abstract directly supports/refutes the A↔C
+    hypothesis. Same shape as KM.
+    """
     return """\
-You evaluate a single mediated biomedical hypothesis (AB/BC/AC as applicable) using ONLY the provided PubMed abstracts.
+You evaluate a single A-C biomedical hypothesis using ONLY the provided PubMed abstracts.
+Each provided abstract contains BOTH terms of the A-C hypothesis.
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
@@ -682,4 +560,166 @@ Rules:
 - Labels per abstract: supports, refutes, inconclusive.
 - Per-abstract reasoning order: cite `evidence` first (≥1 short quote, ≤300 chars), THEN pick the `label` that follows from the cited quote.
 - The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
+"""
+
+
+def skim_with_gpt_abc_json_schema():
+    """Schema for SKiM A-B-C (mediated) relationship evaluation.
+
+    Each abstract here is from EITHER the AB pool (contains A+B, never C) OR
+    the BC pool (contains B+C, never A). No single abstract can directly judge
+    the A↔C chain, so per-abstract output is a structured relation tuple
+    (subject, object, direction) the abstract DOES establish, plus a
+    `supports_chain` boolean indicating whether that relation fits the leg of
+    the chain that this pool is responsible for.
+
+    Schema-ordered CoT:
+      - `expected_chain` is emitted FIRST so the model commits to what
+        direction it expects for each leg of the hypothesis before judging any
+        abstract.
+      - Within each `per_abstract` item, fields are ordered so the model emits
+        evidence → relation extraction → chain alignment, in that order.
+
+    Strict mode requires every property to appear in `required` and every
+    nested object to set `additionalProperties: False`.
+    """
+    return {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "expected_chain": {
+            "type": "object",
+            "additionalProperties": False,
+            "description": "Before judging any abstract, state what each leg of the chain needs to look like for the hypothesis to hold.",
+            "properties": {
+                "ab_expectation": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "What relation between A and B would support the hypothesis? Describe direction (e.g. 'A is elevated when B is elevated', 'B causes A symptoms')."
+                },
+                "bc_expectation": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "description": "What relation between B and C would support the hypothesis? Describe direction (e.g. 'C decreases B', 'C inhibits B')."
+                }
+            },
+            "required": ["ab_expectation", "bc_expectation"]
+        },
+        "per_abstract": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "pool": {
+                        "type": "string",
+                        "enum": ["AB", "BC"],
+                        "description": "Echo the pool tag shown in the input section header for this abstract."
+                    },
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300},
+                        "minItems": 1,
+                        "description": "One or more short verbatim or near-verbatim quotes (≤300 chars) from THIS abstract that establish the relation. Cite quotes BEFORE extracting the relation."
+                    },
+                    "subject": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "The actor in the abstract's relation. Should be one of the three key terms (A, B, C) or a clear synonym used in the abstract."
+                    },
+                    "object": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "The term acted upon. Should be one of the three key terms or a clear synonym."
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["increases", "decreases", "associated_with", "no_effect", "absent"],
+                        "description": "How subject relates to object in this abstract. Use 'absent' if the abstract mentions the terms but takes no position on their relationship."
+                    },
+                    "supports_chain": {
+                        "type": "boolean",
+                        "description": "Given the abstract's pool and the expected_chain directions you stated above, does this extracted relation fit the leg of the chain this pool is responsible for? True = leg established; False = leg opposed or relation irrelevant."
+                    }
+                },
+                "required": ["pmid", "pool", "evidence", "subject", "object", "direction", "supports_chain"]
+            }
+        },
+        "score_rationale": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "maxLength": 1000,
+                "description": "Evidence-based rationale citing PMIDs, explaining how the per_abstract relations compose to support or refute the chain hypothesis. At least one rationale must explicitly walk the chain (e.g. 'BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z); therefore C↓B↑A => C may treat A')."
+            },
+            "minItems": 1,
+            "maxItems": 6
+        },
+        "tallies": {
+            "type": "object",
+            "additionalProperties": False,
+            "description": "Per-leg counts derived from per_abstract relations.",
+            "properties": {
+                "ab_establishes_leg": {"type": "integer", "minimum": 0, "description": "Count of AB-pool entries with supports_chain=true."},
+                "ab_opposes_leg":     {"type": "integer", "minimum": 0, "description": "Count of AB-pool entries with supports_chain=false AND direction != 'absent'."},
+                "bc_establishes_leg": {"type": "integer", "minimum": 0, "description": "Count of BC-pool entries with supports_chain=true."},
+                "bc_opposes_leg":     {"type": "integer", "minimum": 0, "description": "Count of BC-pool entries with supports_chain=false AND direction != 'absent'."},
+                "irrelevant":         {"type": "integer", "minimum": 0, "description": "Count of entries (any pool) with direction == 'absent'."}
+            },
+            "required": ["ab_establishes_leg", "ab_opposes_leg", "bc_establishes_leg", "bc_opposes_leg", "irrelevant"]
+        },
+        "score": {"type": "number", "minimum": -2, "maximum": 2},
+        "decision": {"type": "string", "enum": ["supports", "refutes", "insufficient_evidence"]}
+    },
+    "required": ["expected_chain", "per_abstract", "score_rationale", "tallies", "score", "decision"]
+    }
+
+
+def skim_with_gpt_abc_system_instructions():
+    """System instructions for the SKiM A-B-C (mediated) chain evaluation.
+
+    Tells the model: no abstract contains all three terms; you must extract a
+    directional relation from each abstract within its pool, then compose the
+    relations across pools into a chain verdict.
+    """
+    return """\
+You evaluate a MEDIATED biomedical hypothesis: term C affects term A through an intermediate term B (the chain C-B-A or A-B-C).
+
+CRITICAL — read this twice:
+- No single abstract in this batch contains all three terms. By construction, each abstract is from either the AB pool (contains A and B, never C) OR the BC pool (contains B and C, never A). The input is divided into "=== AB POOL ===" and "=== BC POOL ===" sections — every abstract is tagged.
+- The hypothesis can only be supported by COMPOSING evidence ACROSS abstracts. A single AB abstract establishes (or opposes) the A↔B leg; a single BC abstract establishes (or opposes) the B↔C leg. The full chain verdict comes from how those legs fit together.
+- Do NOT mark an abstract as supporting the chain merely because it mentions one or two of the three terms. Do NOT mark an abstract as opposing the chain merely because it doesn't discuss the missing third term. Judge each abstract on whether its EXTRACTED RELATION fits THAT POOL'S LEG of the chain.
+
+Output structure (the schema enforces emission order; commit to each field before the next):
+
+1. `expected_chain` — BEFORE looking at any abstract, state what each leg of the chain needs to look like for the hypothesis to hold:
+   - `ab_expectation`: the relation between A and B that the hypothesis requires (e.g. "B is elevated in patients with A" or "B causes A symptoms").
+   - `bc_expectation`: the relation between B and C that the hypothesis requires (e.g. "C decreases B" or "C inhibits B").
+   These come from the hypothesis text, not the abstracts.
+
+2. `per_abstract` — for EACH abstract in the batch (both pools), emit a structured relation tuple:
+   - `pmid`, `pool` (echo the pool tag from the section header).
+   - `evidence`: at least one short verbatim or near-verbatim quote from THIS abstract that bears on the relation. Cite the quote BEFORE you extract the relation.
+   - `subject`, `object`: the actor and target of the abstract's relation (one of A, B, C or a clear synonym used in the abstract).
+   - `direction`: how subject relates to object. One of:
+     • increases — subject elevates, activates, induces, promotes, or correlates positively with object.
+     • decreases — subject reduces, inhibits, suppresses, or correlates negatively with object.
+     • associated_with — non-directional correlation, comorbidity, or coexistence without a clear causal direction.
+     • no_effect — abstract reports the subject does NOT affect the object (a null result).
+     • absent — the abstract mentions the terms but takes no position on their relationship (topical co-mention, review, belief/opinion/survey).
+   - `supports_chain`: given the abstract's pool and your stated `expected_chain`, does this extracted relation fit the leg this pool is responsible for? Boolean.
+
+3. `tallies` — derived counts (the validator will check these against per_abstract):
+   - `ab_establishes_leg`, `ab_opposes_leg`, `bc_establishes_leg`, `bc_opposes_leg`, `irrelevant`.
+
+4. `score_rationale` — at least one rationale must explicitly walk the chain (e.g. "BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z, W); together C↓B↑A → C may treat A").
+
+5. `score` (-2..+2) and `decision` (supports/refutes/insufficient_evidence) per the scoring guidelines.
+
+Guardrails:
+- A BC-pool abstract with a clear C↓B relation establishes the BC leg; the absence of the A term in that abstract is EXPECTED and not grounds for marking it irrelevant.
+- A topical-co-mention (e.g. "X and Y have both been studied in patients with Z") is `direction: absent`, NOT a relation that supports the chain.
+- Belief/opinion/survey/media reports about a relation are `direction: absent`.
+- If you can't cite a quote that establishes a directional relation between two of the three terms, the entry is `direction: absent` and `supports_chain: false`.
 """
