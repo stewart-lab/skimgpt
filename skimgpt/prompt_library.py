@@ -35,7 +35,7 @@ Scoring Guidelines:
 {sg.ab_scoring_guidelines(a_term, b_term)}
 
 Output policy:
-- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- Return ONLY a single JSON object matching the schema below. The API's response_format guarantees raw JSON output; do NOT wrap it in Markdown code fences.
 - JSON schema (for reference; do not print this schema):
 {km_with_gpt_json_schema()}
 """
@@ -142,7 +142,7 @@ Continuous Scoring Guidelines (0–100):
 {sg.cont_ab_direct_comp_scoring_guidelines(hypothesis_1, hypothesis_2)}
 
 Output policy:
-- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- Return ONLY a single JSON object matching the schema below. The API's response_format guarantees raw JSON output; do NOT wrap it in Markdown code fences.
 - JSON schema (for reference; do not print this schema):
 {km_with_gpt_direct_comp_json_schema()}
 """
@@ -262,7 +262,7 @@ Your goal is to determine the degree of support for the hypothesis:
 {sg.ac_scoring_guidelines(a_term, c_term)}
 
 Output policy:
-- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- Return ONLY a single JSON object matching the schema below. The API's response_format guarantees raw JSON output; do NOT wrap it in Markdown code fences.
 - JSON schema (for reference; do not print this schema):
 {skim_with_gpt_json_schema()}
 """
@@ -461,13 +461,18 @@ Your goal is to determine the degree of support for the hypothesis:
 {sg.abc_scoring_guidelines(a_term, b_term, c_term)}
 
 Output policy:
-- Return ONLY a single JSON object matching the schema below, inside a ```json code block.
+- Return ONLY a single JSON object matching the schema below. The API's response_format guarantees raw JSON output; do NOT wrap it in Markdown code fences.
 - JSON schema (for reference; do not print this schema):
 {skim_with_gpt_json_schema()}
 """
 
 
 def km_with_gpt_direct_comp_json_schema():
+    # Property order matters: under OpenAI Structured Outputs strict mode the model
+    # emits fields in declaration order, which we use as a forcing function for
+    # chain-of-thought — `evidence` is committed BEFORE the collapsed `label`, so
+    # the bucket name has to follow from a cited quote rather than the other way
+    # around. Strict mode also requires every listed property to be in `required`.
     return {
     "type": "object",
     "additionalProperties": False,
@@ -479,16 +484,17 @@ def km_with_gpt_direct_comp_json_schema():
                 "additionalProperties": False,
                 "properties": {
                     "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300},
+                        "minItems": 1
+                    },
                     "label": {
                         "type": "string",
                         "enum": ["supports_H1","supports_H2","both","neither","inconclusive"]
                     },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
                 },
-                "required": ["pmid","label"]
+                "required": ["pmid","evidence","label"]
             }
         },
         "score_rationale": {
@@ -522,14 +528,17 @@ You compare two competing biomedical hypotheses using ONLY the provided PubMed a
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
-- Ground the output with evidence extracted from the abstracts (≤300 chars each).
-- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Output MUST be a single JSON object matching the required schema exactly. response_format guarantees raw JSON; do NOT wrap the output in Markdown code fences.
 - Follow the provided continuous scoring guidelines verbatim (0..100 scale). Do not derive or use any explicit scoring formula.
 
-Per-abstract labeling — a single label per abstract from
-{supports_H1, supports_H2, both, neither, inconclusive}:
-- supports_H1: the abstract's evidence directly aligns with Hypothesis 1 AS STATED, including its causal direction.
-- supports_H2: the abstract's evidence directly aligns with Hypothesis 2 AS STATED, including its causal direction.
+Per-abstract reasoning order — emit fields in the order the schema declares them; each field commits you before the next one:
+1. `pmid` — identifies the abstract.
+2. `evidence` — REQUIRED, at least one short verbatim or near-verbatim quote (≤300 chars each) from THIS abstract that bears on either hypothesis. Cite the quote BEFORE you pick a label, and pick the label that follows from the quote — not the other way around.
+3. `label` — one bucket from {supports_H1, supports_H2, both, neither, inconclusive}, picked on the basis of the evidence you just cited.
+
+Label definitions:
+- supports_H1: the cited evidence directly aligns with Hypothesis 1 AS STATED, including its causal direction.
+- supports_H2: the cited evidence directly aligns with Hypothesis 2 AS STATED, including its causal direction.
 - both: independent evidence in the abstract aligns with both H1 and H2 — rare; use only for genuine dual-support, not for topical co-mention.
 - neither: the abstract addresses the topic but the evidence does NOT support either hypothesis. This is the correct label for:
     (a) evidence in the opposite causal direction (a treatment study showing "X reduces Y" does not support "X causes Y" — label it neither);
@@ -537,6 +546,8 @@ Per-abstract labeling — a single label per abstract from
     (c) topical co-mention without affirmative endorsement of either claim.
 - inconclusive: the abstract does not bear on either hypothesis, or its evidence is genuinely ambiguous / mixed.
 - IMPORTANT: topical match alone is NOT supports. Apply the same evidence standard whether the abstract came from H1's intersection list or H2's. Do not collapse refute-shaped evidence (opposite causal direction) into 'supports' for the other hypothesis unless that other hypothesis is itself the opposite causal claim.
+
+Self-check before you finalise each entry: re-read your `evidence` quote. If you cannot defend the chosen `label` from that quote alone, change the label (most often to `neither` or `inconclusive`).
 
 Tallies — four counts, equal to the number of per_abstract entries with each label
 (neither_or_inconclusive merges 'neither' and 'inconclusive'):
@@ -560,16 +571,17 @@ def km_with_gpt_json_schema():
                 "additionalProperties": False,
                 "properties": {
                     "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300},
+                        "minItems": 1
+                    },
                     "label": {
                         "type": "string",
                         "enum": ["supports","refutes","inconclusive"]
                     },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
                 },
-                "required": ["pmid","label"]
+                "required": ["pmid","evidence","label"]
             }
         },
         "score_rationale": {
@@ -601,11 +613,11 @@ You evaluate a single biomedical hypothesis using ONLY the provided PubMed abstr
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
-- Ground the output with evidence extracted from the abstracts (≤300 chars each).
-- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Output MUST be a single JSON object matching the required schema exactly. response_format guarantees raw JSON; do NOT wrap the output in Markdown code fences.
 - Follow the provided discrete scoring guidelines verbatim (-2..+2). Do not derive or use any explicit scoring formula.
 - Tally counts as requested: number supporting, number refuting, and number that are inconclusive.
 - Labels per abstract: supports, refutes, inconclusive.
+- Per-abstract reasoning order: cite `evidence` first (≥1 short quote, ≤300 chars), THEN pick the `label` that follows from the cited quote.
 - The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """
 
@@ -622,16 +634,17 @@ def skim_with_gpt_json_schema():
                 "additionalProperties": False,
                 "properties": {
                     "pmid": {"type": "string", "pattern": "^[0-9]+$"},
+                    "evidence": {
+                        "type": "array",
+                        "items": {"type": "string", "maxLength": 300},
+                        "minItems": 1
+                    },
                     "label": {
                         "type": "string",
                         "enum": ["supports","refutes","inconclusive"]
                     },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300}
-                    },
                 },
-                "required": ["pmid","label"]
+                "required": ["pmid","evidence","label"]
             }
         },
         "score_rationale": {
@@ -663,10 +676,10 @@ You evaluate a single mediated biomedical hypothesis (AB/BC/AC as applicable) us
 Rules:
 - Use ONLY the provided abstracts. Do not use outside knowledge or any PMIDs not provided.
 - Every claim must map to at least one provided PMID from the input set.
-- Ground the output with evidence extracted from the abstracts (≤300 chars each).
-- Output MUST be a single JSON object, in a Markdown code block fenced with ```json, matching the required schema exactly.
+- Output MUST be a single JSON object matching the required schema exactly. response_format guarantees raw JSON; do NOT wrap the output in Markdown code fences.
 - Follow the provided discrete scoring guidelines verbatim (-2..+2). Do not derive or use any explicit scoring formula.
 - Tally counts as requested: number supporting, number refuting, and number that are inconclusive.
 - Labels per abstract: supports, refutes, inconclusive.
+- Per-abstract reasoning order: cite `evidence` first (≥1 short quote, ≤300 chars), THEN pick the `label` that follows from the cited quote.
 - The final 'decision' is one of: supports, refutes, insufficient_evidence; choose based on the guidelines and the provided evidence set only.
 """

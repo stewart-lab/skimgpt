@@ -1,3 +1,4 @@
+import json
 import logging
 import openai
 import re
@@ -396,6 +397,28 @@ def generate_prompt(
     return prompt_function(**kwargs)
 
 
+def _schema_for(config) -> dict | None:
+    """Return the JSON schema for the active job type, or None if no schema is registered."""
+    if config.is_dch:
+        return prompts_module.km_with_gpt_direct_comp_json_schema()
+    if config.is_km_with_gpt:
+        return prompts_module.km_with_gpt_json_schema()
+    if config.is_skim_with_gpt:
+        return prompts_module.skim_with_gpt_json_schema()
+    return None
+
+
+def _supports_strict_structured_outputs(model: str) -> bool:
+    """Whether to send `response_format=json_schema strict:true` for this model.
+
+    DeepSeek's r1 (deepseek-reasoner) does not honor OpenAI's structured-outputs
+    parameter; everything else we route to the OpenAI-compatible endpoint does
+    (GPT-5.x series, o-series). Default conservatively to true for OpenAI and
+    false for anything we map to deepseek.
+    """
+    return model not in ("r1", "deepseek-reasoner")
+
+
 def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None):
     """Call the OpenAI-compatible API, validate the JSON response, and retry on transient errors."""
     # Build messages with system + user for all models
@@ -424,10 +447,32 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         })
     messages.append({"role": "user", "content": prompt})
 
-    params = {
+    model_name = "deepseek-reasoner" if config.model == "r1" else config.model
+    use_strict = _supports_strict_structured_outputs(config.model)
+    schema = _schema_for(config) if use_strict else None
+
+    params: dict = {
         "messages": messages,
-        "model": "deepseek-reasoner" if config.model == "r1" else config.model,
+        "model": model_name,
     }
+    if schema is not None:
+        # Strict mode forces the model output to conform to the JSON schema and
+        # guarantees raw JSON (no Markdown fences). Schema declaration order is
+        # the emission order, which we use as a CoT-forcing pattern in the DCH
+        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema).
+        params["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": f"{config.job_type}_evaluation",
+                "strict": True,
+                "schema": schema,
+            },
+        }
+    if config.is_dch and use_strict:
+        # DCH is the highest-stakes call type — competing hypotheses, direction-aware
+        # reasoning, belief-vs-evidence distinctions. Burn the extra reasoning budget.
+        # Single-hypothesis KM/SKiM-GPT calls stay at the default.
+        params["reasoning_effort"] = "high"
 
     def _attempt():
         api_start = time.time()
@@ -438,14 +483,19 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         abstracts_count = expected_per_abstract_count or "N/A"
         logger.info(
             f"OpenAI API call completed in {api_duration:.2f}s "
-            f"(model={params['model']}, abstracts={abstracts_count}, tokens={total_tokens})"
+            f"(model={params['model']}, abstracts={abstracts_count}, tokens={total_tokens}, "
+            f"strict={schema is not None}, reasoning_effort={params.get('reasoning_effort','default')})"
         )
 
         content = resp.choices[0].message.content
         if not content:
             raise ValueError("Empty response content from API.")
 
-        payload = extract_json_from_markdown(content)
+        if schema is not None:
+            # Strict structured outputs returns raw JSON; no fences to strip.
+            payload = json.loads(content)
+        else:
+            payload = extract_json_from_markdown(content)
         _validate_payload(payload, config, expected_per_abstract_count)
         return payload
 
