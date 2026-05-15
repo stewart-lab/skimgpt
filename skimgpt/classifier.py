@@ -214,13 +214,18 @@ def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple
         # model sees a flat blob and has to infer pool from the term names —
         # which it does badly, defaulting to "inconclusive" on most entries
         # because no single abstract contains all three terms.
+        #
+        # Header marker uses ######## rather than === so it's visually
+        # distinct from the per-abstract `===END OF ABSTRACT===` delimiter
+        # (see skimgpt/utils.py::ABSTRACT_DELIMITER) — otherwise the model
+        # could misread our section header as an abstract-end marker.
         ab_header = (
-            f"\n=== AB POOL — each abstract relates {a_term} and {b_term} "
-            f"(does NOT contain {c_term}; that's expected) ===\n\n"
+            f"\n######## POOL: AB — each abstract relates {a_term} and {b_term} "
+            f"(does NOT contain {c_term}; that's expected) ########\n\n"
         )
         bc_header = (
-            f"\n=== BC POOL — each abstract relates {b_term} and {c_term} "
-            f"(does NOT contain {a_term}; that's expected) ===\n\n"
+            f"\n######## POOL: BC — each abstract relates {b_term} and {c_term} "
+            f"(does NOT contain {a_term}; that's expected) ########\n\n"
         )
         consolidated_abstracts = ab_header + ab_abstracts + bc_header + bc_abstracts
 
@@ -521,13 +526,13 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
                 "schema": schema,
             },
         }
-    # High reasoning effort on the high-stakes evaluations: DCH (competing
-    # hypotheses) and SKiM-ABC (chain composition across two pools). Direct-
-    # relationship KM and SKiM-AC stay at the default.
-    if use_strict and (
-        config.is_dch
-        or (config.is_skim_with_gpt and relationship_type == "A_B_C")
-    ):
+    # High reasoning effort on DCH (competing hypotheses, direction-aware,
+    # belief-vs-evidence) — low-volume, high-stakes. SKiM-ABC stays at the
+    # default ("medium") despite being a chain-composition workload: it's
+    # the highest-volume call path (rows × iterations), so the cost/latency
+    # math for "high" doesn't pencil out at scale. If chain-extraction
+    # quality is poor in prod, revisit per-job-type tuning.
+    if use_strict and config.is_dch:
         params["reasoning_effort"] = "high"
 
     def _attempt():
@@ -593,7 +598,7 @@ def _validate_payload(
     `expected_chain` block and per-leg tallies. `relationship_type` lets the
     validator branch on that variant.
     """
-    is_skim_abc = config.is_skim_with_gpt and relationship_type == "A_B_C"
+    is_skim_abc = getattr(config, "is_skim_with_gpt", False) and relationship_type == "A_B_C"
 
     required_fields = ["per_abstract", "score_rationale", "tallies", "score", "decision"]
     if is_skim_abc:

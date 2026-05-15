@@ -295,7 +295,7 @@ Terms:
 
 Task — chain extraction and composition:
 
-The abstracts above are pre-divided into two pools (look for "=== AB POOL ===" and "=== BC POOL ===" section headers):
+The abstracts above are pre-divided into two pools (look for "######## POOL: AB ########" and "######## POOL: BC ########" section headers — distinct from the per-abstract "===END OF ABSTRACT===" delimiter):
 
   • AB POOL: abstracts that mention {a_term} and {b_term}. These can only speak to the A↔B leg of the chain. They never contain {c_term}; that's expected, not a deficiency.
   • BC POOL: abstracts that mention {b_term} and {c_term}. These can only speak to the B↔C leg. They never contain {a_term}; expected.
@@ -327,6 +327,19 @@ CRITICAL pitfalls to avoid:
 - A BC-pool abstract that doesn't mention {a_term} is NOT irrelevant — same reason.
 - An abstract that mentions a term but takes no position on its relation to another (review article, belief survey, topical co-mention) is `direction: absent`, NOT a supporting entry.
 - "May" / "could" / "has been suggested" language is weaker than direct findings — reflect that in `supports_chain` and in your score.
+
+**Worked examples — what each score should look like at the chain level:**
+
+  • **Strong Positive (+2):** Multiple BC abstracts independently establish {c_term} ↓ {b_term} (or whichever direction the hypothesis requires). Multiple AB abstracts independently establish {b_term} ↑ {a_term} (or whichever direction). The two legs compose into a coherent {c_term} → {b_term} → {a_term} chain. No opposing-direction evidence in either pool.
+    score_rationale should read like: "BC abstracts establish C↓B (PMIDs X, Y, Z); AB abstracts establish B↑A (PMIDs P, Q); chain {c_term}↓{b_term}↑{a_term} supported."
+
+  • **Likely Positive (+1):** One leg of the chain is well-established (multiple supporting abstracts); the other leg has only suggestive evidence (a single supporting abstract, or hedged "may"/"could" language). Composition is plausible but not robust. No clear opposing-direction evidence.
+
+  • **Neutral / Inconclusive (0):** Both legs are mostly direction=absent — abstracts mention the terms but don't establish a directional relation in the leg's required direction. OR the legs contradict each other (e.g. half of BC abstracts show C↓B and the other half show C↑B with no clear winner). OR one leg has support and the other has no evidence at all.
+
+  • **Likely Negative (-1):** The chain composes in a direction OPPOSITE to what the hypothesis claims. E.g. BC abstracts establish C↑B (when the hypothesis needs C↓B), or AB abstracts establish B↓A (when the hypothesis needs B↑A). Evidence is suggestive but limited.
+
+  • **Strong Negative (-2):** Multiple abstracts in both pools independently establish the chain in the OPPOSITE direction to the hypothesis (e.g. {c_term} ↑ {b_term} AND {b_term} ↑ {a_term}, when the hypothesis claims {c_term} treats {a_term}). No abstracts support the hypothesis's required direction.
 
 **Scoring Guidelines:**
 {sg.abc_scoring_guidelines(a_term, b_term, c_term)}
@@ -687,7 +700,7 @@ def skim_with_gpt_abc_system_instructions():
 You evaluate a MEDIATED biomedical hypothesis: term C affects term A through an intermediate term B (the chain C-B-A or A-B-C).
 
 CRITICAL — read this twice:
-- No single abstract in this batch contains all three terms. By construction, each abstract is from either the AB pool (contains A and B, never C) OR the BC pool (contains B and C, never A). The input is divided into "=== AB POOL ===" and "=== BC POOL ===" sections — every abstract is tagged.
+- No single abstract in this batch contains all three terms. By construction, each abstract is from either the AB pool (contains A and B, never C) OR the BC pool (contains B and C, never A). The input is divided into "######## POOL: AB ########" and "######## POOL: BC ########" sections — every abstract is tagged. Do NOT confuse these section headers with the per-abstract delimiter "===END OF ABSTRACT===", which separates individual abstracts within a pool.
 - The hypothesis can only be supported by COMPOSING evidence ACROSS abstracts. A single AB abstract establishes (or opposes) the A↔B leg; a single BC abstract establishes (or opposes) the B↔C leg. The full chain verdict comes from how those legs fit together.
 - Do NOT mark an abstract as supporting the chain merely because it mentions one or two of the three terms. Do NOT mark an abstract as opposing the chain merely because it doesn't discuss the missing third term. Judge each abstract on whether its EXTRACTED RELATION fits THAT POOL'S LEG of the chain.
 
@@ -697,6 +710,7 @@ Output structure (the schema enforces emission order; commit to each field befor
    - `ab_expectation`: the relation between A and B that the hypothesis requires (e.g. "B is elevated in patients with A" or "B causes A symptoms").
    - `bc_expectation`: the relation between B and C that the hypothesis requires (e.g. "C decreases B" or "C inhibits B").
    These come from the hypothesis text, not the abstracts.
+   IF THE HYPOTHESIS TEXT LACKS EXPLICIT DIRECTIONAL LANGUAGE (e.g. it's just a list of terms, or uses vague phrasing like "are related"), state your best-inference `ab_expectation`/`bc_expectation` based on the most common biomedical interpretation — AND lower your confidence: push borderline per-abstract verdicts toward `direction: absent` and `supports_chain: false`, and lean toward a 0 / insufficient_evidence final score. Do not invent a strong directional claim that the user didn't make.
 
 2. `per_abstract` — for EACH abstract in the batch (both pools), emit a structured relation tuple:
    - `pmid`, `pool` (echo the pool tag from the section header).
