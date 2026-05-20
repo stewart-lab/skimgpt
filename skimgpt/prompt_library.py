@@ -375,11 +375,7 @@ def km_with_gpt_direct_comp_json_schema():
                     },
                     "label": {
                         "type": "string",
-                        "enum": ["supports", "refutes", "inconclusive"]
-                    },
-                    "H2_label": {
-                        "type": "string",
-                        "enum": ["supports", "refutes", "inconclusive"]
+                        "enum": ["supports_H1","supports_H2","both","neither","inconclusive"]
                     },
                 },
                 "required": ["pmid","evidence","label"]
@@ -395,17 +391,12 @@ def km_with_gpt_direct_comp_json_schema():
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "support_H1":      {"type": "integer", "minimum": 0},
-                "refute_H1":       {"type": "integer", "minimum": 0},
-                "inconclusive_H1": {"type": "integer", "minimum": 0},
-                "support_H2":      {"type": "integer", "minimum": 0},
-                "refute_H2":       {"type": "integer", "minimum": 0},
-                "inconclusive_H2": {"type": "integer", "minimum": 0}
+                "support_H1": {"type": "integer", "minimum": 0},
+                "support_H2": {"type": "integer", "minimum": 0},
+                "both": {"type": "integer", "minimum": 0},
+                "neither_or_inconclusive": {"type": "integer", "minimum": 0}
             },
-            "required": [
-                "support_H1", "refute_H1", "inconclusive_H1",
-                "support_H2", "refute_H2", "inconclusive_H2"
-            ]
+            "required": ["support_H1","support_H2","both","neither_or_inconclusive"]
         },
         "score": {"type": "number", "minimum": 0, "maximum": 100},
         "decision": {"type": "string", "enum": ["H1","H2","tie","insufficient_evidence"]}
