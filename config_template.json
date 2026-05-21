@@ -32,7 +32,7 @@
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
         "submit_host": "ap2002.chtc.wisc.edu",
-        "docker_image": "docker://stewartlab/skimgpt:2.0.5"
+        "docker_image": "docker://stewartlab/skimgpt:2.0.6"
     },
     "relevance_filter": {
         "SERVER_URL": "https://xdddev.chtc.io/triton",
