@@ -22,7 +22,7 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
     ```
 
  2. **Install Dependencies (with conda)**
-    Install the required packages using pip:
+    Install the required packages using pip (within repository directory):
     ```bash
     conda create --name {myenv} python>=3.10
     conda activate {myenv}
@@ -32,7 +32,7 @@ This repository provides tools to SKIM through PubMed abstracts to evalaute hypo
    
   3. **Environment Variables**
      Before running the script, ensure you have set up your environment variables. We recommend setting in your shell profile. You must source your shell profile after   setting 
-     the environment variables (Jack has our OpenAI and Pubmed keys in his .bashrc on the server FYI):
+     the environment variables:
      
     ```bash
       export OPENAI_API_KEY=your_api_key_here
@@ -95,6 +95,12 @@ This configuration file contains various settings for different job types. Below
 - `TRITON_MAX_WORKERS`: Maximum number of workers for Triton (e.g., `10`).
 - `TRITON_SHOW_PROGRESS`: Boolean to show progress for Triton (e.g., `true`).
 - `TRITON_BATCH_CHUNK_SIZE`: Batch chunk size for Triton (e.g., `null`).
+
+## HTCONDOR
+
+- `collector_host`: URL for CHTC server (e.g., "cm.chtc.wisc.edu")
+- `submit_host`: URL for CHTC submit node (e.g., "ap2002.chtc.wisc.edu")
+- `docker_image`: Docker image for skimgpt ("docker://stewartlab/skimgpt:2.0.1")
 
 ## Relevance Filter Settings
 
@@ -182,6 +188,22 @@ Use KM-GPT-DCH output results.tsv file where the tab-delimited file has the foll
   * both:                     number of abstracts supporting both hypotheses
   * neither_or_inconclusive:  number of abstracts not supporting either hypothesis
 
+### Running bayesian credible interval for one year
+
+bayes_ci_violinplot.py
+
+Arguments:
+  * <projpath> # directory where output directory for km-gpt-dch is that contains results.txt/results.tsv
+    
+To Run:
+```
+python bayes_ci_violinplot.py <projpath>
+```
+
+Output:
+
+* violin plot showing posterior distribution with bars for credible interval
+
 ### Running bayesian credible interval over multiple years 
 
 bayesian_ci.py
@@ -207,31 +229,19 @@ Output:
 
 * ribbon plot of scores across time where shaded region is the credible interval
 
-### Running bayesian credible interval for one year
-bayes_ci_violinplot.py
-
-Arguments:
-  * <projpath> # directory where output directory for km-gpt-dch is that contains results.txt/results.tsv
-    
-To Run:
-```
-python bayes_ci_violinplot.py <projpath>
-```
-
-Output:
-
-* violin plot showing posterior distribution with bars for credible interval
-
 # Running KM co-occurrence only
 
 The steps of KM are typically run from the command line. The first step involves querying a database to create co-occurrence numbers for statistical analysis.  We provide the output for this step for the three main historical hypotheses involving cervical cancer, scrapie, and peptic ulcer. All scripts, environmental variables, and example data are found in the skimgpt/visualization folder
 
-## Running KM/Skim Direct Hypothesis Comparison (DCH) only
+## Running KM/Skim Direct Hypothesis Comparison only
 
 ## Use web interface to run KM/Skim
+
+Check results for KM results, and download km_hyp.txt or skim_hyp.txt file	
+
 Output:
 * km_hyp.txt or skim_hyp.txt file
-* km_hyp.txt:
+* km_hyp.txt headers:
 
    * Date
    * A Term
@@ -245,7 +255,7 @@ Output:
    * AB Sort Ratio: ratio of AB counts/B counts
    * Total_count: count of all abstracts
 
-* skim_hyp.txt:
+* skim_hyp.txt headers:
 
    * Date
    * A Term
@@ -268,15 +278,16 @@ Output:
    * Total_count: count of all abstracts
    * FET_BC cutoff: fet p-value cutoff for B-C relationships
 
-## Run calculate stats on output of KM/Skim run
-* use calcStatsHyp1vsHyp2.py to calculate additional stats.
-* check calcStatsHyp1vsHyp2_commandLine.txt for arguments, flagged (-) arguments are optional.
+## Run calculate stats on output of KM/Skim run (km_hyp.txt or skim_hyp.txt file)
+
+* use hyp_stats.py to calculate additional stats.
+* check hyp_stats_commandline.txt for arguments, flagged (-) arguments are optional.
 ```
-python calcStatsHyp1vsHyp2.py <out dir> <input dir where km_hyp.txt or skim_hyp.txt is> "term1,term2" -out_dir_suf=<suffix for output dir>  -fetab=<FET cutoff for A-B> fetbc=<FET cutoff for B-C> -skip_skim
+python hyp_stats.py <out dir> <input dir where km_hyp.txt or skim_hyp.txt is> "term1,term2" -out_dir_suf=<suffix for output dir>  -fetab=<FET cutoff for A-B> fetbc=<FET cutoff for B-C> -skip_skim
 ```
 Example:
 ```
-python calcStatsHyp1VsHyp2.py out_stats_hrt_1990-2005 out_hyp_HRT_12312024/2024_12_31_10_23_21_HRT_1990_2005/ "hormone&therapy,tonsillectomy" -out_dir_suf=CVD_HT_Tonsil_fet0.05 -fetab=1 -fetbc=0.05 -skip_skim
+python hyp_stats.py out_stats_hrt_1990-2005 out_hyp_HRT_12312024/2024_12_31_10_23_21_HRT_1990_2005/ "hormone&therapy,tonsillectomy" -out_dir_suf=CVD_HT_Tonsil_fet0.05 -fetab=1 -fetbc=0.05 -skip_skim
 ```
 Output:
 
@@ -301,9 +312,10 @@ Output:
   lines from km_hyp.txt or skim_hyp.txt kept based on p-value cutoff
 
 ## Visualize stats
+
 * use plot_hyp_stats.py to show scatterplot of selected stat across years
 
-  Arguments:
+  Arguments: (also can check plot_hyp_stats_commandline.txt for arguments), (-) arguments are optional
 
   * <projpath> # directory where either km_hyp_stats.txt or skim_hyp_stats.txt is located
   * -datatype <km or skim> # which type of comparison to visualize (km or skim)
