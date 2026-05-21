@@ -24,9 +24,11 @@ RUN python3.10 -m pip install --upgrade pip
 
 WORKDIR /app
 
-# All dependencies in one layer. Includes vLLM (which pins compatible torch
-# and CUDA kernels), plus transformers + accelerate which skimgpt uses for
-# model loading. xformers removed — vLLM has its own attention kernels.
+# All dependencies in one layer. vLLM and transformers are PINNED to the
+# versions validated in production (the 2.0.4 / 2.0.5 images). Unbounded
+# `vllm>=0.6.0` pulled vllm 0.21 + torch 2.11+cu130, which silently mismatches
+# the CUDA 12.1 base image — caught after release; see v2.0.7 commit message.
+# xformers removed — vLLM has its own attention kernels.
 RUN pip install --no-cache-dir \
     "pandas>=1.3.0" \
     "numpy>=1.21.0" \
@@ -34,10 +36,10 @@ RUN pip install --no-cache-dir \
     "biopython>=1.79" \
     "requests>=2.25.0" \
     "tiktoken>=0.7.0" \
-    "vllm>=0.6.0" \
+    "vllm==0.9.1" \
     "htcondor>=24.0.0" \
-    "transformers" \
-    "accelerate"
+    "transformers==4.53.0" \
+    "accelerate==1.13.0"
 
 # Install skimgpt with --no-deps. All declared deps were installed above; this
 # avoids the duplicate-install bug in the previous Dockerfile where the `||`
