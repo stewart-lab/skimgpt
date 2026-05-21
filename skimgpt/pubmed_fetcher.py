@@ -6,6 +6,7 @@ import re
 import socket
 import time
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 
 from Bio import Entrez
@@ -175,46 +176,55 @@ class PubMedFetcher:
             default={},
         )
 
-    def fetch_abstracts(self, pmids: list[str]) -> dict[str, str]:
-        """Fetch abstracts for a list of PMIDs."""
+    def fetch_abstracts_iter(self, pmids: list[str]) -> Iterator[dict[str, str]]:
+        """Yield {pmid: content} dicts batch-by-batch as PubMed responds.
+
+        Used by pipelined callers that want to start downstream work (e.g.
+        Triton inference submission) as soon as the first batch lands rather
+        than waiting for the full fetch to complete.
+
+        Each yielded dict only contains PMIDs that pass the censor-year
+        bounds; out-of-range PMIDs are filtered per-batch to match the
+        all-at-once behaviour of ``fetch_abstracts``.
+        """
         pmids = self.validate_pmids(pmids)
         if not pmids:
             logger.error("No valid PMIDs to fetch.")
-            return {}
+            return
 
-        batches = self._batch_pmids(pmids)
-        abstract_dict = {}
+        lower = self.config.censor_year_lower
+        upper = self.config.censor_year_upper
 
-        for batch in batches:
+        for batch in self._batch_pmids(pmids):
             batch_result = self._fetch_batch(batch)
             if batch_result:
-                abstract_dict.update(
-                    dict(zip(batch_result["pmids"], batch_result["contents"]))
-                )
+                batch_dict = dict(zip(batch_result["pmids"],
+                                      batch_result["contents"]))
+                filtered = {
+                    pmid: content
+                    for pmid, content in batch_dict.items()
+                    if lower <= self.pmid_years.get(pmid, 0) <= upper
+                }
+                if filtered:
+                    yield filtered
             time.sleep(0.34)  # Rate limiting
+
+    def fetch_abstracts(self, pmids: list[str]) -> dict[str, str]:
+        """Fetch abstracts for a list of PMIDs (all-at-once convenience wrapper)."""
+        abstract_dict: dict[str, str] = {}
+        for batch_dict in self.fetch_abstracts_iter(pmids):
+            abstract_dict.update(batch_dict)
 
         if not abstract_dict:
             logger.error("No abstracts fetched successfully.")
             return {}
 
         logger.info(
-            f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs."
+            f"Successfully fetched abstracts for {len(abstract_dict)} PMIDs "
+            f"(censor years {self.config.censor_year_lower}-"
+            f"{self.config.censor_year_upper})."
         )
-
-        # Filter abstracts by publication year bounds
-        lower = self.config.censor_year_lower
-        upper = self.config.censor_year_upper
-        filtered_dict = {
-            pmid: content
-            for pmid, content in abstract_dict.items()
-            if lower <= self.pmid_years.get(pmid, 0) <= upper
-        }
-        logger.info(
-            f"Filtered {len(filtered_dict)}/{len(abstract_dict)} abstracts "
-            f"by publication year bounds ({lower}-{upper})"
-        )
-
-        return filtered_dict
+        return abstract_dict
 
     def _get_year_for_entry(self, entry: str) -> int:
         """Extract PMID from an entry and look up its publication year."""

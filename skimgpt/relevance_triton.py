@@ -1,5 +1,6 @@
 from __future__ import annotations
 import argparse
+import ast
 import logging
 import os
 import shutil
@@ -87,6 +88,29 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
     # Load before try/except so _run_chtc_fallback can use config.km_output_dir
     config.load_km_output(km_output_path)
 
+    # Loud warning when DEBUG=true is combined with a non-trivial batch.
+    # DEBUG flips max_tokens 1 -> MAX_COT_TOKENS (usually 500), which makes each
+    # request 10-20x slower and is the difference between a 2-minute run and a
+    # 30-minute one. Easy to leave on accidentally — diagnose-only flag.
+    if config.debug:
+        try:
+            total_pmids = sum(
+                len(ast.literal_eval(row)) for col in config.data.columns
+                if col.endswith("_pmid_intersection")
+                for row in config.data[col]
+            )
+        except Exception:
+            total_pmids = -1
+        if total_pmids < 0 or total_pmids > 200:
+            cot = config.filter_config.get("MAX_COT_TOKENS", 500)
+            logger.warning(
+                f"DEBUG=true with {total_pmids if total_pmids >= 0 else '?'} "
+                f"PMIDs to classify. Each request will generate up to {cot} "
+                f"tokens of chain-of-thought (vs 1 token in production). "
+                f"Expect ~{cot}x slower throughput. Set "
+                f"relevance_filter.DEBUG=false for production runs."
+            )
+
     try:
         # Initialize Triton client for inference
         logger.info("Initializing Triton client for remote inference...")
@@ -97,6 +121,12 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
                 temperature=config.filter_config["TEMPERATURE"],
                 top_p=config.filter_config["TOP_P"],
                 max_tokens=config.filter_config["MAX_COT_TOKENS"] if config.debug else 1,
+                # Streaming submits ~2-3k single-prompt calls per run. Real
+                # latency is 0.5-2s; the 300s default lets stale keep-alives
+                # wedge a worker for up to 15 min (3 retries × 300s). Tighten
+                # so a dead socket fails fast and the pool refreshes.
+                read_timeout=30,
+                max_retries=1,
             )
 
             if not model.check_server_health():
@@ -134,7 +164,16 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
                 batch_chunk_size=batch_chunk_size,
             )
 
-        run_relevance_pipeline(config, km_output_path, infer=triton_infer)
+        # Pipelined fetch+infer: PubMed batches feed Triton submissions as
+        # they land, overlapping ~30-40s of fetch wallclock with inference.
+        # `infer=triton_infer` stays wired as a fallback so behaviour is
+        # unchanged if streaming_single_prompt_infer is removed.
+        run_relevance_pipeline(
+            config, km_output_path,
+            infer=triton_infer,
+            streaming_single_prompt_infer=model.generate,
+            streaming_max_workers=max_workers or 10,
+        )
 
     except TritonBatchFailureError as e:
         logger.warning(f"Triton inference failed: {e}")

@@ -176,13 +176,22 @@ class TritonClient:
             return {"error": "timeout", "error_message": error_msg}
         except requests.exceptions.RequestException as e:
             error_msg = f"Request failed: {type(e).__name__}"
+            status = None
+            body = ""
             logger.error(f"{error_msg}: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                logger.error(f"Response status: {e.response.status_code}")
-                logger.error(f"Response text: {e.response.text[:500]}")
+                status = e.response.status_code
+                body = e.response.text[:500]
+                logger.error(f"Response status: {status}")
+                logger.error(f"Response text: {body}")
             logger.debug(f"Failed prompt (first 200 chars): {text_input[:200]}...")
             logger.debug(f"Traceback: {traceback.format_exc()}")
-            return {"error": "request_failed", "error_message": error_msg}
+            return {
+                "error": "request_failed",
+                "error_message": error_msg,
+                "status_code": status,
+                "response_body": body,
+            }
 
     def generate_batch(self, text_inputs: List[str],
                       sampling_parameters: dict = None,

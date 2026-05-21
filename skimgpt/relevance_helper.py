@@ -4,6 +4,7 @@ import logging
 import os
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import chain
 from typing import Callable
 
@@ -17,6 +18,11 @@ from skimgpt.pubmed_fetcher import PubMedFetcher
 from skimgpt.classifier import calculate_relevance_ratios, process_single_row
 
 logger = logging.getLogger(__name__)
+
+# Cap on iterations running concurrently. 5 fits comfortably under GPT-5.5
+# tier-3 RPM/TPM budgets for DCH-sized payloads while still giving most of the
+# wallclock benefit (5× speedup ≈ 4 min instead of 20 min at iterations=20).
+ITERATION_MAX_PARALLELISM = 5
 
 
 def _flatten_if_nested(data):
@@ -316,6 +322,7 @@ def process_results(
     config: Config,
     num_abstracts_fetched: int,
     output_base_dir: str,
+    iteration_number: int = 0,
 ) -> None:
     """Process results and write to JSON files.
 
@@ -326,12 +333,15 @@ def process_results(
         output_base_dir: Base directory for JSON output.  Resolved by the
             caller (e.g. ``config.km_output_dir`` for Triton, ``"output"``
             for CHTC).
+        iteration_number: 1-indexed iteration index; 0 means "not iterated".
+            Threaded through as a parameter (not read from config) so multiple
+            iterations can run concurrently without racing on shared state.
     """
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
 
-    if config.iterations and config.current_iteration > 0:
-        iteration_dir = f"iteration_{config.current_iteration}"
+    if config.iterations and iteration_number > 0:
+        iteration_dir = f"iteration_{iteration_number}"
         output_base_dir = os.path.join(output_base_dir, iteration_dir)
         os.makedirs(output_base_dir, exist_ok=True)
         logger.info(f"Writing results to iteration directory: {output_base_dir}")
@@ -515,21 +525,120 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         for i in range(1, num_iterations + 1):
             os.makedirs(os.path.join(output_base_dir, f"iteration_{i}"), exist_ok=True)
 
-        for iteration in range(1, num_iterations + 1):
-            iteration_start = time.time()
-            logger.info(f"Processing iteration {iteration}/{num_iterations}...")
-            config.set_iteration(iteration)
-            process_results(out_df, config, num_abstracts_fetched, output_base_dir=output_base_dir)
-            logger.info(f"Iteration {iteration} completed in {time.time() - iteration_start:.2f} seconds")
+        max_parallel = min(ITERATION_MAX_PARALLELISM, num_iterations)
+        total_start = time.time()
+        logger.info(f"Running {num_iterations} iterations with parallelism={max_parallel}")
 
-        logger.info(f"All {num_iterations} iterations completed successfully")
+        def _run_one(iteration: int) -> tuple[int, float]:
+            t0 = time.time()
+            process_results(out_df, config, num_abstracts_fetched,
+                            output_base_dir=output_base_dir,
+                            iteration_number=iteration)
+            return iteration, time.time() - t0
+
+        with ThreadPoolExecutor(max_workers=max_parallel) as ex:
+            futures = {ex.submit(_run_one, i): i
+                       for i in range(1, num_iterations + 1)}
+            for fut in as_completed(futures):
+                iteration, dt = fut.result()
+                logger.info(f"Iteration {iteration}/{num_iterations} completed in {dt:.2f}s")
+
+        logger.info(f"All {num_iterations} iterations completed in "
+                    f"{time.time() - total_start:.2f}s total wallclock")
     else:
         logger.info("No iterations requested, processing results once")
-        config.current_iteration = 0
-        process_results(out_df, config, num_abstracts_fetched, output_base_dir=output_base_dir)
+        process_results(out_df, config, num_abstracts_fetched,
+                        output_base_dir=output_base_dir, iteration_number=0)
 
 
 InferenceFn = Callable[[RaggedTensor], RaggedTensor]
+SinglePromptInferFn = Callable[[str], dict]
+
+
+def _streaming_fetch_and_infer(
+    pubmed_fetcher: PubMedFetcher,
+    all_pmids: RaggedTensor,
+    all_hypotheses: RaggedTensor,
+    single_prompt_infer: SinglePromptInferFn,
+    max_workers: int,
+) -> tuple[RaggedTensor, RaggedTensor, int]:
+    """Pipeline PubMed fetch with single-prompt Triton inference.
+
+    For each PubMed batch that lands, build the relevance prompt for every
+    position in ``all_pmids.data`` that the batch's PMIDs map to and submit
+    them to ``single_prompt_infer`` via a shared ``ThreadPoolExecutor``. The
+    executor stays busy while later PubMed batches are still in flight, so
+    the fetch step's wallclock cost is mostly absorbed into the inference
+    step's wallclock.
+
+    Returns ``(abstracts, answers, num_fetched)`` shaped to mirror
+    ``all_pmids`` so downstream split/postProcess code is unchanged.
+    """
+    from collections import defaultdict
+
+    n = len(all_pmids.data)
+    flat_abstracts: list[str] = [""] * n
+    flat_answers: list[str] = [""] * n
+
+    pmid_to_positions: dict[str, list[int]] = defaultdict(list)
+    for i, pmid in enumerate(all_pmids.data):
+        pmid_to_positions[str(pmid)].append(i)
+
+    abstract_map: dict[str, str] = {}
+    pos_by_fut: dict[object, int] = {}
+
+    # Total drain time is bounded so a wedged keep-alive connection can't
+    # block the whole run indefinitely. 30 min covers ~4000 prompts at the
+    # pessimistic 2 rps floor; real workloads are 5-15x faster.
+    drain_timeout_s = 1800
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        for batch_dict in pubmed_fetcher.fetch_abstracts_iter(list(all_pmids)):
+            abstract_map.update(batch_dict)
+            for pmid_str, abstract_text in batch_dict.items():
+                for pos in pmid_to_positions.get(pmid_str, []):
+                    flat_abstracts[pos] = abstract_text
+                    p = prompt(abstract_text, all_hypotheses.data[pos])
+                    pos_by_fut[ex.submit(single_prompt_infer, p)] = pos
+
+        total = len(pos_by_fut)
+        logger.info(f"Streaming pipeline: {total} prompts submitted; "
+                    f"waiting for inference to drain (timeout {drain_timeout_s}s)...")
+
+        done = 0
+        drain_start = time.time()
+        try:
+            for fut in as_completed(pos_by_fut, timeout=drain_timeout_s):
+                pos = pos_by_fut[fut]
+                try:
+                    r = fut.result(timeout=0)
+                    flat_answers[pos] = (
+                        r.get("text_output", "") if isinstance(r, dict) else ""
+                    )
+                except Exception as e:
+                    logger.warning(f"Streaming prompt at position {pos} failed: {e}")
+                    flat_answers[pos] = ""
+                done += 1
+                if done % 250 == 0 or done == total:
+                    rps = done / max(time.time() - drain_start, 1e-6)
+                    logger.info(f"Streaming pipeline: {done}/{total} "
+                                f"completed ({rps:.1f} rps)")
+        except TimeoutError:
+            stuck = sum(1 for f in pos_by_fut if not f.done())
+            logger.error(f"Streaming pipeline: drain timeout — {stuck}/{total} "
+                         f"prompts unfinished, marking as empty answers")
+            for fut, pos in pos_by_fut.items():
+                if not fut.done():
+                    fut.cancel()
+                    flat_answers[pos] = ""
+
+    num_fetched = len(abstract_map)
+    logger.info(f"Streaming pipeline: fetched {num_fetched} abstracts, "
+                f"completed {len(pos_by_fut)} inferences")
+
+    abstracts_rt = RaggedTensor(flat_abstracts, list(all_pmids.break_point))
+    answers_rt = RaggedTensor(flat_answers, list(all_pmids.break_point))
+    return abstracts_rt, answers_rt, num_fetched
 
 
 def run_relevance_pipeline(
@@ -538,6 +647,8 @@ def run_relevance_pipeline(
     infer: InferenceFn,
     *,
     output_base_dir: str | None = None,
+    streaming_single_prompt_infer: SinglePromptInferFn | None = None,
+    streaming_max_workers: int = 10,
 ) -> None:
     """Run the shared relevance-analysis pipeline.
 
@@ -554,6 +665,14 @@ def run_relevance_pipeline(
         output_base_dir: Base directory for JSON output.  When *None*,
             ``config.km_output_dir`` is used (Triton path).  CHTC callers
             pass ``"output"``.
+        streaming_single_prompt_infer: When provided, opt into pipelined
+            fetch+infer: PubMed batches feed Triton submissions as they
+            land instead of blocking on the full fetch first. Triton path
+            should pass ``triton_client.generate``. CHTC leaves this None
+            and uses the legacy two-phase path.
+        streaming_max_workers: Concurrent inference workers when streaming.
+            Match to the Triton server's ``max_num_seqs`` admission cap
+            (currently 10).
     """
     config.load_km_output(km_output_path)
     if output_base_dir is None:
@@ -584,14 +703,18 @@ def run_relevance_pipeline(
     ac_pmids = collected.get("ac_pmids")
     ac_hypotheses = collected.get("ac_hypotheses")
 
-    # Fetch abstracts
-    abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
-    num_abstracts_fetched = len(abstract_map)
-    abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
-
-    # Build prompts and run inference
-    prompts = get_prompts(abstracts, all_hypotheses)
-    answers = infer(prompts)
+    # Fetch abstracts + run inference, either streamed (Triton) or two-phase (CHTC)
+    if streaming_single_prompt_infer is not None:
+        abstracts, answers, num_abstracts_fetched = _streaming_fetch_and_infer(
+            pubmed_fetcher, all_pmids, all_hypotheses,
+            streaming_single_prompt_infer, streaming_max_workers,
+        )
+    else:
+        abstract_map = pubmed_fetcher.fetch_abstracts(all_pmids)
+        num_abstracts_fetched = len(abstract_map)
+        abstracts = all_pmids.map(lambda pmid: abstract_map.get(str(pmid), ""))
+        prompts = get_prompts(abstracts, all_hypotheses)
+        answers = infer(prompts)
 
     # Split answers and abstracts by intersection type
     defaults = [RaggedTensor([]) for _ in range(3)]

@@ -14,4 +14,9 @@ skimgpt_visualizer.py
 run_*
 .DS_Store
 config_copy.json
+config.json.bak
+tools/__pycache__/
+tools/.bench_abstracts_cache.json
+tools/*_run.log
+tools/bench_triton_results.csv
 
