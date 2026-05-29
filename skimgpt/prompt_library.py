@@ -271,12 +271,13 @@ Output policy:
 def skim_with_gpt(b_term, a_term, hypothesis_template, consolidated_abstracts, c_term):
     """User prompt for SKiM A-B-C (mediated) chain evaluation.
 
-    Walks the model through the chain-composition task: extract a directional
-    relation from each abstract within its pool, judge whether that relation
-    fits its leg of the chain, and synthesise the leg verdicts into an overall
-    chain decision. No single abstract contains all three terms — that's the
-    whole point of LBD — so per-abstract "supports A↔C" is a meaningless
-    question; per-abstract "establishes its leg of the chain" is the right one.
+    Asks the model for a single holistic chain verdict: weigh the AB-pool
+    evidence for the A-B leg and the BC-pool evidence for the B-C leg, compose
+    them, and judge consistency with the hypothesis. No single abstract
+    contains all three terms — that's the whole point of LBD — so the model
+    reasons across abstracts rather than scoring each one. It is NOT asked to
+    assume a leg direction up front (often the unknown being discovered); it
+    follows whatever direction the literature shows.
     """
     pmid_list = extract_pmids(consolidated_abstracts)
 
@@ -293,7 +294,7 @@ Terms:
 - B = {b_term}  (the mediator)
 - C = {c_term}
 
-Task — chain extraction and composition:
+Task — chain composition:
 
 The abstracts above are pre-divided into two pools (look for "######## POOL: AB ########" and "######## POOL: BC ########" section headers — distinct from the per-abstract "===END OF ABSTRACT===" delimiter):
 
@@ -304,29 +305,20 @@ A single AB abstract cannot tell you whether the full chain A-B-C holds — but 
 
 Do (in this exact order):
 
-1. State `expected_chain.ab_expectation` and `expected_chain.bc_expectation`. These describe what each leg must look like for the hypothesis to hold — derived FROM THE HYPOTHESIS TEXT, before reading any abstract. For "{c_term} treats {a_term} through {b_term}" the typical pattern is something like:
-   - ab_expectation: "{b_term} is elevated in / causes / worsens {a_term}" (so reducing B improves A)
-   - bc_expectation: "{c_term} decreases / inhibits {b_term}"
-   ...but read the hypothesis carefully; the direction can be the opposite (e.g. a protective intermediate).
+1. Weigh the AB-pool evidence: what directional relation, if any, does it establish between {a_term} and {b_term}? Follow whatever direction the literature actually shows — do NOT assume a direction in advance. Do the same for the BC-pool evidence between {b_term} and {c_term}.
 
-2. For EACH abstract in EACH pool, emit a `per_abstract` entry:
-   - Echo `pmid` and `pool` (from the section header).
-   - Cite ≥1 short verbatim `evidence` quote from THIS abstract.
-   - Extract the directional relation: `subject`, `object`, `direction` (one of: increases, decreases, associated_with, no_effect, absent).
-   - Decide `supports_chain` — does this relation match the leg this pool is responsible for, in the direction your `expected_chain` says is needed?
-
-3. Tally per leg and synthesise. In `score_rationale`, at least one bullet must walk the chain explicitly, e.g.:
+2. Compose the two legs into an overall chain judgment, and decide whether the composed chain is consistent with the hypothesis "{hypothesis_template}". In `score_rationale`, at least one bullet must walk the chain explicitly with PMIDs, e.g.:
    "BC abstracts establish {c_term} ↓ {b_term} (PMIDs X, Y); AB abstracts establish {b_term} ↑ {a_term} (PMIDs Z, W); composition supports {c_term} → ↓{b_term} → ↓{a_term} → hypothesis SUPPORTED."
 
-4. Final `score` (-2..+2) and `decision` per the scoring guidelines.
+3. Assign the final `score` (-2..+2) and `decision` per the scoring guidelines.
 
 IMPORTANT — cite only PMIDs that appear in the abstracts above. Do not invent abstracts. Do not pull in external literature.
 
 CRITICAL pitfalls to avoid:
 - An AB-pool abstract that doesn't mention {c_term} is NOT irrelevant — {c_term} ISN'T SUPPOSED to be there. Judge it on its A-B relation only.
 - A BC-pool abstract that doesn't mention {a_term} is NOT irrelevant — same reason.
-- An abstract that mentions a term but takes no position on its relation to another (review article, belief survey, topical co-mention) is `direction: absent`, NOT a supporting entry.
-- "May" / "could" / "has been suggested" language is weaker than direct findings — reflect that in `supports_chain` and in your score.
+- An abstract that mentions a term but takes no position on its relation to another (review article, belief survey, topical co-mention) does NOT count as support for that leg.
+- "May" / "could" / "has been suggested" language is weaker than direct findings — reflect that in your score.
 
 **Worked examples — what each score should look like at the chain level:**
 
@@ -335,7 +327,7 @@ CRITICAL pitfalls to avoid:
 
   • **Likely Positive (+1):** One leg of the chain is well-established (multiple supporting abstracts); the other leg has only suggestive evidence (a single supporting abstract, or hedged "may"/"could" language). Composition is plausible but not robust. No clear opposing-direction evidence.
 
-  • **Neutral / Inconclusive (0):** Both legs are mostly direction=absent — abstracts mention the terms but don't establish a directional relation in the leg's required direction. OR the legs contradict each other (e.g. half of BC abstracts show C↓B and the other half show C↑B with no clear winner). OR one leg has support and the other has no evidence at all.
+  • **Neutral / Inconclusive (0):** Both legs are mostly silent on a directional relation — abstracts mention the terms but don't establish a relation in the leg's required direction. OR the legs contradict each other (e.g. half of BC abstracts show C↓B and the other half show C↑B with no clear winner). OR one leg has support and the other has no evidence at all.
 
   • **Likely Negative (-1):** The chain composes in a direction OPPOSITE to what the hypothesis claims. E.g. BC abstracts establish C↑B (when the hypothesis needs C↓B), or AB abstracts establish B↓A (when the hypothesis needs B↑A). Evidence is suggestive but limited.
 
@@ -581,17 +573,14 @@ def skim_with_gpt_abc_json_schema():
 
     Each abstract here is from EITHER the AB pool (contains A+B, never C) OR
     the BC pool (contains B+C, never A). No single abstract can directly judge
-    the A↔C chain, so per-abstract output is a structured relation tuple
-    (subject, object, direction) the abstract DOES establish, plus a
-    `supports_chain` boolean indicating whether that relation fits the leg of
-    the chain that this pool is responsible for.
+    the A↔C chain; the model reads both pools and renders a single holistic
+    chain verdict (-2..+2) plus a free-text rationale that composes the legs.
 
-    Schema-ordered CoT:
-      - `expected_chain` is emitted FIRST so the model commits to what
-        direction it expects for each leg of the hypothesis before judging any
-        abstract.
-      - Within each `per_abstract` item, fields are ordered so the model emits
-        evidence → relation extraction → chain alignment, in that order.
+    This is a deliberately flat output — no per-abstract relation extraction,
+    no expected_chain, no per-leg tallies. The model is NOT asked to assume a
+    leg direction up front (often the unknown being discovered); it weighs the
+    literature in whatever direction the evidence shows and judges consistency
+    with the hypothesis.
 
     Strict mode requires every property to appear in `required` and every
     nested object to set `additionalProperties: False`.
@@ -600,140 +589,49 @@ def skim_with_gpt_abc_json_schema():
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "expected_chain": {
-            "type": "object",
-            "additionalProperties": False,
-            "description": "Before judging any abstract, state what each leg of the chain needs to look like for the hypothesis to hold.",
-            "properties": {
-                "ab_expectation": {
-                    "type": "string",
-                    "maxLength": 500,
-                    "description": "What relation between A and B would support the hypothesis? Describe direction (e.g. 'A is elevated when B is elevated', 'B causes A symptoms')."
-                },
-                "bc_expectation": {
-                    "type": "string",
-                    "maxLength": 500,
-                    "description": "What relation between B and C would support the hypothesis? Describe direction (e.g. 'C decreases B', 'C inhibits B')."
-                }
-            },
-            "required": ["ab_expectation", "bc_expectation"]
-        },
-        "per_abstract": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "pmid": {"type": "string", "pattern": "^[0-9]+$"},
-                    "pool": {
-                        "type": "string",
-                        "enum": ["AB", "BC"],
-                        "description": "Echo the pool tag shown in the input section header for this abstract."
-                    },
-                    "evidence": {
-                        "type": "array",
-                        "items": {"type": "string", "maxLength": 300},
-                        "minItems": 1,
-                        "description": "One or more short verbatim or near-verbatim quotes (≤300 chars) from THIS abstract that establish the relation. Cite quotes BEFORE extracting the relation."
-                    },
-                    "subject": {
-                        "type": "string",
-                        "maxLength": 120,
-                        "description": "The actor in the abstract's relation. Should be one of the three key terms (A, B, C) or a clear synonym used in the abstract."
-                    },
-                    "object": {
-                        "type": "string",
-                        "maxLength": 120,
-                        "description": "The term acted upon. Should be one of the three key terms or a clear synonym."
-                    },
-                    "direction": {
-                        "type": "string",
-                        "enum": ["increases", "decreases", "associated_with", "no_effect", "absent"],
-                        "description": "How subject relates to object in this abstract. Use 'absent' if the abstract mentions the terms but takes no position on their relationship."
-                    },
-                    "supports_chain": {
-                        "type": "boolean",
-                        "description": "Given the abstract's pool and the expected_chain directions you stated above, does this extracted relation fit the leg of the chain this pool is responsible for? True = leg established; False = leg opposed or relation irrelevant."
-                    }
-                },
-                "required": ["pmid", "pool", "evidence", "subject", "object", "direction", "supports_chain"]
-            }
-        },
         "score_rationale": {
             "type": "array",
             "items": {
                 "type": "string",
                 "maxLength": 1000,
-                "description": "Evidence-based rationale citing PMIDs, explaining how the per_abstract relations compose to support or refute the chain hypothesis. At least one rationale must explicitly walk the chain (e.g. 'BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z); therefore C↓B↑A => C may treat A')."
+                "description": "Evidence-based rationale citing PMIDs, explaining how the AB-pool and BC-pool evidence compose to support or refute the chain hypothesis. At least one rationale must explicitly walk the chain (e.g. 'BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z); therefore C↓B↑A => C may treat A')."
             },
             "minItems": 1,
             "maxItems": 6
         },
-        "tallies": {
-            "type": "object",
-            "additionalProperties": False,
-            "description": "Per-leg counts derived from per_abstract relations.",
-            "properties": {
-                "ab_establishes_leg": {"type": "integer", "minimum": 0, "description": "Count of AB-pool entries with supports_chain=true."},
-                "ab_opposes_leg":     {"type": "integer", "minimum": 0, "description": "Count of AB-pool entries with supports_chain=false AND direction != 'absent'."},
-                "bc_establishes_leg": {"type": "integer", "minimum": 0, "description": "Count of BC-pool entries with supports_chain=true."},
-                "bc_opposes_leg":     {"type": "integer", "minimum": 0, "description": "Count of BC-pool entries with supports_chain=false AND direction != 'absent'."},
-                "irrelevant":         {"type": "integer", "minimum": 0, "description": "Count of entries (any pool) with direction == 'absent'."}
-            },
-            "required": ["ab_establishes_leg", "ab_opposes_leg", "bc_establishes_leg", "bc_opposes_leg", "irrelevant"]
-        },
         "score": {"type": "number", "minimum": -2, "maximum": 2},
         "decision": {"type": "string", "enum": ["supports", "refutes", "insufficient_evidence"]}
     },
-    "required": ["expected_chain", "per_abstract", "score_rationale", "tallies", "score", "decision"]
+    "required": ["score_rationale", "score", "decision"]
     }
 
 
 def skim_with_gpt_abc_system_instructions():
     """System instructions for the SKiM A-B-C (mediated) chain evaluation.
 
-    Tells the model: no abstract contains all three terms; you must extract a
-    directional relation from each abstract within its pool, then compose the
-    relations across pools into a chain verdict.
+    Tells the model: no abstract contains all three terms; weigh each pool's
+    evidence for its leg, compose the legs across pools, and render a single
+    holistic chain verdict (score + rationale + decision). No per-abstract
+    relation extraction and no assumed leg direction.
     """
     return """\
 You evaluate a MEDIATED biomedical hypothesis: term C affects term A through an intermediate term B (the chain C-B-A or A-B-C).
 
 CRITICAL — read this twice:
 - No single abstract in this batch contains all three terms. By construction, each abstract is from either the AB pool (contains A and B, never C) OR the BC pool (contains B and C, never A). The input is divided into "######## POOL: AB ########" and "######## POOL: BC ########" sections — every abstract is tagged. Do NOT confuse these section headers with the per-abstract delimiter "===END OF ABSTRACT===", which separates individual abstracts within a pool.
-- The hypothesis can only be supported by COMPOSING evidence ACROSS abstracts. A single AB abstract establishes (or opposes) the A↔B leg; a single BC abstract establishes (or opposes) the B↔C leg. The full chain verdict comes from how those legs fit together.
-- Do NOT mark an abstract as supporting the chain merely because it mentions one or two of the three terms. Do NOT mark an abstract as opposing the chain merely because it doesn't discuss the missing third term. Judge each abstract on whether its EXTRACTED RELATION fits THAT POOL'S LEG of the chain.
+- The hypothesis can only be supported by COMPOSING evidence ACROSS abstracts. The AB pool establishes (or opposes) the A↔B leg; the BC pool establishes (or opposes) the B↔C leg. The full chain verdict comes from how those legs fit together.
+- Do NOT count an abstract as supporting the chain merely because it mentions one or two of the three terms. Do NOT count an abstract as opposing the chain merely because it doesn't discuss the missing third term. Weigh each pool on whether its evidence fits THAT POOL'S LEG of the chain.
+- Do NOT assume a leg direction in advance. The mechanistic direction is often the very thing being discovered — follow whatever direction the literature actually shows, then judge whether the composed chain is consistent with the hypothesis. If the hypothesis text lacks explicit directional language (e.g. it's just a list of terms, or uses vague phrasing like "are related"), lean toward a 0 / insufficient_evidence final score rather than inventing a strong directional claim the user didn't make.
 
-Output structure (the schema enforces emission order; commit to each field before the next):
+Output (holistic — no per-abstract breakdown):
 
-1. `expected_chain` — BEFORE looking at any abstract, state what each leg of the chain needs to look like for the hypothesis to hold:
-   - `ab_expectation`: the relation between A and B that the hypothesis requires (e.g. "B is elevated in patients with A" or "B causes A symptoms").
-   - `bc_expectation`: the relation between B and C that the hypothesis requires (e.g. "C decreases B" or "C inhibits B").
-   These come from the hypothesis text, not the abstracts.
-   IF THE HYPOTHESIS TEXT LACKS EXPLICIT DIRECTIONAL LANGUAGE (e.g. it's just a list of terms, or uses vague phrasing like "are related"), state your best-inference `ab_expectation`/`bc_expectation` based on the most common biomedical interpretation — AND lower your confidence: push borderline per-abstract verdicts toward `direction: absent` and `supports_chain: false`, and lean toward a 0 / insufficient_evidence final score. Do not invent a strong directional claim that the user didn't make.
+1. `score_rationale` — 1 to 6 short evidence-based bullets citing PMIDs. At least one must explicitly walk the chain (e.g. "BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z, W); together C↓B↑A → C may treat A").
 
-2. `per_abstract` — for EACH abstract in the batch (both pools), emit a structured relation tuple:
-   - `pmid`, `pool` (echo the pool tag from the section header).
-   - `evidence`: at least one short verbatim or near-verbatim quote from THIS abstract that bears on the relation. Cite the quote BEFORE you extract the relation.
-   - `subject`, `object`: the actor and target of the abstract's relation (one of A, B, C or a clear synonym used in the abstract).
-   - `direction`: how subject relates to object. One of:
-     • increases — subject elevates, activates, induces, promotes, or correlates positively with object.
-     • decreases — subject reduces, inhibits, suppresses, or correlates negatively with object.
-     • associated_with — non-directional correlation, comorbidity, or coexistence without a clear causal direction.
-     • no_effect — abstract reports the subject does NOT affect the object (a null result).
-     • absent — the abstract mentions the terms but takes no position on their relationship (topical co-mention, review, belief/opinion/survey).
-   - `supports_chain`: given the abstract's pool and your stated `expected_chain`, does this extracted relation fit the leg this pool is responsible for? Boolean.
-
-3. `tallies` — derived counts (the validator will check these against per_abstract):
-   - `ab_establishes_leg`, `ab_opposes_leg`, `bc_establishes_leg`, `bc_opposes_leg`, `irrelevant`.
-
-4. `score_rationale` — at least one rationale must explicitly walk the chain (e.g. "BC abstracts establish C↓B (PMIDs X, Y); AB abstracts establish B↑A (PMIDs Z, W); together C↓B↑A → C may treat A").
-
-5. `score` (-2..+2) and `decision` (supports/refutes/insufficient_evidence) per the scoring guidelines.
+2. `score` (-2..+2) and `decision` (supports/refutes/insufficient_evidence) per the scoring guidelines.
 
 Guardrails:
-- A BC-pool abstract with a clear C↓B relation establishes the BC leg; the absence of the A term in that abstract is EXPECTED and not grounds for marking it irrelevant.
-- A topical-co-mention (e.g. "X and Y have both been studied in patients with Z") is `direction: absent`, NOT a relation that supports the chain.
-- Belief/opinion/survey/media reports about a relation are `direction: absent`.
-- If you can't cite a quote that establishes a directional relation between two of the three terms, the entry is `direction: absent` and `supports_chain: false`.
+- A BC-pool abstract with a clear C↓B relation establishes the BC leg; the absence of the A term in that abstract is EXPECTED and not grounds for discounting it.
+- A topical co-mention (e.g. "X and Y have both been studied in patients with Z") does NOT establish a leg.
+- Belief/opinion/survey/media reports about a relation do NOT establish a leg.
+- Base every leg claim on a directional relation you could cite from the abstracts; if you can't, treat that leg as unestablished and lean toward 0 / insufficient_evidence.
 """

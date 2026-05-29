@@ -420,9 +420,9 @@ def _schema_for(config, relationship_type: str | None = None) -> dict | None:
     """Return the JSON schema for the active job type, or None if no schema is registered.
 
     SKiM-GPT has two schemas: A-C (direct, single-label per abstract) and
-    A-B-C (mediated chain, per-abstract relation tuples). The caller must pass
-    `relationship_type` for SKiM so we pick the right one; for DCH and KM the
-    schema is unambiguous.
+    A-B-C (mediated chain, a holistic verdict — no per-abstract breakdown).
+    The caller must pass `relationship_type` for SKiM so we pick the right
+    one; for DCH and KM the schema is unambiguous.
     """
     if config.is_dch:
         return prompts_module.km_with_gpt_direct_comp_json_schema()
@@ -473,30 +473,19 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     """
     # Build messages with system + user for all models
     system_instructions = _system_instructions_for(config, relationship_type)
-    if config.is_dch:
-        irrelevant_label = "neither"
-    else:
-        # SKiM-ABC uses 'direction: absent' instead of an irrelevant_label,
-        # but keep the per-entry-must-appear guidance the same.
-        irrelevant_label = "inconclusive"
+    # SKiM-ABC is holistic — no per_abstract array — so it gets none of the
+    # per-abstract count enforcement below.
+    is_skim_abc = config.is_skim_with_gpt and relationship_type == "A_B_C"
+    irrelevant_label = "neither" if config.is_dch else "inconclusive"
 
     messages = [{"role": "system", "content": system_instructions}]
-    if expected_per_abstract_count is not None:
-        if config.is_skim_with_gpt and relationship_type == "A_B_C":
-            extra = (
-                f"You MUST return exactly {expected_per_abstract_count} items in the "
-                "per_abstract array — one entry per PMID across BOTH the AB and BC pools. "
-                "For abstracts that do not establish a directional relation between the "
-                "expected terms (topical co-mention, belief/survey, mixed/absent evidence), "
-                "set direction='absent' and supports_chain=false. Do not omit any."
-            )
-        else:
-            extra = (
-                f"You MUST return exactly {expected_per_abstract_count} items in the "
-                "per_abstract array. Include one entry per PMID listed. If an abstract "
-                f"is irrelevant, label it '{irrelevant_label}' but still include it. "
-                "Do not omit any."
-            )
+    if expected_per_abstract_count is not None and not is_skim_abc:
+        extra = (
+            f"You MUST return exactly {expected_per_abstract_count} items in the "
+            "per_abstract array. Include one entry per PMID listed. If an abstract "
+            f"is irrelevant, label it '{irrelevant_label}' but still include it. "
+            "Do not omit any."
+        )
         messages.append({"role": "system", "content": extra})
     messages.append({"role": "user", "content": prompt})
 
@@ -512,9 +501,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
         # Strict mode forces the model output to conform to the JSON schema and
         # guarantees raw JSON (no Markdown fences). Schema declaration order is
         # the emission order, which we use as a CoT-forcing pattern in the DCH
-        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema)
-        # and in SKiM-ABC's `expected_chain` → `per_abstract` ordering
-        # (see prompt_library.skim_with_gpt_abc_json_schema).
+        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema).
         schema_name = f"{config.job_type}_evaluation"
         if config.is_skim_with_gpt and relationship_type:
             schema_name = f"{config.job_type}_{relationship_type.lower()}_evaluation"
@@ -530,7 +517,7 @@ def call_openai_json(client, prompt, config, expected_per_abstract_count: int | 
     # belief-vs-evidence) — low-volume, high-stakes. SKiM-ABC stays at the
     # default ("medium") despite being a chain-composition workload: it's
     # the highest-volume call path (rows × iterations), so the cost/latency
-    # math for "high" doesn't pencil out at scale. If chain-extraction
+    # math for "high" doesn't pencil out at scale. If chain-composition
     # quality is poor in prod, revisit per-job-type tuning.
     if use_strict and config.is_dch:
         params["reasoning_effort"] = "high"
@@ -594,15 +581,21 @@ def _validate_payload(
 
     Raises ValueError on validation failure so the retry loop can catch it.
 
-    SKiM-ABC has a different shape from KM/SKiM-AC/DCH — it carries an
-    `expected_chain` block and per-leg tallies. `relationship_type` lets the
-    validator branch on that variant.
+    SKiM-ABC has a different shape from KM/SKiM-AC/DCH — it is holistic
+    (score_rationale + score + decision only, no per_abstract array or
+    tallies). `relationship_type` lets the validator branch on that variant.
     """
     is_skim_abc = getattr(config, "is_skim_with_gpt", False) and relationship_type == "A_B_C"
 
-    required_fields = ["per_abstract", "score_rationale", "tallies", "score", "decision"]
+    # SKiM-ABC is holistic: no per_abstract / tallies to validate, so the
+    # length and consistency checks below are skipped entirely for it.
     if is_skim_abc:
-        required_fields = ["expected_chain"] + required_fields
+        for key in ("score_rationale", "score", "decision"):
+            if key not in payload:
+                raise ValueError(f"Missing required field '{key}' in model output.")
+        return
+
+    required_fields = ["per_abstract", "score_rationale", "tallies", "score", "decision"]
     for key in required_fields:
         if key not in payload:
             raise ValueError(f"Missing required field '{key}' in model output.")
@@ -620,12 +613,6 @@ def _validate_payload(
     tallies = payload.get("tallies", {})
     if config.is_dch:
         required_tallies = ["support_H1", "support_H2", "both", "neither_or_inconclusive"]
-    elif is_skim_abc:
-        required_tallies = [
-            "ab_establishes_leg", "ab_opposes_leg",
-            "bc_establishes_leg", "bc_opposes_leg",
-            "irrelevant",
-        ]
     else:
         required_tallies = ["support", "refute", "inconclusive"]
 
@@ -652,39 +639,6 @@ def _validate_payload(
                 counts["both"] += 1
             elif label in ("neither", "inconclusive"):
                 counts["neither_or_inconclusive"] += 1
-        for k, expected in counts.items():
-            actual = int(tallies.get(k, 0) or 0)
-            if actual != expected:
-                raise ValueError(
-                    f"Tally '{k}' = {actual} does not match per_abstract count {expected}."
-                )
-    elif is_skim_abc:
-        # Reconstruct per-leg counts from per_abstract relations. The model's
-        # `direction` and `supports_chain` fields drive bucket assignment:
-        #   - direction == 'absent'              -> irrelevant
-        #   - supports_chain == true             -> {ab,bc}_establishes_leg
-        #   - supports_chain == false (not absent) -> {ab,bc}_opposes_leg
-        per_abstract = payload.get("per_abstract", []) or []
-        counts = {
-            "ab_establishes_leg": 0, "ab_opposes_leg": 0,
-            "bc_establishes_leg": 0, "bc_opposes_leg": 0,
-            "irrelevant": 0,
-        }
-        for entry in per_abstract:
-            if not isinstance(entry, dict):
-                continue
-            pool = (entry.get("pool") or "").upper()
-            direction = (entry.get("direction") or "").lower()
-            supports = bool(entry.get("supports_chain"))
-            if direction == "absent":
-                counts["irrelevant"] += 1
-            elif pool == "AB":
-                counts["ab_establishes_leg" if supports else "ab_opposes_leg"] += 1
-            elif pool == "BC":
-                counts["bc_establishes_leg" if supports else "bc_opposes_leg"] += 1
-            else:
-                # Unknown pool — treat as irrelevant rather than crash.
-                counts["irrelevant"] += 1
         for k, expected in counts.items():
             actual = int(tallies.get(k, 0) or 0)
             if actual != expected:
