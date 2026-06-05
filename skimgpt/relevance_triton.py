@@ -6,68 +6,11 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from skimgpt.utils import Config, RaggedTensor, configure_logging
-from skimgpt.triton_client import TritonClient
+from skimgpt.utils import Config, configure_logging
+from skimgpt.triton_client import TritonClient, TritonBatchFailureError
 from skimgpt.relevance_helper import run_relevance_pipeline
 
 logger = logging.getLogger(__name__)
-
-
-class TritonBatchFailureError(RuntimeError):
-    """Raised when all requests in a Triton batch fail, indicating the server is down or unreachable."""
-    pass
-
-
-def gen(
-    prompts: RaggedTensor, model: TritonClient,
-    max_workers: int = None, show_progress: bool = False, batch_chunk_size: int = None
-) -> RaggedTensor:
-    """Generate outputs using Triton client batch inference with configurable parameters.
-
-    Args:
-        prompts: RaggedTensor containing input prompts
-        model: TritonClient instance for inference (with pre-configured sampling parameters)
-        max_workers: Maximum concurrent requests (default: None = use client default)
-        show_progress: Show progress bar during inference (default: False)
-        batch_chunk_size: Process large batches in chunks (default: None = no chunking)
-
-    Returns:
-        RaggedTensor containing model outputs
-    """
-    logger.debug(f"gen(): Number of prompts: {len(prompts.data)}")
-    if len(prompts.data) > 0:
-        logger.debug(f"gen(): First prompt (truncated): {prompts.data[0][:300]}...")
-        logger.debug(f"gen(): Model sampling params - temperature: {model.temperature}, "
-                    f"top_p: {model.top_p}, max_tokens: {model.max_tokens}")
-    if max_workers:
-        logger.debug(f"gen(): Using max_workers={max_workers}")
-    if batch_chunk_size:
-        logger.debug(f"gen(): Using batch_chunk_size={batch_chunk_size}")
-
-    batch_results = model.generate_batch(
-        text_inputs=prompts.data,
-        max_workers=max_workers,
-        show_progress=show_progress,
-        batch_chunk_size=batch_chunk_size
-    )
-
-    error_count = sum(1 for r in batch_results if "error" in r)
-    logger.debug(f"gen(): Number of results: {len(batch_results)}")
-    if error_count > 0:
-        logger.warning(f"gen(): {error_count}/{len(batch_results)} requests failed")
-    if len(batch_results) > 0:
-        logger.debug(f"gen(): First result: {batch_results[0]}")
-
-    if batch_results and error_count == len(batch_results):
-        raise TritonBatchFailureError(
-            f"All {len(batch_results)} Triton requests failed — server appears down or unreachable"
-        )
-    
-    outputs = RaggedTensor(
-        [result.get("text_output", "") for result in batch_results], 
-        prompts.break_point
-    )
-    return outputs
 
 
 def run_relevance_analysis(config: Config, km_output_path: str) -> None:
@@ -75,7 +18,7 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
 
     Initialises a Triton inference client and delegates the rest of the
     orchestration to :func:`run_relevance_pipeline`.  If Triton is
-    unreachable (or every request in a batch fails), falls back to a
+    unreachable (or every streaming request fails), falls back to a
     CHTC HTCondor GPU job.
 
     Args:
@@ -147,30 +90,12 @@ def run_relevance_analysis(config: Config, km_output_path: str) -> None:
             max_workers = int(max_workers)
             logger.info(f"Using configured max_workers={max_workers} for Triton inference")
 
-        show_progress = config.global_settings.get("TRITON_SHOW_PROGRESS", False)
-        if isinstance(show_progress, str):
-            show_progress = show_progress.lower() in ("true", "1", "yes")
-
-        batch_chunk_size = config.global_settings.get("TRITON_BATCH_CHUNK_SIZE", None)
-        if batch_chunk_size:
-            batch_chunk_size = int(batch_chunk_size)
-            logger.info(f"Using batch_chunk_size={batch_chunk_size} for large batches")
-
-        def triton_infer(prompts):
-            return gen(
-                prompts, model,
-                max_workers=max_workers,
-                show_progress=show_progress,
-                batch_chunk_size=batch_chunk_size,
-            )
-
         # Pipelined fetch+infer: PubMed batches feed Triton submissions as
         # they land, overlapping ~30-40s of fetch wallclock with inference.
-        # `infer=triton_infer` stays wired as a fallback so behaviour is
-        # unchanged if streaming_single_prompt_infer is removed.
+        # Raises TritonBatchFailureError when every request fails, which
+        # drops us into the CHTC fallback below.
         run_relevance_pipeline(
             config, km_output_path,
-            infer=triton_infer,
             streaming_single_prompt_infer=model.generate,
             streaming_max_workers=max_workers or 10,
         )

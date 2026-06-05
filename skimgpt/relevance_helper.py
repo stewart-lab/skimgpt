@@ -16,6 +16,7 @@ from skimgpt.utils import (
 )
 from skimgpt.pubmed_fetcher import PubMedFetcher
 from skimgpt.classifier import calculate_relevance_ratios, process_single_row
+from skimgpt.triton_client import TritonBatchFailureError
 
 logger = logging.getLogger(__name__)
 
@@ -573,6 +574,12 @@ def _streaming_fetch_and_infer(
 
     Returns ``(abstracts, answers, num_fetched)`` shaped to mirror
     ``all_pmids`` so downstream split/postProcess code is unchanged.
+
+    Raises:
+        TritonBatchFailureError: when every submitted request fails
+            (error-dict result, exception, or drain timeout), so the caller
+            can fall back to CHTC instead of silently emitting all-empty
+            answers (which downstream reads as "no evidence").
     """
     from collections import defaultdict
 
@@ -606,23 +613,29 @@ def _streaming_fetch_and_infer(
                     f"waiting for inference to drain (timeout {drain_timeout_s}s)...")
 
         done = 0
+        failed = 0
         drain_start = time.time()
         try:
             for fut in as_completed(pos_by_fut, timeout=drain_timeout_s):
                 pos = pos_by_fut[fut]
                 try:
                     r = fut.result(timeout=0)
-                    flat_answers[pos] = (
-                        r.get("text_output", "") if isinstance(r, dict) else ""
-                    )
+                    if isinstance(r, dict) and "error" not in r:
+                        flat_answers[pos] = r.get("text_output", "")
+                    else:
+                        # TritonClient.generate returns {"error": ...} instead
+                        # of raising; it already logged the details.
+                        failed += 1
+                        flat_answers[pos] = ""
                 except Exception as e:
                     logger.warning(f"Streaming prompt at position {pos} failed: {e}")
+                    failed += 1
                     flat_answers[pos] = ""
                 done += 1
                 if done % 250 == 0 or done == total:
                     rps = done / max(time.time() - drain_start, 1e-6)
                     logger.info(f"Streaming pipeline: {done}/{total} "
-                                f"completed ({rps:.1f} rps)")
+                                f"completed ({rps:.1f} rps, {failed} failed)")
         except TimeoutError:
             stuck = sum(1 for f in pos_by_fut if not f.done())
             logger.error(f"Streaming pipeline: drain timeout — {stuck}/{total} "
@@ -630,7 +643,19 @@ def _streaming_fetch_and_infer(
             for fut, pos in pos_by_fut.items():
                 if not fut.done():
                     fut.cancel()
+                    failed += 1
                     flat_answers[pos] = ""
+
+    if failed:
+        logger.warning(f"Streaming pipeline: {failed}/{total} requests failed")
+    if total > 0 and failed == total:
+        # Mirror the old batch-path semantics: all-failed means the server is
+        # down or unreachable, so raise instead of returning all-empty answers
+        # (which downstream would score as "no evidence"). The caller catches
+        # this and falls back to a CHTC GPU job.
+        raise TritonBatchFailureError(
+            f"All {total} streaming Triton requests failed — server appears down or unreachable"
+        )
 
     num_fetched = len(abstract_map)
     logger.info(f"Streaming pipeline: fetched {num_fetched} abstracts, "
@@ -644,7 +669,7 @@ def _streaming_fetch_and_infer(
 def run_relevance_pipeline(
     config: Config,
     km_output_path: str,
-    infer: InferenceFn,
+    infer: InferenceFn | None = None,
     *,
     output_base_dir: str | None = None,
     streaming_single_prompt_infer: SinglePromptInferFn | None = None,
@@ -654,26 +679,38 @@ def run_relevance_pipeline(
 
     This function consolidates the orchestration logic common to both
     ``relevance_triton.py`` and ``relevance_chtc.py``.  The only part that
-    differs between backends is the *inference* step, which is supplied as
-    the ``infer`` callable.
+    differs between backends is the *inference* step: exactly one of
+    ``infer`` (two-phase fetch-then-infer, CHTC) or
+    ``streaming_single_prompt_infer`` (pipelined fetch+infer, Triton)
+    must be provided.
 
     Args:
         config: Initialized Config object.
         km_output_path: Path to the TSV file to process.
         infer: Callable that takes a RaggedTensor of prompts and returns
-            a RaggedTensor of model outputs.
+            a RaggedTensor of model outputs.  Used by the two-phase path
+            (CHTC); leave None when streaming.
         output_base_dir: Base directory for JSON output.  When *None*,
             ``config.km_output_dir`` is used (Triton path).  CHTC callers
             pass ``"output"``.
         streaming_single_prompt_infer: When provided, opt into pipelined
             fetch+infer: PubMed batches feed Triton submissions as they
             land instead of blocking on the full fetch first. Triton path
-            should pass ``triton_client.generate``. CHTC leaves this None
+            passes ``triton_client.generate``. CHTC leaves this None
             and uses the legacy two-phase path.
         streaming_max_workers: Concurrent inference workers when streaming.
             Match to the Triton server's ``max_num_seqs`` admission cap
             (currently 10).
+
+    Raises:
+        TritonBatchFailureError: from the streaming path when every Triton
+            request fails — callers catch this to fall back to CHTC.
     """
+    if (infer is None) == (streaming_single_prompt_infer is None):
+        raise ValueError(
+            "Provide exactly one of 'infer' (two-phase) or "
+            "'streaming_single_prompt_infer' (streaming)."
+        )
     config.load_km_output(km_output_path)
     if output_base_dir is None:
         output_base_dir = config.km_output_dir

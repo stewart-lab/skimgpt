@@ -25,14 +25,12 @@
         "iterations": 3,
         "DCH_MIN_SAMPLING_FRACTION": 0.06,
         "DCH_SAMPLE_SIZE": 50,
-        "TRITON_MAX_WORKERS": 10,
-        "TRITON_SHOW_PROGRESS": true,
-        "TRITON_BATCH_CHUNK_SIZE": null
+        "TRITON_MAX_WORKERS": 10
     },
     "HTCONDOR": {
         "collector_host": "cm.chtc.wisc.edu",
         "submit_host": "ap2002.chtc.wisc.edu",
-        "docker_image": "docker://stewartlab/skimgpt:2.0.8"
+        "docker_image": "docker://stewartlab/skimgpt:2.0.9"
     },
     "relevance_filter": {
         "SERVER_URL": "https://xdddev.chtc.io/triton",
