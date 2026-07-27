@@ -92,9 +92,7 @@ This configuration file contains various settings for different job types. Below
 - `iterations`: Number of iterations for processing (e.g., `3`).
 - `DCH_MIN_SAMPLING_FRACTION`: Minimum sampling fraction for DCH (e.g., `0.06`).
 - `DCH_SAMPLE_SIZE`: Sample size for DCH (e.g., `50`).
-- `TRITON_MAX_WORKERS`: Maximum number of workers for Triton (e.g., `10`).
-- `TRITON_SHOW_PROGRESS`: Boolean to show progress for Triton (e.g., `true`).
-- `TRITON_BATCH_CHUNK_SIZE`: Batch chunk size for Triton (e.g., `null`).
+- `TRITON_MAX_WORKERS`: Concurrent streaming inference workers for Triton (e.g., `10`).
 
 ## HTCONDOR
 

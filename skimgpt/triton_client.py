@@ -28,6 +28,11 @@ from urllib3.util.retry import Retry
 logger = logging.getLogger(__name__)
 
 
+class TritonBatchFailureError(RuntimeError):
+    """Raised when every Triton request in a run fails, indicating the server is down or unreachable."""
+    pass
+
+
 class TritonClient:
     """Optimized client for sending inference requests to Triton server.
     
