@@ -119,7 +119,16 @@ This configuration file contains various settings for different job types. Below
 - `A_TERM_LIST`: Boolean to indicate if a list of `A` terms is used (e.g., `false`).
 - `A_TERMS_FILE`: File path for the `A` terms list (e.g., `"../input_lists/test/km_a.txt"`).
 - `B_TERMS_FILE`: File path for the `B` terms list (e.g., `"../input_lists/hpv.txt"`).
-- `is_dch`: Boolean flag for DCH mode (e.g., `false`).
+- `is_dch`: Boolean flag for DCH mode (e.g., `false`). Compares exactly 2 B terms.
+- `tournament`: Settings for tournament-style N-way DCH comparison (see [Running a Tournament-Style N-Way DCH Comparison](#running-a-tournament-style-n-way-dch-comparison)). Must leave `is_dch` set to `false` when `tournament.enabled` is `true`.
+  - `enabled`: Boolean flag to turn on tournament mode (e.g., `false`).
+  - `tie_threshold`: Half-width of the tie band around a score of 50 (e.g., `5` means scores 45-55 count as a tie).
+  - `max_rounds`: Hard cap on tournament rounds (e.g., `null` to auto-compute from the number of B terms).
+  - `max_consecutive_stalls`: Stop and report co-winners if this many rounds in a row fail to reduce the surviving term count (e.g., `2`).
+  - `seed`: Optional integer seed for reproducible shuffling/pairing (e.g., `null` for non-reproducible).
+  - `on_pair_error`: `"advance_both"` (default, tolerate a failed pairwise comparison) or `"abort_round"` (stop the whole tournament).
+  - `pair_retries`: Number of automatic retries for a failed pairwise comparison before applying `on_pair_error` (e.g., `1`).
+  - `max_parallel_pairs`: Concurrency cap for pairwise comparisons within a round (e.g., `null` to run every pair in the round at once).
 - `SORT_COLUMN`: Column used for sorting A-B relationships (e.g., `"ab_sort_ratio"`).
 - `ab_fet_threshold`: Fisher Exact Test threshold for A-B relationships (e.g., `1`).
 - `censor_year_upper`: Upper bound year for data censoring (e.g., `1980`).
@@ -232,6 +241,28 @@ Output:
 The steps of KM are typically run from the command line. The first step involves querying a database to create co-occurrence numbers for statistical analysis.  We provide the output for this step for the three main historical hypotheses involving cervical cancer, scrapie, and peptic ulcer. All scripts, environmental variables, and example data are found in the skimgpt/visualization folder
 
 ## Running KM/Skim Direct Hypothesis Comparison only
+
+Set `JOB_SPECIFIC_SETTINGS.km_with_gpt.is_dch` to `true` and point `B_TERMS_FILE` at a file with **exactly 2** B terms, then run `python skimgpt/main.py` as usual. The first line is scored as hypothesis 1 (score toward 100 favors it) and the second line as hypothesis 2 (score toward 0 favors it); a score near 50 is a tie.
+
+### Running a Tournament-Style N-Way DCH Comparison
+
+To compare **more than 2** B terms pairwise and pick an overall winner, use `tournament_wrapper.py` instead of running `is_dch` directly:
+
+1. Point `B_TERMS_FILE` at a file with more than 2 terms (one per line, `|`-delimited synonym groups allowed as usual).
+2. In `config.json`, leave `is_dch` set to `false` and set `JOB_SPECIFIC_SETTINGS.km_with_gpt.tournament.enabled` to `true`. Adjust `tie_threshold`, `seed`, etc. as needed (see [Job-Specific Settings](#job-specific-settings) above).
+3. Run:
+
+   ```bash
+   python tournament_wrapper.py
+   ```
+
+Each round randomly pairs up the remaining B terms (one gets a bye if the count is odd), runs an ordinary `is_dch` comparison per pair (in parallel), and keeps the winner(s) — both terms advance on a tie. This repeats until one term remains, or the bracket stalls (e.g. every pair ties) for `max_consecutive_stalls` rounds in a row, in which case the surviving terms are reported as co-winners.
+
+Output (under `output/output_<timestamp>_tournament_<suffix>/`):
+- `round_<n>/output/<pair_id>/` — a normal single-pair `is_dch` output directory (`results.tsv`, `results/`, `debug/`, `config.json`) for every pairwise comparison in round `n`.
+- `bracket_history.json` — full round-by-round record (pairs, scores, decisions, winners).
+- `bracket_summary.tsv` — flat table, one row per pairwise comparison across all rounds.
+- `TOURNAMENT_WINNER.txt` — the final winner (or co-winners, or an abort notice).
 
 ## Use web interface to run KM/Skim
 
