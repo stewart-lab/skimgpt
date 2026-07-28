@@ -5,10 +5,10 @@ import sys
 import os
 import time
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
+# Add project root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from pubmed_fetcher import PubMedFetcher
+from skimgpt.pubmed_fetcher import PubMedFetcher
 
 class TestPubMedFetcherNoTruncation(unittest.TestCase):
     def setUp(self):

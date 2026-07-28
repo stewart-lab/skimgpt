@@ -1,0 +1,114 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1990	ONLY1		genetic predisposition	NA	
+1991	ONLY1		genetic predisposition	NA	
+1992	ONLY1		genetic predisposition	NA	
+1993	ONLY1		genetic predisposition	NA	
+1994	ONLY1		genetic predisposition	NA	
+1995	ONLY1		genetic predisposition	NA	
+1996	ONLY1		genetic predisposition	NA	
+1997	ONLY1		genetic predisposition	NA	
+1998	ONLY1		genetic predisposition	NA	
+1999	ONLY1		genetic predisposition	NA	
+2000	ONLY1		genetic predisposition	NA	
+2001	ONLY1		genetic predisposition	NA	
+2002	ONLY1		genetic predisposition	NA	
+2003	ONLY1		genetic predisposition	NA	
+2004	ONLY1		genetic predisposition	NA	
+2005	ONLY1		genetic predisposition	NA	
+2006	ONLY1		genetic predisposition	NA	
+2007	ONLY1		genetic predisposition	NA	
+2008	ONLY1		genetic predisposition	NA	
+2009	ONLY1		genetic predisposition	NA	
+2010	ONLY1		genetic predisposition	NA	
+2011	ONLY1		genetic predisposition	NA	
+2012	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.358224793	0.00094334	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2012	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-3.331341761	0.000864284	Reporting on z test of proportions.
+2012	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.311027163	NOTSURE	Small number of window hits make p-value calculation difficult.
+2012	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.356571863	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.1947510881168222-4.996169393544095    CI2: 4.479494621651448-10.480727495215564 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2012	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.185206702	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2012	chisq		10.10363101	0.001479775	
+2012	tost		-2.458028556	0.993014897	
+2013	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.545532234	0.018660091	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2013	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-2.474987735	0.013324075	Reporting on z test of proportions.
+2013	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.952050392	NOTSURE	Small number of window hits make p-value calculation difficult.
+2013	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.543882013	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.0630081751847156-5.571805012488877    CI2: 4.142172641821803-9.381218891936728 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2013	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.420056516	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2013	chisq		5.487174147	0.019156481	
+2013	tost		-1.528183001	0.936766446	
+2014	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.703347722	0.090826997	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2014	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-1.716853831	0.086005882	Reporting on z test of proportions.
+2014	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.71234347	NOTSURE	Small number of window hits make p-value calculation difficult.
+2014	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.702250255	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.8875848690224317-6.041206006648023    CI2: 4.04534849741557-8.744171187036828 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2014	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.761625224	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2014	chisq		2.57096961	0.108841001	
+2014	tost		-0.632645697	0.736517481	
+2015	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.919740315	0.662904327	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2015	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-0.488535784	0.625170386	Reporting on z test of proportions.
+2015	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.731070123	NOTSURE	Small number of window hits make p-value calculation difficult.
+2015	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.92052421	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.217289380152701-7.1921943925652885    CI2: 4.1940472411677-8.534755256814348 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2015	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.468761428	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2015	chisq		0.158918913	0.690153804	
+2015	tost		0.793736617	0.213674389	
+2016	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.979476988	0.874703184	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2016	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-0.132470877	0.894611857	Reporting on z test of proportions.
+2016	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.855912409	NOTSURE	Small number of window hits make p-value calculation difficult.
+2016	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.981548017	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.460592561558589-6.966065870808732    CI2: 4.043819754723999-7.975634494791005 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2016	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.965564009	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2016	chisq		0.002770748	0.958020419	
+2016	tost		1.266535436	0.102660725	
+2017	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.983522501	0.88406246	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2017	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	-0.114843909	0.908568845	Reporting on z test of proportions.
+2017	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.63538202	NOTSURE	Small number of window hits make p-value calculation difficult.
+2017	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.98645377	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.479048757104175-6.56325325547143    CI2: 3.977921975131891-7.594430606411788 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2017	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	2.388317296	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2017	chisq		0.001686217	0.967245212	
+2017	tost		1.397307903	0.0811605	
+2018	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.065916469	0.689002753	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2018	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.473037769	0.636186233	Reporting on z test of proportions.
+2018	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.069810647	NOTSURE	Small number of window hits make p-value calculation difficult.
+2018	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.071110871	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.75702451048799-6.562612070029507    CI2: 3.8206054604779496-7.1221493399330456 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2018	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	3.298530728	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2018	chisq		0.16259858	0.686775249	
+2018	tost		-0.919603865	0.178889903	
+2019	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.078975194	0.577251255	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2019	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.602907006	0.546570555	Reporting on z test of proportions.
+2019	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.752183304	NOTSURE	Small number of window hits make p-value calculation difficult.
+2019	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.085684184	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.7851613699331335-6.316115745224945    CI2: 3.763515631691139-6.813118174474588 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2019	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	4.047153826	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2019	chisq		0.288139644	0.591415164	
+2019	tost		-0.885802389	0.187862011	
+2020	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.081057821	0.562448305	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2020	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.660336158	0.509038131	Reporting on z test of proportions.
+2020	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.735727809	NOTSURE	Small number of window hits make p-value calculation difficult.
+2020	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.08936213	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.7821777091654525-6.081165877399247    CI2: 3.732776416553954-6.565019734324228 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2020	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	4.893857425	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2020	chisq		0.357262907	0.550030291	
+2020	tost		-0.927321906	0.176879712	
+2021	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.066526598	0.587336223	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2021	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.583780529	0.55936798	Reporting on z test of proportions.
+2021	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.743459175	NOTSURE	Small number of window hits make p-value calculation difficult.
+2021	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.076120448	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.687818955840812-5.784273456681381    CI2: 3.7053918382722904-6.31922383473654 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2021	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	5.673782826	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2021	chisq		0.275776365	0.599482995	
+2021	tost		-1.111414785	0.133194926	
+2022	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.05884217	0.610149855	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2022	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.552830055	0.580379786	Reporting on z test of proportions.
+2022	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.727943643	NOTSURE	Small number of window hits make p-value calculation difficult.
+2022	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.070042485	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.6660587845688575-5.614319687702811    CI2: 3.715592372885185-6.157681746730053 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2022	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	6.561682666	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2022	chisq		0.247550694	0.618805014	
+2022	tost		-1.251869037	0.105308794	
+2023	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.049154902	0.657989253	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2023	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.482210863	0.629656161	Reporting on z test of proportions.
+2023	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.043376145	NOTSURE	Small number of window hits make p-value calculation difficult.
+2023	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.061005956	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.385327546644769-5.19382304435317    CI2: 3.522255569503553-5.744241337558239 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2023	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	7.292780388	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2023	chisq		0.184296935	0.667706235	
+2023	tost		-1.391643586	0.082015177	
+2024	ratio_of_ratios_FET_ratios_directly	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.051665637	0.658179782	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2024	ratio_of_ratios_zprop	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0.506459158	0.612534354	Reporting on z test of proportions.
+2024	windowed_ratio_of_rat_or_int	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	0	NOTSURE	Small number of window hits make p-value calculation difficult.
+2024	ratio_of_fet_stats	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	1.063627208	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.379812102506907-5.183647827123719    CI2: 3.507933956484037-5.72085161118488 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+2024	ratio_of_pred_scores	"microbiome|gut microbiome|gut microbiota|microbiota,genetic predisposition"	7.368842786	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2024	chisq		0.205602534	0.650236146	
+2024	tost		-1.368220133	0.085621591	

@@ -1,0 +1,647 @@
+import json
+import logging
+import openai
+import re
+import time
+from typing import Any
+
+from skimgpt import prompt_library as prompts_module
+from skimgpt.retry import retry_call
+from skimgpt.utils import Config, clean_term_for_display, extract_json_from_markdown, extract_pmids, get_hypothesis
+
+logger = logging.getLogger(__name__)
+
+# Constants
+SCORE_NA_RESPONSE = {"score": "N/A", "decision": "N/A"}
+
+# OpenAI errors that are non-retryable (should break the retry loop immediately)
+_NON_RETRYABLE_ERRORS = (
+    openai.AuthenticationError,
+    openai.PermissionDeniedError,
+    openai.NotFoundError,
+)
+
+
+def _list_len(value) -> int:
+    """Return the length of value if it is a list, otherwise 0."""
+    return len(value) if isinstance(value, list) else 0
+
+
+def _generate_pubmed_urls(text: Any) -> list[str]:
+    """Extract PMIDs from text and return corresponding PubMed URLs."""
+    if not isinstance(text, str):
+        logger.error(
+            f"Expected string for 'text', but got {type(text)}. Converting to string."
+        )
+        text = str(text)
+    return [f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" for pmid in extract_pmids(text)]
+
+
+def _build_relationship_result(
+    result, prompt_text, urls, *, a_term="", b_term="", c_term="",
+    relationship_label="", hypothesis="", url_keys=None,
+) -> dict:
+    """Build a standardised relationship result dict.
+
+    Args:
+        result: The LLM analysis result.
+        prompt_text: The prompt that was sent.
+        urls: Dict mapping relationship keys to URL lists.
+        a_term/b_term/c_term: Cleaned display terms.
+        relationship_label: Human-readable relationship string (e.g. "A - B - C").
+        hypothesis: Formatted hypothesis string.
+        url_keys: Which keys from *urls* to include. If None, include all.
+    """
+    if url_keys is not None:
+        urls = {k: urls.get(k, []) for k in url_keys}
+    return {
+        "a_term": a_term,
+        "b_term": b_term,
+        "c_term": c_term,
+        "Relationship": relationship_label,
+        "Hypothesis": hypothesis,
+        "Result": result,
+        "Prompt": prompt_text,
+        "URLS": urls,
+    }
+
+
+def calculate_relevance_ratios(out_df, config: Config):
+    logger.debug(f" Complete Out df: {out_df.to_string()}")
+
+    for col in ["ab_mask", "bc_mask", "ac_mask"]:
+        if col not in out_df.columns:
+            continue
+        prefix = col.split("_")[0]
+        ratio_col = f"{prefix}_relevance_ratio"
+        fraction_col = f"{prefix}_relevance_fraction"
+        logger.debug(f"  Computing {ratio_col} and {fraction_col}")
+        out_df[[ratio_col, fraction_col]] = (
+            out_df[col]
+            .apply(
+                lambda x: (
+                    (sum(x) / len(x), f"{sum(x)}/{len(x)}")
+                    if isinstance(x, list) and len(x) > 0
+                    else (0, "0/0")
+                )
+            )
+            .tolist()
+        )
+
+    return out_df
+
+
+def process_single_row(row, config: Config):
+    processed_results = {}
+    a_term = b_term = c_term = ""
+
+    # analyses: list of (rel_type, result_key, rel_label, hypothesis, url_keys)
+    analyses = []
+
+    if config.is_dch:
+        # DCH mode: structurally different — handled separately
+        hypothesis1 = row.get("hypothesis1")
+        hypothesis2 = row.get("hypothesis2")
+
+        if not (hypothesis1 and hypothesis2):
+            logger.error("Missing hypotheses for DCH row.")
+            return None
+
+        result, prompt_text, urls = perform_analysis(
+            row=row, config=config, relationship_type="A_B"
+        )
+        if result or prompt_text:
+            processed_results["Hypothesis_Comparison"] = {
+                "hypothesis1": hypothesis1,
+                "hypothesis2": hypothesis2,
+                "Result": result,
+                "Prompt": prompt_text,
+                "URLS": urls,
+            }
+
+    elif config.is_skim_with_gpt:
+        a_term = clean_term_for_display(row.get("a_term"))
+        b_term = clean_term_for_display(row.get("b_term"))
+        c_term = clean_term_for_display(row.get("c_term"))
+        row["a_term"], row["b_term"], row["c_term"] = a_term, b_term, c_term
+
+        analyses = [
+            ("A_B_C", "A_B_C_Relationship",
+             f"{a_term} - {b_term} - {c_term}",
+             get_hypothesis(config, a_term=a_term, b_term=b_term, c_term=c_term,
+                            relationship_type="A_B_C", clean_terms=False),
+             ["AB", "BC"]),
+            ("A_C", "A_C_Relationship",
+             f"{a_term} - {c_term}",
+             get_hypothesis(config, a_term=a_term, c_term=c_term,
+                            relationship_type="A_C", clean_terms=False),
+             ["AC"]),
+        ]
+
+    elif config.is_km_with_gpt:
+        a_term = row.get("a_term")
+        b_term = row.get("b_term")
+
+        if not (a_term and b_term):
+            logger.error("Missing 'a_term' or 'b_term' in row.")
+            return None
+
+        a_term = clean_term_for_display(a_term)
+        b_term = clean_term_for_display(b_term)
+        c_term = ""
+        row["a_term"], row["b_term"] = a_term, b_term
+
+        analyses = [
+            ("A_B", "A_B_Relationship",
+             f"{a_term} - {b_term}",
+             get_hypothesis(config, a_term=a_term, b_term=b_term,
+                            relationship_type="A_B", clean_terms=False),
+             ["AB"]),
+        ]
+
+    else:
+        logger.warning(f"Job type '{config.job_type}' is not specifically handled.")
+
+    for rel_type, result_key, rel_label, hypothesis, url_keys in analyses:
+        result, prompt_text, urls = perform_analysis(
+            row=row, config=config, relationship_type=rel_type
+        )
+        if result or prompt_text:
+            processed_results[result_key] = _build_relationship_result(
+                result, prompt_text, urls,
+                a_term=a_term, b_term=b_term, c_term=c_term,
+                relationship_label=rel_label,
+                hypothesis=hypothesis,
+                url_keys=url_keys,
+            )
+
+    logger.debug(f"Processed results: {processed_results}")
+    return processed_results if any(processed_results.values()) else None
+
+
+def perform_analysis(row: dict, config: Config, relationship_type: str) -> tuple:
+    """Perform LLM analysis for a given relationship type.
+
+    Extracts the relevant abstracts and terms from *row*, builds PubMed URLs,
+    validates that required abstracts are present, then delegates to the
+    frontier LLM for scoring.
+
+    Returns:
+        (result_list, prompt_text, urls_dict)
+    """
+    # -- Extract terms, abstracts, URLs, and expected counts per relationship type
+    if relationship_type == "A_B_C":
+        a_term = row.get("a_term", "")
+        b_term = row.get("b_term", "")
+        c_term = row.get("c_term", "")
+        ab_abstracts = row.get("ab_abstracts", "")
+        bc_abstracts = row.get("bc_abstracts", "")
+        ac_abstracts = ""
+
+        expected_count = _list_len(ab_abstracts) + _list_len(bc_abstracts)
+        urls = {
+            "AB": _generate_pubmed_urls(ab_abstracts) if ab_abstracts else [],
+            "BC": _generate_pubmed_urls(bc_abstracts) if bc_abstracts else [],
+        }
+        if not ab_abstracts or not bc_abstracts:
+            logger.error(
+                f"Early exit for '{config.job_type}' / '{relationship_type}': "
+                "Missing 'ab_abstracts' or 'bc_abstracts'."
+            )
+            return [SCORE_NA_RESPONSE], "", urls
+        # Tag each pool with an explicit section header so the chain-extraction
+        # prompt knows which abstracts speak to A↔B vs B↔C. Without this the
+        # model sees a flat blob and has to infer pool from the term names —
+        # which it does badly, defaulting to "inconclusive" on most entries
+        # because no single abstract contains all three terms.
+        #
+        # Header marker uses ######## rather than === so it's visually
+        # distinct from the per-abstract `===END OF ABSTRACT===` delimiter
+        # (see skimgpt/utils.py::ABSTRACT_DELIMITER) — otherwise the model
+        # could misread our section header as an abstract-end marker.
+        ab_header = (
+            f"\n######## POOL: AB — each abstract relates {a_term} and {b_term} "
+            f"(does NOT contain {c_term}; that's expected) ########\n\n"
+        )
+        bc_header = (
+            f"\n######## POOL: BC — each abstract relates {b_term} and {c_term} "
+            f"(does NOT contain {a_term}; that's expected) ########\n\n"
+        )
+        consolidated_abstracts = ab_header + ab_abstracts + bc_header + bc_abstracts
+
+    elif relationship_type == "A_C":
+        a_term = row.get("a_term", "")
+        b_term = ""
+        c_term = row.get("c_term", "")
+        ac_abstracts = row.get("ac_abstracts", "")
+
+        expected_count = _list_len(ac_abstracts)
+        urls = {
+            "AC": _generate_pubmed_urls(ac_abstracts) if ac_abstracts else [],
+        }
+        if not ac_abstracts:
+            logger.error(
+                f"Early exit for '{config.job_type}' / '{relationship_type}': "
+                "Missing 'ac_abstracts'."
+            )
+            return [SCORE_NA_RESPONSE], "", urls
+        consolidated_abstracts = ac_abstracts
+
+    elif relationship_type == "A_B":
+        if config.is_dch:
+            a_term, b_term, c_term = "", "", ""
+            ab_abstracts = row.get("ab_abstracts", "")
+            expected_count = row.get("expected_per_abstract_count")
+        else:
+            a_term = row.get("a_term", "")
+            b_term = row.get("b_term", "")
+            c_term = ""
+            ab_abstracts = row.get("ab_abstracts", "")
+            expected_count = _list_len(ab_abstracts)
+
+        urls = {
+            "AB": _generate_pubmed_urls(ab_abstracts) if ab_abstracts else [],
+        }
+        if not config.is_dch and not ab_abstracts:
+            logger.error(
+                f"Early exit for '{relationship_type}': Missing 'ab_abstracts'."
+            )
+            return [SCORE_NA_RESPONSE], "", urls
+        consolidated_abstracts = ab_abstracts
+
+    else:
+        logger.error(f"Unknown relationship type: {relationship_type}")
+        return [SCORE_NA_RESPONSE], "", {}
+
+    # -- Call the frontier LLM ------------------------------------------------
+    try:
+        logger.debug(f"Consolidated abstracts: {consolidated_abstracts}")
+        logger.debug(
+            f"Job={config.job_type}  Relationship={relationship_type}  "
+            f"A={a_term}  B={b_term}  C={c_term}"
+        )
+        result, prompt_text = analyze_abstract_with_frontier_LLM(
+            a_term=a_term,
+            b_term=b_term,
+            c_term=c_term,
+            consolidated_abstracts=consolidated_abstracts,
+            config=config,
+            relationship_type=relationship_type,
+            hypothesis1=row.get("hypothesis1"),
+            hypothesis2=row.get("hypothesis2"),
+            expected_per_abstract_count=expected_count,
+        )
+        logger.debug(f"Analysis result: {result}")
+        logger.debug(f"Prompt text: {prompt_text}")
+        return result, prompt_text, urls
+    except Exception as e:
+        logger.error(f"Error during analysis: {e}")
+        return [SCORE_NA_RESPONSE], "", urls
+
+
+def analyze_abstract_with_frontier_LLM(
+    a_term: str,
+    b_term: str,
+    c_term: str,
+    consolidated_abstracts: str,
+    config: Config,
+    relationship_type: str,
+    hypothesis1: str | None = None,
+    hypothesis2: str | None = None,
+    expected_per_abstract_count: int | None = None,
+) -> tuple:
+    if not a_term and not config.is_dch:
+        logger.error("A term is empty.")
+        return [SCORE_NA_RESPONSE], ""
+
+    prompt_text = generate_prompt(
+        a_term=a_term,
+        b_term=b_term,
+        c_term=c_term,
+        content=consolidated_abstracts,
+        config=config,
+        relationship_type=relationship_type,
+        hypothesis1=hypothesis1,
+        hypothesis2=hypothesis2,
+    )
+    if not prompt_text:
+        logger.error("Failed to generate prompt.")
+        return ["Score: N/A"], prompt_text
+    logger.debug(f"Generated prompt text: {prompt_text}")
+
+    # Derive expected per-abstract count from the prompt; prefer over provided value
+    final_expected_count = expected_per_abstract_count
+    try:
+        m = re.search(r"Available PMIDs for [Cc]itation:\s*([0-9,\s]+)", prompt_text)
+        if m:
+            numbers = re.findall(r"\d+", m.group(1))
+            if numbers:
+                final_expected_count = len(numbers)
+                logger.info(f"Derived expected_per_abstract_count from prompt: {final_expected_count}")
+    except Exception as exc:
+        logger.debug(f"Could not derive expected count from prompt: {exc}")
+
+    response = call_openai_json(
+        config.llm_client,
+        prompt_text,
+        config,
+        expected_per_abstract_count=final_expected_count,
+        relationship_type=relationship_type,
+    )
+    logger.debug(f"LLM response: {response}")
+    result = [response] if response else []
+    return result, prompt_text
+
+
+def generate_prompt(
+    a_term: str,
+    b_term: str,
+    c_term: str,
+    content: str,
+    config: Config,
+    relationship_type: str,
+    hypothesis1: str | None = None,
+    hypothesis2: str | None = None,
+) -> str:
+    if config.is_dch:
+        if not (hypothesis1 and hypothesis2):
+            logger.error("DCH requires hypothesis1 and hypothesis2.")
+            return ""
+        prompt_function = getattr(prompts_module, "km_with_gpt_direct_comp", None)
+        if not prompt_function:
+            logger.error("Prompt function for DCH not found.")
+            return ""
+        return prompt_function(
+            hypothesis_1=hypothesis1,
+            hypothesis_2=hypothesis2,
+            consolidated_abstracts=content,
+        )
+
+    hypothesis_template = get_hypothesis(
+        config, a_term=a_term, b_term=b_term, c_term=c_term,
+        relationship_type=relationship_type, clean_terms=False,
+    )
+    if not hypothesis_template:
+        logger.error(f"Failed to generate hypothesis for {relationship_type} / {config.job_type}")
+        return ""
+
+    # Select the appropriate prompt function
+    if config.is_skim_with_gpt and relationship_type == "A_C":
+        prompt_function = getattr(prompts_module, "skim_with_gpt_ac", None)
+    else:
+        prompt_function = getattr(prompts_module, config.job_type, None)
+
+    if not prompt_function:
+        raise ValueError(
+            f"Prompt function for '{relationship_type}' / '{config.job_type}' "
+            "not found in prompts module."
+        )
+
+    # Build keyword arguments -- all prompt functions share these common args
+    kwargs = {
+        "a_term": a_term,
+        "hypothesis_template": hypothesis_template,
+        "consolidated_abstracts": content,
+    }
+    if relationship_type == "A_B_C":
+        kwargs["b_term"] = b_term
+        kwargs["c_term"] = c_term
+    elif relationship_type == "A_C":
+        kwargs["c_term"] = c_term
+    elif relationship_type == "A_B":
+        kwargs["b_term"] = b_term
+    else:
+        raise ValueError("Invalid relationship type specified.")
+
+    return prompt_function(**kwargs)
+
+
+def _schema_for(config, relationship_type: str | None = None) -> dict | None:
+    """Return the JSON schema for the active job type, or None if no schema is registered.
+
+    SKiM-GPT has two schemas: A-C (direct, single-label per abstract) and
+    A-B-C (mediated chain, a holistic verdict — no per-abstract breakdown).
+    The caller must pass `relationship_type` for SKiM so we pick the right
+    one; for DCH and KM the schema is unambiguous.
+    """
+    if config.is_dch:
+        return prompts_module.km_with_gpt_direct_comp_json_schema()
+    if config.is_km_with_gpt:
+        return prompts_module.km_with_gpt_json_schema()
+    if config.is_skim_with_gpt:
+        if relationship_type == "A_B_C":
+            return prompts_module.skim_with_gpt_abc_json_schema()
+        # A_C or unspecified → direct-relationship schema (each abstract has both terms)
+        return prompts_module.skim_with_gpt_json_schema()
+    return None
+
+
+def _system_instructions_for(config, relationship_type: str | None = None) -> str:
+    """Return system instructions for the active job type + relationship_type.
+
+    Mirrors _schema_for's job/relationship branching so the system instructions
+    always match the schema being enforced via response_format.
+    """
+    if config.is_dch:
+        return prompts_module.km_with_gpt_direct_comp_system_instructions()
+    if config.is_km_with_gpt:
+        return prompts_module.km_with_gpt_system_instructions()
+    if config.is_skim_with_gpt:
+        if relationship_type == "A_B_C":
+            return prompts_module.skim_with_gpt_abc_system_instructions()
+        return prompts_module.skim_with_gpt_system_instructions()
+    raise ValueError(f"Unknown job type: {config.job_type}")
+
+
+def _supports_strict_structured_outputs(model: str) -> bool:
+    """Whether to send `response_format=json_schema strict:true` for this model.
+
+    DeepSeek's r1 (deepseek-reasoner) does not honor OpenAI's structured-outputs
+    parameter; everything else we route to the OpenAI-compatible endpoint does
+    (GPT-5.x series, o-series). Default conservatively to true for OpenAI and
+    false for anything we map to deepseek.
+    """
+    return model not in ("r1", "deepseek-reasoner")
+
+
+def call_openai_json(client, prompt, config, expected_per_abstract_count: int | None = None,
+                     relationship_type: str | None = None):
+    """Call the OpenAI-compatible API, validate the JSON response, and retry on transient errors.
+
+    `relationship_type` lets SKiM-GPT distinguish A_C (direct) from A_B_C
+    (mediated chain) so the right schema and system instructions are sent.
+    """
+    # Build messages with system + user for all models
+    system_instructions = _system_instructions_for(config, relationship_type)
+    # SKiM-ABC is holistic — no per_abstract array — so it gets none of the
+    # per-abstract count enforcement below.
+    is_skim_abc = config.is_skim_with_gpt and relationship_type == "A_B_C"
+    irrelevant_label = "neither" if config.is_dch else "inconclusive"
+
+    messages = [{"role": "system", "content": system_instructions}]
+    if expected_per_abstract_count is not None and not is_skim_abc:
+        extra = (
+            f"You MUST return exactly {expected_per_abstract_count} items in the "
+            "per_abstract array. Include one entry per PMID listed. If an abstract "
+            f"is irrelevant, label it '{irrelevant_label}' but still include it. "
+            "Do not omit any."
+        )
+        messages.append({"role": "system", "content": extra})
+    messages.append({"role": "user", "content": prompt})
+
+    model_name = "deepseek-reasoner" if config.model == "r1" else config.model
+    use_strict = _supports_strict_structured_outputs(config.model)
+    schema = _schema_for(config, relationship_type) if use_strict else None
+
+    params: dict = {
+        "messages": messages,
+        "model": model_name,
+    }
+    if schema is not None:
+        # Strict mode forces the model output to conform to the JSON schema and
+        # guarantees raw JSON (no Markdown fences). Schema declaration order is
+        # the emission order, which we use as a CoT-forcing pattern in the DCH
+        # per_abstract items (see prompt_library.km_with_gpt_direct_comp_json_schema).
+        schema_name = f"{config.job_type}_evaluation"
+        if config.is_skim_with_gpt and relationship_type:
+            schema_name = f"{config.job_type}_{relationship_type.lower()}_evaluation"
+        params["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": schema_name,
+                "strict": True,
+                "schema": schema,
+            },
+        }
+    # High reasoning effort on DCH (competing hypotheses, direction-aware,
+    # belief-vs-evidence) — low-volume, high-stakes. SKiM-ABC stays at the
+    # default ("medium") despite being a chain-composition workload: it's
+    # the highest-volume call path (rows × iterations), so the cost/latency
+    # math for "high" doesn't pencil out at scale. If chain-composition
+    # quality is poor in prod, revisit per-job-type tuning.
+    if use_strict and config.is_dch:
+        params["reasoning_effort"] = "high"
+
+    def _attempt():
+        api_start = time.time()
+        resp = client.chat.completions.create(**params)
+        api_duration = time.time() - api_start
+
+        total_tokens = resp.usage.total_tokens if getattr(resp, "usage", None) else "N/A"
+        abstracts_count = expected_per_abstract_count or "N/A"
+        logger.info(
+            f"OpenAI API call completed in {api_duration:.2f}s "
+            f"(model={params['model']}, abstracts={abstracts_count}, tokens={total_tokens}, "
+            f"strict={schema is not None}, reasoning_effort={params.get('reasoning_effort','default')})"
+        )
+
+        content = resp.choices[0].message.content
+        if not content:
+            raise ValueError("Empty response content from API.")
+
+        if schema is not None:
+            # Strict structured outputs returns raw JSON; no fences to strip.
+            payload = json.loads(content)
+        else:
+            payload = extract_json_from_markdown(content)
+        _validate_payload(payload, config, expected_per_abstract_count, relationship_type)
+        return payload
+
+    def _on_non_retryable(exc: BaseException, attempt: int) -> None:
+        logger.error(f"{type(exc).__name__}: {exc}")
+
+    def _on_retryable(exc: BaseException, attempt: int) -> None:
+        # DeepSeek-specific status codes that should abort or continue
+        if isinstance(exc, openai.APIError):
+            status_code = getattr(exc, "status_code", None)
+            if config.model == "r1" and status_code == 402:
+                logger.error("Insufficient Balance: Please add funds.")
+                raise StopIteration
+            if config.model == "r1" and status_code == 503:
+                logger.error("Server Overloaded: Retrying after delay.")
+                return
+        logger.warning(f"{type(exc).__name__}: {exc}")
+
+    return retry_call(
+        _attempt,
+        max_retries=config.max_retries,
+        delay=config.retry_delay,
+        non_retryable=_NON_RETRYABLE_ERRORS,
+        on_non_retryable=_on_non_retryable,
+        on_retryable=_on_retryable,
+        default=None,
+    )
+
+
+def _validate_payload(
+    payload: dict, config: Config, expected_per_abstract_count: int | None,
+    relationship_type: str | None = None,
+) -> None:
+    """Validate that the parsed LLM payload contains all required fields.
+
+    Raises ValueError on validation failure so the retry loop can catch it.
+
+    SKiM-ABC has a different shape from KM/SKiM-AC/DCH — it is holistic
+    (score_rationale + score + decision only, no per_abstract array or
+    tallies). `relationship_type` lets the validator branch on that variant.
+    """
+    is_skim_abc = getattr(config, "is_skim_with_gpt", False) and relationship_type == "A_B_C"
+
+    # SKiM-ABC is holistic: no per_abstract / tallies to validate, so the
+    # length and consistency checks below are skipped entirely for it.
+    if is_skim_abc:
+        for key in ("score_rationale", "score", "decision"):
+            if key not in payload:
+                raise ValueError(f"Missing required field '{key}' in model output.")
+        return
+
+    required_fields = ["per_abstract", "score_rationale", "tallies", "score", "decision"]
+    for key in required_fields:
+        if key not in payload:
+            raise ValueError(f"Missing required field '{key}' in model output.")
+
+    # Enforce per_abstract length when expected count is provided
+    if expected_per_abstract_count is not None:
+        per_abstract = payload.get("per_abstract", [])
+        if not isinstance(per_abstract, list) or len(per_abstract) != expected_per_abstract_count:
+            actual = len(per_abstract) if isinstance(per_abstract, list) else "N/A"
+            raise ValueError(
+                f"per_abstract length {actual} does not match expected {expected_per_abstract_count}."
+            )
+
+    # Validate tallies depending on mode
+    tallies = payload.get("tallies", {})
+    if config.is_dch:
+        required_tallies = ["support_H1", "support_H2", "both", "neither_or_inconclusive"]
+    else:
+        required_tallies = ["support", "refute", "inconclusive"]
+
+    for tally_key in required_tallies:
+        if tally_key not in tallies:
+            raise ValueError(f"Missing required tally '{tally_key}' in model output.")
+
+    # Per-mode consistency: tallies MUST equal the per_abstract counts. The
+    # prompt asks for this explicitly but unguarded LLM responses drift by
+    # ±1-2 per bucket on roughly half of payloads (measured against
+    # SKiM_web's km_query 26 in 2026-05). Failing here triggers the caller's
+    # retry loop, which is cheap relative to silently shipping mis-tallied
+    # results downstream.
+    if config.is_dch:
+        per_abstract = payload.get("per_abstract", []) or []
+        counts = {"support_H1": 0, "support_H2": 0, "both": 0, "neither_or_inconclusive": 0}
+        for entry in per_abstract:
+            label = (entry.get("label") if isinstance(entry, dict) else "") or ""
+            if label == "supports_H1":
+                counts["support_H1"] += 1
+            elif label == "supports_H2":
+                counts["support_H2"] += 1
+            elif label == "both":
+                counts["both"] += 1
+            elif label in ("neither", "inconclusive"):
+                counts["neither_or_inconclusive"] += 1
+        for k, expected in counts.items():
+            actual = int(tallies.get(k, 0) or 0)
+            if actual != expected:
+                raise ValueError(
+                    f"Tally '{k}' = {actual} does not match per_abstract count {expected}."
+                )

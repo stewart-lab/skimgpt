@@ -1,0 +1,101 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1990	ONLY1		hormone&therapy	NA	
+1991	ONLY1		hormone&therapy	NA	
+1992	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.555658412	0.430463262	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1992	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-0.596480426	0.550854326	Reporting on z test of proportions.
+1992	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	1.391358025	NOTSURE	Small number of window hits make p-value calculation difficult.
+1992	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.555253302	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 8.631798061105833-14.604136758596796    CI2: 1.4976431058829982-273.01501427882414 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+1992	ratio_of_pred_scores	"hormone&therapy,statin|statins"	3.271707542	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1992	chisq		0	1	
+1992	tost		-0.931492401	0.824200543	
+1993	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.421669107	0.209086501	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1993	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-1.258034733	0.208379195	Reporting on z test of proportions.
+1993	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.456521739	NOTSURE	Small number of window hits make p-value calculation difficult.
+1993	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.417982264	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 9.597008866556653-15.270830878726391    CI2: 4.550371093163245-184.34698503976352 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+1993	ratio_of_pred_scores	"hormone&therapy,statin|statins"	2.736673896	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1993	chisq		0.473311821	0.491467508	
+1993	tost		-1.360043543	0.913091927	
+1994	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.367224653	0.062396314	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1994	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-2.077851694	0.037723021	Reporting on z test of proportions.
+1994	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.551470588	NOTSURE	Small number of window hits make p-value calculation difficult.
+1994	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.361542864	1	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 10.343610768893758-15.71173676500068    CI2: 9.466267786044575-131.3402961152703 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99"
+1994	ratio_of_pred_scores	"hormone&therapy,statin|statins"	2.541748241	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1994	chisq		2.600714792	0.10681553	
+1994	tost		-1.900348392	0.971306293	
+1995	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.235198155	8.07E-05	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1995	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-5.142075384	2.72E-07	Reporting on z test of proportions.
+1995	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.305610824	NOTSURE	Small number of window hits make p-value calculation difficult.
+1995	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.224228562	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 11.785771566834553-17.002069516253524    CI2: 28.146700309688967-141.59582695115722 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+1995	ratio_of_pred_scores	"hormone&therapy,statin|statins"	1.715793073	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1995	chisq		21.29501389	3.94E-06	
+1995	tost		-4.331982473	0.999992611	
+1996	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.244231692	4.55E-07	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1996	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-6.51249569	7.39E-11	Reporting on z test of proportions.
+1996	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.48266129	NOTSURE	Small number of window hits make p-value calculation difficult.
+1996	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.231421502	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 13.315414481231-18.3589058101096    CI2: 36.40926498341926-125.36668932704544 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+1996	ratio_of_pred_scores	"hormone&therapy,statin|statins"	1.877797461	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1996	chisq		35.54709843	2.49E-09	
+1996	tost		-5.378997679	0.999999963	
+1997	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.244315177	1.43E-10	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1997	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-8.250134944	1.58E-16	Reporting on z test of proportions.
+1997	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.417865254	NOTSURE	Small number of window hits make p-value calculation difficult.
+1997	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.229484309	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 14.379373626609897-19.159909420833934    CI2: 44.43071584533005-117.74544528827997 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+1997	ratio_of_pred_scores	"hormone&therapy,statin|statins"	1.911557542	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1997	chisq		57.87839229	2.79E-14	
+1997	tost		-6.754511829	1	
+1998	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.245246132	2.03E-16	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1998	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-10.48383892	1.02E-25	Reporting on z test of proportions.
+1998	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.380198698	NOTSURE	Small number of window hits make p-value calculation difficult.
+1998	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.228976123	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 14.58047585436677-18.987527933192755    CI2: 49.79766520432118-106.03536796029988 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+1998	ratio_of_pred_scores	"hormone&therapy,statin|statins"	1.801640654	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1998	chisq		94.35465205	2.64E-22	
+1998	tost		-8.522474581	1	
+1999	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.210157248	7.82E-34	Reporting FET on the AB hits and B totals. Probably CORRECT.
+1999	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-15.75568403	6.28E-56	Reporting on z test of proportions.
+1999	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.272925856	NOTSURE	Small number of window hits make p-value calculation difficult.
+1999	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.190002808	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.186946119738833-19.292686035353    CI2: 67.96686744984095-119.41141836390439 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+1999	ratio_of_pred_scores	"hormone&therapy,statin|statins"	1.165629836	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+1999	chisq		209.4151258	1.84E-47	
+1999	tost		-12.86305011	1	
+2000	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.203542321	4.62E-57	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2000	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-20.41480401	1.24E-92	Reporting on z test of proportions.
+2000	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.291027155	NOTSURE	Small number of window hits make p-value calculation difficult.
+2000	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.181091137	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.231526424151562-18.99380210121995    CI2: 75.57093901060021-116.73635481735786 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2000	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.833722859	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2000	chisq		348.3382042	9.75E-78	
+2000	tost		-16.62966042	1	
+2001	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.19525851	2.12E-102	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2001	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-26.94202901	7.07E-160	Reporting on z test of proportions.
+2001	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.306573239	NOTSURE	Small number of window hits make p-value calculation difficult.
+2001	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.169643741	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.445825424807206-18.92320680347669    CI2: 85.58779404455447-118.66382525440646 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2001	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.684964542	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2001	chisq		596.6641933	8.90E-132	
+2001	tost		-21.86927379	1	
+2002	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.219478911	1.74E-127	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2002	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-28.9503769	2.78E-184	Reporting on z test of proportions.
+2002	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.470235312	NOTSURE	Small number of window hits make p-value calculation difficult.
+2002	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.191690582	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.99561972785512-19.249880949934383    CI2: 79.95420757853744-104.80602327075344 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2002	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.69679936	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2002	chisq		688.4032494	9.94E-152	
+2002	tost		-23.38894366	1	
+2003	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.226207476	4.00E-174	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2003	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-33.0126834	5.34E-239	Reporting on z test of proportions.
+2003	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.351851353	NOTSURE	Small number of window hits make p-value calculation difficult.
+2003	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.195946766	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.910727582126842-18.885624298833395    CI2: 79.09532255777718-98.94512080216325 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2003	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.691285512	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2003	chisq		888.3267595	3.38E-195	
+2003	tost		-26.53818223	1	
+2004	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.233683247	1.14E-222	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2004	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-36.48563311	1.87E-291	Reporting on z test of proportions.
+2004	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.356659483	NOTSURE	Small number of window hits make p-value calculation difficult.
+2004	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.201235025	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 15.508290564363959-18.20707355030437    CI2: 75.90432192703241-91.86084288053878 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2004	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.6896023	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2004	chisq		1079.274123	1.06E-236	
+2004	tost		-29.16978447	1	
+2005	ratio_of_ratios_FET_ratios_directly	"hormone&therapy,statin|statins"	0.226727271	6.96E-304	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2005	ratio_of_ratios_zprop	"hormone&therapy,statin|statins"	-41.91802162	0	Reporting on z test of proportions.
+2005	windowed_ratio_of_rat_or_int	"hormone&therapy,statin|statins"	0.254520918	NOTSURE	Small number of window hits make p-value calculation difficult.
+2005	ratio_of_fet_stats	"hormone&therapy,statin|statins"	0.191972717	0.01	"Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 14.614406813430923-17.01720028901195    CI2: 75.70995860618898-89.1327431044027 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99"
+2005	ratio_of_pred_scores	"hormone&therapy,statin|statins"	0.674556074	NOT SURE YET!	"Doing ratio based on pred scores, (not pvalue)"
+2005	chisq		1409.995108	0.00E+00	
+2005	tost		-33.35877202	1	

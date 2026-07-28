@@ -1,0 +1,117 @@
+Year	StatType	Terms	Statistic	P-Value	Additional Info
+1975	NOLINES		NA	NA	
+1976	NOLINES		NA	NA	
+1977	NOLINES		NA	NA	
+1978	NOLINES		NA	NA	
+1979	NOLINES		NA	NA	
+1980	NOLINES		NA	NA	
+1981	NOLINES		NA	NA	
+1982	NOLINES		NA	NA	
+1983	NOLINES		NA	NA	
+1984	NOLINES		NA	NA	
+1985	NOLINES		NA	NA	
+1986	NOLINES		NA	NA	
+1987	NOLINES		NA	NA	
+1988	NOLINES		NA	NA	
+1989	NOLINES		NA	NA	
+1990	NOLINES		NA	NA	
+1991	NOLINES		NA	NA	
+1992	NOLINES		NA	NA	
+1993	NOLINES		NA	NA	
+1994	NOLINES		NA	NA	
+1995	NOLINES		NA	NA	
+1996	NOLINES		NA	NA	
+1997	NOLINES		NA	NA	
+1998	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+1999	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2000	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2001	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2002	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2003	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2004	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2005	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2006	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2007	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2008	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2009	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2010	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2011	ONLY1		vaccine|vaccines|vaccination|vaccinal	NA	
+2012	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.8943346375247346	0.789103758808452	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2012	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	-0.39616459101553264	0.6919836111185108	Reporting on z test of proportions.
+2012	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.8119212088505127	NOTSURE	Small number of window hits make p-value calculation difficult.
+2012	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.8819208665586384	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 1.1947510881168222-4.996169393544095    CI2: 2.4145911368825557-3.178423408574932 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+2012	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.07024503821053409	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2012	chisq		0.06824902194865419	0.7939034715229174	
+2012	tost		0.5334892758784169	0.29684746632326703	
+2013	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.374400299850075	0.10810322750560614	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2013	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.6056124440285404	0.10835908956953694	Reporting on z test of proportions.
+2013	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.6998007455971207	NOTSURE	Small number of window hits make p-value calculation difficult.
+2013	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.360008123292738	1	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.0630081751847156-5.571805012488877    CI2: 2.182578134508615-2.8473709758966512 CIs ( NEED to add CIINFO for KM here.) OVERLAP. NOT SIGNIFICANT at CI LEVEL:0.99
+2013	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.17951528159175062	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2013	chisq		2.2117025665082353	0.13696743539472803	
+2013	tost		0.7746063261995846	0.7807138410020532	
+2014	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.8671783589206914	0.00011080995114764987	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2014	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.202346146323402	2.6416278370189112e-05	Reporting on z test of proportions.
+2014	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.3150864639236732	NOTSURE	Small number of window hits make p-value calculation difficult.
+2014	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.8539884199257912	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 2.8875848690224317-6.041206006648023    CI2: 1.9807150120891037-2.562255154101579 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2014	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	0.3983470335538979	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2014	chisq		16.74738301345135	4.270112050963717e-05	
+2014	tost		3.0023914365384603	0.9986606625148994	
+2015	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.678165473561832	6.5320304199184946e-15	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2015	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	9.031190015452232	1.698149345892449e-19	Reporting on z test of proportions.
+2015	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.656944597596131	NOTSURE	Small number of window hits make p-value calculation difficult.
+2015	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.671054259859972	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.217289380152701-7.1921943925652885    CI2: 1.8208780003169884-2.334793898966391 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2015	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.009669034863109	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2015	chisq		79.49045892488617	4.84559673984048e-19	
+2015	tost		7.132035830353803	0.9999999999995055	
+2016	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.951264719258	1.7551333768176288e-23	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2016	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	11.622951912007862	3.150588066304932e-31	Reporting on z test of proportions.
+2016	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.098441301703163	NOTSURE	Small number of window hits make p-value calculation difficult.
+2016	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.951460749708632	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.460592561558589-6.966065870808732    CI2: 1.6734873970823547-2.13149178120661 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2016	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	1.6558118226272993	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2016	chisq		132.39797141444254	1.2244039532016163e-30	
+2016	tost		9.262023291914847	1.0	
+2017	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.0728054014908928	4.3140723908100403e-32	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2017	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	13.700560745663134	1.0074325636204648e-42	Reporting on z test of proportions.
+2017	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.0914051578693655	NOTSURE	Small number of window hits make p-value calculation difficult.
+2017	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.0794547238223715	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.479048757104175-6.56325325547143    CI2: 1.5660199504985879-1.9795205551881925 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2017	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	2.4468282778517363	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2017	chisq		184.51200762757043	5.015701581446608e-42	
+2017	tost		10.940162742723677	1.0	
+2018	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.338641220269345	1.9352071849982718e-48	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2018	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	16.915733736399403	3.444992583162916e-64	Reporting on z test of proportions.
+2018	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.431781191695447	NOTSURE	Small number of window hits make p-value calculation difficult.
+2018	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.354765631523741	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.75702451048799-6.562612070029507    CI2: 1.4874514817948987-1.8648544579458455 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2018	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.842927438763682	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2018	chisq		281.8597449959169	2.953453845976524e-63	
+2018	tost		13.564587000218362	1.0	
+2019	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.452147673957037	8.887819643251297e-65	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2019	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	19.44928320161686	2.9553331336704173e-84	Reporting on z test of proportions.
+2019	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.0182411494037003	NOTSURE	Small number of window hits make p-value calculation difficult.
+2019	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.4765168376554403	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.7851613699331335-6.316115745224945    CI2: 1.4180815702104383-1.7634241372294788 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2019	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	5.5793136839206605	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2019	chisq		373.04602982891623	4.0643045267673664e-83	
+2019	tost		15.607944953768834	1.0	
+2020	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.631739412963635	1.6060925854481113e-87	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2020	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	22.450409928230826	1.2679707965997217e-111	Reporting on z test of proportions.
+2020	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.632798993040747	NOTSURE	Small number of window hits make p-value calculation difficult.
+2020	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.6670323734999073	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.7821777091654525-6.081165877399247    CI2: 1.3230442512872633-1.6345894912989276 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2020	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	9.043038812946081	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2020	chisq		497.48141188355714	3.357120847103808e-110	
+2020	tost		18.034150651873667	1.0	
+2021	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.925158029555021	1.4687095243865795e-119	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2021	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	26.11561766544136	2.4235542826751196e-150	Reporting on z test of proportions.
+2021	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	8.190728343576236	NOTSURE	Small number of window hits make p-value calculation difficult.
+2021	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	3.975298764902074	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.687818955840812-5.784273456681381    CI2: 1.1817226229411524-1.451993091323544 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2021	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	18.762890061398796	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2021	chisq		673.666971369369	1.592762358284989e-148	
+2021	tost		20.989412286223253	1.0	
+2022	ratio_of_ratios_FET_ratios_directly	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.3772656021331455	1.445289659616915e-166	Reporting FET on the AB hits and B totals. Probably CORRECT.
+2022	ratio_of_ratios_zprop	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	30.697464970443725	6.152796049071175e-207	Reporting on z test of proportions.
+2022	windowed_ratio_of_rat_or_int	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	13.412929321600908	NOTSURE	Small number of window hits make p-value calculation difficult.
+2022	ratio_of_fet_stats	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	4.448724098796345	0.01	Doing ratio based on FET STAT (not pvalue), reporting pval of 1 for overlap of CIs, pval of 0.01 for no overlap of CIs. CI1: 4.6660587845688575-5.614319687702811    CI2: 1.040093989407927-1.2726348523500388 NO OVERLAP of CIs ( NEED to add CIINFO for KM here.).  SIGNIFICANT at CI LEVEL:0.99
+2022	ratio_of_pred_scores	microbiome|gut microbiome|gut microbiota|microbiota,vaccine|vaccines|vaccination|vaccinal	52.44245020362999	NOT SURE YET!	Doing ratio based on pred scores, (not pvalue)
+2022	chisq		931.2275874375725	1.5975178239832177e-204	
+2022	tost		24.634145717944914	1.0	
+2023	ONLY1		microbiome|gut microbiome|gut microbiota|microbiota	NA	
+2024	ONLY1		microbiome|gut microbiome|gut microbiota|microbiota	NA	

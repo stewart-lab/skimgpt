@@ -25,9 +25,9 @@ import tempfile
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.pubmed_fetcher import PubMedFetcher
-from src.image_analyzer import ImageAnalyzer
-from src.utils import Config
+from skimgpt.pubmed_fetcher import PubMedFetcher
+from skimgpt.image_analyzer import ImageAnalyzer
+from skimgpt.utils import Config
 
 try:
     import tiktoken

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.relevance import run_relevance_analysis
-from src.utils import Config
+from skimgpt.relevance_triton import run_relevance_analysis
+from skimgpt.utils import Config
 
 def test_figure_integration():
     # Setup logging

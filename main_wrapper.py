@@ -10,6 +10,10 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from skimgpt.utils import setup_wrapper_logger
+
+logger = logging.getLogger(__name__)
+
 def update_input_paths(config_path, base_dir):
     with open(config_path) as f:
         cfg = json.load(f)
@@ -24,19 +28,6 @@ def update_input_paths(config_path, base_dir):
 def get_job_type(config_path):
     with open(config_path) as f:
         return json.load(f).get("JOB_TYPE", "unknown").strip()
-
-def setup_logger(parent_dir, job_type):
-    logger = logging.getLogger("SKiM-GPT-wrapper")
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-    for h in list(logger.handlers):
-        logger.removeHandler(h)
-    fmt = "%(asctime)s - SKiM-GPT-wrapper - %(levelname)s - %(filename)s:%(funcName)s:%(lineno)d - %(message)s"
-    formatter = logging.Formatter(fmt, datefmt="%Y-%m-%d %H:%M:%S")
-    ch = logging.StreamHandler(); ch.setFormatter(formatter); logger.addHandler(ch)
-    fh = logging.FileHandler(os.path.join(parent_dir, f"{job_type}_wrapper.log"))
-    fh.setFormatter(formatter); logger.addHandler(fh)
-    return logger
 
 def update_censor_year(config_path, year, depth):
     data = json.load(open(config_path))
@@ -54,8 +45,8 @@ def update_censor_year(config_path, year, depth):
         json.dump(data, f, indent=4)
 
 def copy_project_src(src_root, dst_root):
-    s = os.path.join(src_root, "src")
-    d = os.path.join(dst_root, "src")
+    s = os.path.join(src_root, "skimgpt")
+    d = os.path.join(dst_root, "skimgpt")
     if os.path.isdir(s):
         if os.path.exists(d):
             shutil.rmtree(d)
@@ -81,7 +72,7 @@ def parse_job_status(log_dir):
         return None
     return re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - ", "", last)
 
-def run_one_year(year, work_dir, project_dir, original_config, main_py_path, logger, depth):
+def run_one_year(year, work_dir, project_dir, original_config, main_py_path, depth):
     logger.info(f"Starting censor_year {year}")
     cfg_path = os.path.join(work_dir, "config.json")
     shutil.copy2(original_config, cfg_path)
@@ -109,9 +100,13 @@ def flatten_and_cleanup(parent_dir):
             continue
         inner = os.path.join(cy_path, "output")
         if os.path.isdir(inner):
-            subs = [d for d in os.listdir(inner) if os.path.isdir(os.path.join(inner, d))]
+            # To avoid collisions with an 'output' folder nested inside,
+            # we rename the intermediate 'output' folder before flattening.
+            inner_tmp = inner + "_tmp"
+            os.rename(inner, inner_tmp)
+            subs = [d for d in os.listdir(inner_tmp) if os.path.isdir(os.path.join(inner_tmp, d))]
             if subs:
-                real = os.path.join(inner, subs[0])
+                real = os.path.join(inner_tmp, subs[0])
                 for item in os.listdir(real):
                     src = os.path.join(real, item)
                     dst = os.path.join(cy_path, item)
@@ -120,9 +115,10 @@ def flatten_and_cleanup(parent_dir):
                             shutil.rmtree(dst)
                         else:
                             os.remove(dst)
-                    shutil.move(src, dst)
-            shutil.rmtree(inner)
-        for junk in ("src", "token", "secrets.json"):
+                    if os.path.exists(src):
+                        shutil.move(src, dst)
+            shutil.rmtree(inner_tmp)
+        for junk in ("skimgpt", "token", "secrets.json"):
             p = os.path.join(cy_path, junk)
             if os.path.isdir(p):
                 shutil.rmtree(p)
@@ -138,6 +134,9 @@ def main():
     p.add_argument("-censor_year_increment", type=int, required=True)
     p.add_argument("-censor_year_depth", type=int, required=False, default=1)
     args = p.parse_args()
+
+    if args.censor_year_depth < 1:
+        sys.exit("Invalid -censor_year_depth, must be a positive integer >= 1")
 
     try:
         lo, hi = map(int, args.censor_year_range.split("-"))
@@ -163,7 +162,7 @@ def main():
 
     # --- Logger ---
     jt     = get_job_type(wrapper_cfg)
-    logger = setup_logger(parent_dir, jt)
+    setup_wrapper_logger(parent_dir, jt)
     logger.info(f"Parent dir: {parent_dir}")
     logger.info(f"Preparing to run {num_years} years (each with {iters} iterations)")
 
@@ -173,13 +172,13 @@ def main():
     os.environ["CENSOR_YEAR_INCREMENT"] = str(args.censor_year_increment)
     os.environ["CENSOR_YEAR_DEPTH"]     = str(args.censor_year_depth)
 
-    main_py = os.path.join(project_dir, "main.py")
+    main_py = os.path.join(project_dir, "skimgpt", "main.py")
 
     # ── 1) Serial first‐year (for cost prompt) ───────────────────────────────
     first = years[0]
     first_dir = os.path.join(parent_dir, "output", f"output_{ts}_cy{first}")
     os.makedirs(first_dir, exist_ok=True)
-    _, rc = run_one_year(first, first_dir, project_dir, wrapper_cfg, main_py, logger, depth)
+    _, rc = run_one_year(first, first_dir, project_dir, wrapper_cfg, main_py, depth)
     if rc != 0:
         logger.error("First-year run (with cost-prompt) failed; aborting wrapper")
         sys.exit(1)
@@ -195,7 +194,7 @@ def main():
 
     with ThreadPoolExecutor(max_workers=len(work_dirs)) as exe:
         futures = {
-            exe.submit(run_one_year, y, wd, project_dir, wrapper_cfg, main_py, logger, depth): y
+            exe.submit(run_one_year, y, wd, project_dir, wrapper_cfg, main_py, depth): y
             for y, wd in work_dirs.items()
         }
 

@@ -1,0 +1,63 @@
+{
+  "description": "Vaccine/autism belief-survey abstracts. Correct label is 'neither' — they report what people BELIEVE about a causal claim, not biomedical evidence for it. skimgpt 2.0.1 systematically mislabeled these as 'supports_H2' (see SKiM_web km_query 26 row 318, yr 2020 iter 1: 13/20 abstracts labeled supports_H2, mostly from this failure mode).",
+  "hypothesis_1": "Autism is caused by Genetic predisposition.",
+  "hypothesis_2": "Autism is caused by Vaccines.",
+  "items": [
+    {
+      "pmid": "31924427",
+      "title": "Beliefs in vaccine as causes of autism among SPARK cohort caregivers",
+      "abstract_excerpt": "16.5% of caregivers endorsed immunizations as perceived causes of autism. Children of these caregivers had more regression and worse outcomes, reflecting belief in vaccine causation.",
+      "expected_label": "neither",
+      "why": "Survey of caregiver BELIEFS about causation. Measures prevalence and correlates of a belief, not whether the belief is true."
+    },
+    {
+      "pmid": "32298221",
+      "title": "Vaccines and autism: a preliminary qualitative study on the beliefs of concerned mothers in Italy",
+      "abstract_excerpt": "Interviewed mothers; the main theme was childhood vaccines as a perceived cause of ASD. About one third reported ASD as a combination including childhood vaccines.",
+      "expected_label": "neither",
+      "why": "Qualitative interview study of maternal beliefs."
+    },
+    {
+      "pmid": "32575879",
+      "title": "Who or What Influences the Individuals' Decision-Making Process Regarding Vaccinations?",
+      "abstract_excerpt": "Support for vaccination was lower among respondents believing in a vaccine-autism relationship. The survey directly measures belief that vaccination and autism are associated.",
+      "expected_label": "neither",
+      "why": "Survey using 'believing in' / 'belief that' as its outcome variable."
+    },
+    {
+      "pmid": "32700440",
+      "title": "Factors associated with childhood vaccine hesitancy and measles vaccine hesitancy among healthcare students",
+      "abstract_excerpt": "Many healthcare students believed vaccines are related to autism. The study reports vaccine-autism beliefs among respondents.",
+      "expected_label": "neither",
+      "why": "Beliefs of healthcare students about a causal claim."
+    },
+    {
+      "pmid": "32710507",
+      "title": "Vaccine Hesitancy and Attributions for Autism among Racially and Ethnically Diverse Groups of Parents",
+      "abstract_excerpt": "All vaccine-hesitant parents agreed that toxins in vaccines were a cause of their child's ASD. The study directly examines attributions of ASD to vaccines.",
+      "expected_label": "neither",
+      "why": "Study of parental ATTRIBUTIONS — a belief construct, not biomedical evidence."
+    },
+    {
+      "pmid": "32711498",
+      "title": "The impact of parents' health behaviours on their preferences regarding vaccinations in Bialystok, Poland",
+      "abstract_excerpt": "Participants who reported that vaccines can cause autism engaged in higher preventive behaviors. The abstract explicitly reports belief that vaccines can cause autism.",
+      "expected_label": "neither",
+      "why": "Correlates a belief with other behaviors. Belief, not evidence."
+    },
+    {
+      "pmid": "32732144",
+      "title": "Beliefs about causes of autism and vaccine hesitancy among parents of children with autism spectrum disorder",
+      "abstract_excerpt": "Parents who were vaccine hesitant more often endorsed vaccines as a cause of ASD. The paper analyzes beliefs linking vaccines to autism among parents of children with ASD.",
+      "expected_label": "neither",
+      "why": "Title literally begins 'Beliefs about causes' — paper analyzes a belief, not biomedical evidence."
+    },
+    {
+      "pmid": "32850905",
+      "title": "Online Information of Vaccines: Information Quality, Not Only Privacy, Is an Ethical Responsibility of Search Engines",
+      "abstract_excerpt": "Search engines often return anti-vaccine pages for 'vaccines autism' queries. Study addresses misinformation around vaccines and autism.",
+      "expected_label": "neither",
+      "why": "Study of search-engine misinformation. Documents that the topic is widely discussed online; does not test the causal claim."
+    }
+  ]
+}
