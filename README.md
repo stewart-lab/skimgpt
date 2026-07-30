@@ -256,13 +256,36 @@ To compare **more than 2** B terms pairwise and pick an overall winner, use `tou
    python tournament_wrapper.py
    ```
 
-Each round randomly pairs up the remaining B terms (one gets a bye if the count is odd), runs an ordinary `is_dch` comparison per pair (in parallel), and keeps the winner(s) — both terms advance on a tie. This repeats until one term remains, or the bracket stalls (e.g. every pair ties) for `max_consecutive_stalls` rounds in a row, in which case the surviving terms are reported as co-winners.
+Each round randomly pairs up the remaining B terms (one gets a bye if the count is odd) and runs an ordinary `is_dch` comparison per pair (in parallel). Winners are decided as follows:
+- A clear score (outside the tie band) advances that term as usual.
+- A tie (score within `tie_threshold` of 50) advances **both** terms, but only if each side actually has supporting literature (`support_H1`/`support_H2` > 0). If one side has zero supporting abstracts, the other side wins outright despite the tied score; if **both** sides have zero support, neither term advances (`eliminated_no_support`) — an evidence-free tie shouldn't let an unstudied gene coast into the next round.
+- A term that gets a bye is guaranteed to be paired (not byed again) in the very next round, so no term can advance two rounds in a row without ever being compared.
+
+This repeats until one term remains, every remaining term has been eliminated (zero survivors), or the bracket stalls (e.g. every pair ties) for `max_consecutive_stalls` rounds in a row, in which case the surviving terms are reported as co-winners.
 
 Output (under `output/output_<timestamp>_tournament_<suffix>/`):
 - `round_<n>/output/<pair_id>/` — a normal single-pair `is_dch` output directory (`results.tsv`, `results/`, `debug/`, `config.json`) for every pairwise comparison in round `n`.
-- `bracket_history.json` — full round-by-round record (pairs, scores, decisions, winners).
+- `bracket_history.json` — full round-by-round record (pairs, scores, decisions, winners, and each side's support flags).
 - `bracket_summary.tsv` — flat table, one row per pairwise comparison across all rounds.
-- `TOURNAMENT_WINNER.txt` — the final winner (or co-winners, or an abort notice).
+- `TOURNAMENT_WINNER.txt` — the final winner (or co-winners, an abort notice, or a "no term survived" notice).
+
+### Summarizing the Tournament Winner
+
+After a tournament run, use `summarize_winner.py` to collect all the evidence behind the winning term into a single JSON file:
+
+```bash
+python summarize_winner.py output/output_<timestamp>_tournament_<suffix>
+```
+
+This walks `bracket_history.json` for every round the winner won or tied through (skipping any round where its pairwise comparison errored out), reads that pair's per-iteration DCH result JSON files (`results/iteration_*/*_km_with_gpt_direct_comp.json`), and produces:
+- `winner_summary.json` — `{"Winner": "<term>", "Result": {"per_abstract": [...], "tallies": {"support": N}, "overall_rationale": [...], "overall_score": <mean>, "scores": [...]}}`. Scores are transformed to be winner-relative (`100 - score` when the winner was the second B term in that pairing) and averaged in code (`statistics.mean`), not estimated. `per_abstract` is de-duplicated by PMID, since the same abstract is often independently re-fetched across rounds/iterations.
+- `winner_round_rationales_raw.json` — the raw, un-summarized `score_rationale` sentences per round, kept as an audit trail behind `overall_rationale` (which should read as a genuine synthesis, not a raw dump — treat it as something to review/rewrite per round rather than trust blindly).
+
+If the tournament ended in a tie (multiple entries in `final_terms`), pass `-winner <term>` to pick which co-winner to summarize:
+
+```bash
+python summarize_winner.py output/output_<timestamp>_tournament_<suffix> -winner GeneA
+```
 
 ## Use web interface to run KM/Skim
 
