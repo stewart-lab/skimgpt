@@ -207,14 +207,14 @@ def _normalize_fractions(
     if total2 > 0:
         s2 = max(s2, min_floor)
 
-    if s1 == 0 and s2 > 0:
-        s2 = 1.0
-    elif s2 == 0 and s1 > 0:
-        s1 = 1.0
-    else:
-        sum_s = s1 + s2
-        s1 = s1 / sum_s if sum_s > 0 else 0.0
-        s2 = s2 / sum_s if sum_s > 0 else 0.0
+    # Renormalize so the floor-adjusted shares sum to 1.  This also covers the
+    # single-empty-pool cases: an empty pool keeps share 0 (the floor above is
+    # gated on a non-empty total) and the other share normalizes to 1.  The
+    # divisor is always positive because total == 0 returned early, so at least
+    # one pool is non-empty.
+    sum_s = s1 + s2
+    s1 /= sum_s
+    s2 /= sum_s
 
     n1 = int(round(s1 * target_total)) if total1 > 0 else 0
     n2 = int(round(s2 * target_total)) if total2 > 0 else 0
@@ -268,6 +268,9 @@ def _sample_entries(entries: list, count: int, rng=None) -> list:
 def _dch_rng(config: Config, iteration_number: int):
     """Return a seeded RNG for DCH sampling, or None when no seed is configured.
 
+    Logs the effective seed when one is in play, so the run that produced a
+    given sample is identifiable from its log alone.
+
     The seed is composed with the iteration index rather than added to it, so
     iterations of one run draw different samples (which is the point of running
     them) while any given iteration is reproducible across runs.  String
@@ -281,6 +284,7 @@ def _dch_rng(config: Config, iteration_number: int):
     seed = config.global_settings.get("DCH_SAMPLE_SEED")
     if seed is None:
         return None
+    logger.info(f"DCH sampling seed: {seed} (iteration {iteration_number})")
     return random.Random(f"{seed}:{iteration_number}")
 
 
@@ -413,12 +417,6 @@ def process_results(
         logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
         rng = _dch_rng(config, iteration_number)
-        if rng is not None:
-            logger.info(
-                f"DCH sampling seed: {config.global_settings.get('DCH_SAMPLE_SEED')} "
-                f"(iteration {iteration_number})"
-            )
-
         consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
 
         dch_row = {
