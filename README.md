@@ -90,7 +90,11 @@ This configuration file contains various settings for different job types. Below
 - `LOG_LEVEL`: Logging level (e.g., `"INFO"`).
 - `OUTDIR_SUFFIX`: Suffix for the output directory (e.g., `""`).
 - `iterations`: Number of iterations for processing (e.g., `3`).
-- `DCH_MIN_SAMPLING_FRACTION`: Minimum sampling fraction for DCH (e.g., `0.06`).
+- `DCH_MIN_SAMPLING_FRACTION`: Minimum share of `DCH_SAMPLE_SIZE` guaranteed to each
+  candidate, so a small abstract pool still contributes evidence instead of being
+  rounded out of the comparison (e.g., `0.06` — at least 3 of 50). Capped by what a
+  pool actually holds: a pool of 1 contributes 1. Values above `0.5` cannot be
+  honored for both candidates and fall back to an even split with a logged warning.
 - `DCH_SAMPLE_SIZE`: Sample size for DCH (e.g., `50`).
 - `DCH_SAMPLE_SEED`: Integer seed for DCH abstract sampling, or `null` for unseeded
   (default). When set, each iteration draws a reproducible sample — iterations still
