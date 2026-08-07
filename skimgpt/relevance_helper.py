@@ -1,5 +1,6 @@
 from __future__ import annotations
 import ast
+import hashlib
 import logging
 import os
 import random
@@ -249,20 +250,60 @@ def _normalize_fractions(
     return n1, n2
 
 
-def _sample_entries(entries: list, count: int) -> list:
-    """Randomly sample *count* items from *entries* (returns [] when count is 0)."""
+def _sample_entries(entries: list, count: int, rng=None) -> list:
+    """Randomly sample *count* items from *entries* (returns [] when count is 0).
+
+    Args:
+        entries: Pool to sample from.
+        count: Number of items to draw.
+        rng: Source of randomness.  Defaults to the ``random`` module (unseeded);
+            pass a ``random.Random`` instance for reproducible draws.
+    """
+    rng = rng or random
     if count > 0:
-        return random.sample(entries, count)
+        return rng.sample(entries, count)
     return []
 
 
-def sample_consolidated_abstracts(v1, v2, config: Config):
+def _dch_rng(config: Config, iteration_number: int):
+    """Return a seeded RNG for DCH sampling, or None when no seed is configured.
+
+    The seed is composed with the iteration index rather than added to it, so
+    iterations of one run draw different samples (which is the point of running
+    them) while any given iteration is reproducible across runs.  String
+    composition also keeps ``seed=1, iteration=2`` distinct from
+    ``seed=2, iteration=1``, which integer addition would collide.
+
+    A fresh ``Random`` instance per iteration is required, not optional:
+    iterations run concurrently in a thread pool (see ``run_iterations``), so
+    seeding the shared ``random`` module would race.
+    """
+    seed = config.global_settings.get("DCH_SAMPLE_SEED")
+    if seed is None:
+        return None
+    return random.Random(f"{seed}:{iteration_number}")
+
+
+def _pool_fingerprint(pmids: list) -> str:
+    """Short digest of an ordered PMID list, for diagnosing pool drift.
+
+    A seed only reproduces a sample given the same pool, and the pool depends on
+    PubMed results and relevance-filter labels.  Logging this makes "same seed,
+    different sample" identifiable as a changed pool rather than a broken seed.
+    """
+    joined = ",".join(str(pmid) for pmid in pmids)
+    return hashlib.sha256(joined.encode()).hexdigest()[:8]
+
+
+def sample_consolidated_abstracts(v1, v2, config: Config, rng=None):
     """Sample from two abstract collections; return consolidated text, sampled count, total deduped count.
 
     Args:
         v1: First collection of abstracts (list or single string or empty).
         v2: Second collection of abstracts (list or single string or empty).
         config: Global configuration providing sampling parameters.
+        rng: Source of randomness for the draw.  Defaults to unseeded sampling;
+            callers pass the per-iteration RNG from :func:`_dch_rng`.
 
     Returns:
         A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
@@ -285,6 +326,10 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     logger.info(f"  Candidate 1 PMIDs in pool: {pool_pmids1[:20]}{'...' if len(pool_pmids1) > 20 else ''}")
     logger.info(f"Sampling pool: Candidate 2 has {total2} deduplicated abstracts")
     logger.info(f"  Candidate 2 PMIDs in pool: {pool_pmids2[:20]}{'...' if len(pool_pmids2) > 20 else ''}")
+    logger.info(
+        f"Pool fingerprint: c1={total1}/{_pool_fingerprint(pool_pmids1)} "
+        f"c2={total2}/{_pool_fingerprint(pool_pmids2)}"
+    )
 
     logger.debug(f"entities_in_candidate1: {total1}")
     logger.debug(f"entities_in_candidate2: {total2}")
@@ -295,8 +340,8 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     n1, n2 = _normalize_fractions(total1, total2, min_floor, target_total)
 
-    sampled1 = _sample_entries(list1, n1)
-    sampled2 = _sample_entries(list2, n2)
+    sampled1 = _sample_entries(list1, n1, rng)
+    sampled2 = _sample_entries(list2, n2, rng)
 
     sampled_pmids1 = [extract_pmid(abstract) for abstract in sampled1]
     sampled_pmids2 = [extract_pmid(abstract) for abstract in sampled2]
@@ -367,7 +412,14 @@ def process_results(
         logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
         logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
-        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
+        rng = _dch_rng(config, iteration_number)
+        if rng is not None:
+            logger.info(
+                f"DCH sampling seed: {config.global_settings.get('DCH_SAMPLE_SEED')} "
+                f"(iteration {iteration_number})"
+            )
+
+        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
 
         dch_row = {
             "hypothesis1": hyp1,

@@ -92,6 +92,14 @@ This configuration file contains various settings for different job types. Below
 - `iterations`: Number of iterations for processing (e.g., `3`).
 - `DCH_MIN_SAMPLING_FRACTION`: Minimum sampling fraction for DCH (e.g., `0.06`).
 - `DCH_SAMPLE_SIZE`: Sample size for DCH (e.g., `50`).
+- `DCH_SAMPLE_SEED`: Integer seed for DCH abstract sampling, or `null` for unseeded
+  (default). When set, each iteration draws a reproducible sample — iterations still
+  differ from one another, but re-running the same config redraws iteration 1..N
+  identically. Useful for holding the sample fixed while varying something else
+  (model, prompt, censor year). Note that reproducibility is conditional on the
+  abstract pool being unchanged: if PubMed results or relevance-filter labels shift,
+  the same seed yields a different sample. The `Pool fingerprint:` INFO log line
+  identifies that case.
 - `TRITON_MAX_WORKERS`: Concurrent streaming inference workers for Triton (e.g., `10`).
 
 ## HTCONDOR

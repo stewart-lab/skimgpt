@@ -25,6 +25,7 @@
         "iterations": 3,
         "DCH_MIN_SAMPLING_FRACTION": 0.06,
         "DCH_SAMPLE_SIZE": 50,
+        "DCH_SAMPLE_SEED": null,
         "TRITON_MAX_WORKERS": 10
     },
     "HTCONDOR": {
