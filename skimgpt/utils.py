@@ -445,7 +445,8 @@ class Config:
         # Validate configuration settings
         self._validate_job_settings()
         self._validate_relevance_filter_settings()
-        
+        self._validate_dch_sample_seed()
+
     def _validate_job_settings(self) -> None:
         """Validate job-specific settings for conflicts"""
         # Check for mutually exclusive settings in km_with_gpt
@@ -460,6 +461,24 @@ class Config:
                     "compares exactly 2 B terms against each A term. Please set one to false."
                 )
     
+    def _validate_dch_sample_seed(self) -> None:
+        """Validate DCH_SAMPLE_SEED, which must be an integer or null.
+
+        Checked at config load rather than at sampling time: sampling happens
+        after PubMed fetching and relevance filtering, so a malformed seed would
+        otherwise surface only once a run has already spent that time and those
+        tokens.
+        """
+        seed = self.global_settings.get("DCH_SAMPLE_SEED")
+        if seed is None:
+            return
+        if isinstance(seed, bool) or not isinstance(seed, int):
+            raise ValueError(
+                f"Configuration error: 'DCH_SAMPLE_SEED' must be an integer or null, "
+                f"got {type(seed).__name__} ({seed!r}). Omit it (or set null) for "
+                f"unseeded sampling."
+            )
+
     def _validate_relevance_filter_settings(self) -> None:
         """Validate required relevance filter settings for Triton inference"""
         required_params = {
