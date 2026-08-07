@@ -5,14 +5,15 @@ hypothesis 1's pool versus hypothesis 2's. It therefore sets the evidence
 balance the DCH verdict rests on: skew the allocation and you skew the
 H1-vs-H2 comparison, with nothing in the output revealing it happened.
 
-These tests are deliberately characterization tests — they pin the behavior
-that shipped, not a specification derived independently. The three structural
-invariants (target total, pool caps, minimum floor at default settings) are the
-real contract; the golden-value cases exist so that a refactor of the
-allocation arithmetic has to prove it preserves the exact splits.
+Most of these are characterization tests — they pin the behavior that shipped,
+not a specification derived independently. The structural invariants (target
+total, pool caps, minimum floor) are the real contract; the golden-value cases
+exist so that a refactor of the allocation arithmetic has to prove it preserves
+the exact splits.
 
-`test_min_floor_can_under_deliver_at_high_floor_settings` pins a known defect
-rather than a desired behavior. See its docstring.
+The one place the tests assert *changed* behavior is the minimum floor: it used
+to under-deliver at high floor/target settings, and those cases are now
+regression cover rather than pinned defects.
 """
 import pytest
 
@@ -105,31 +106,55 @@ def test_allocation_is_symmetric_under_pool_swap():
         assert swapped == (n2, n1), f"asymmetry at ({total1}, {total2})"
 
 
-# --- known defect ------------------------------------------------------------
+# --- minimum floor at non-default settings -----------------------------------
+#
+# The floor used to be applied to the proportional shares and then renormalized
+# by their sum, which divided the floored share back below the floor. These
+# cases are the ones that exposed it; they are kept as regression cover.
 
 
-def test_min_floor_can_under_deliver_at_high_floor_settings():
-    """KNOWN DEFECT, pinned deliberately — this is not desired behavior.
+@pytest.mark.parametrize("floor", [0.02, 0.06, 0.1, 0.2, 0.33, 0.5])
+@pytest.mark.parametrize("target", [5, 10, 20, 50, 100, 200])
+@pytest.mark.parametrize("total1,total2", [(12, 1504), (10, 1000), (1, 999), (30, 1800), (5, 9000)])
+def test_min_floor_is_honored_at_every_setting(floor, target, total1, total2):
+    """The floor holds regardless of how high min_floor or the target is set."""
+    n1, n2 = _normalize_fractions(total1, total2, floor, target)
+    floor_count = round(floor * target)
 
-    The floor is applied as ``max(share, min_floor)``, but both shares are then
-    renormalized by their sum, which divides the floored share back down below
-    the floor. So DCH_MIN_SAMPLING_FRACTION is not actually guaranteed.
+    assert n1 >= min(total1, floor_count)
+    assert n2 >= min(total2, floor_count)
+    assert n1 + n2 == min(target, total1 + total2)
 
-    At the shipped defaults (0.06 / 50) the rounding hides it completely — a
-    sweep of ~1M combinations found zero violations, which is why nothing has
-    noticed. It surfaces as the floor or target rises, and the shortfall grows
-    with the floor: short by 1 at floor=0.06/target=200, by 3 at
-    floor=0.2/target=100, by 16 at floor=0.33/target=200. Whoever first raises
-    DCH_MIN_SAMPLING_FRACTION to get a more balanced comparison silently gets
-    less balance than they asked for.
 
-    If this is fixed, delete this test — do not adjust its numbers to match.
-    """
-    floor, target = 0.06, 200
-    n1, n2 = _normalize_fractions(12, 1504, floor, target)
+def test_high_floor_lifts_the_weaker_pool_to_its_full_entitlement():
+    """Regression: this returned (11, 189) — one short of the 12 the floor asks for."""
+    assert _normalize_fractions(12, 1504, 0.06, 200) == (12, 188)
 
-    assert (n1, n2) == (11, 189)
-    assert n1 < round(floor * target)  # asked for 12, got 11
+
+def test_worst_previous_shortfall_now_delivers_the_floor():
+    """Regression: floor=0.33/target=200 used to come up 16 abstracts short."""
+    n1, n2 = _normalize_fractions(80, 9000, 0.33, 200)
+
+    assert n1 >= round(0.33 * 200)
+    assert n1 + n2 == 200
+
+
+def test_unsatisfiable_floors_split_evenly(caplog):
+    """min_floor > 0.5 cannot be honored for two pools — split rather than skew."""
+    with caplog.at_level("WARNING"):
+        n1, n2 = _normalize_fractions(1000, 1000, 0.6, 50)
+
+    assert (n1, n2) == (25, 25)
+    assert "cannot be honored" in caplog.text
+
+
+def test_unsatisfiable_floors_respect_pool_caps():
+    """An even split must still never over-allocate a small pool."""
+    n1, n2 = _normalize_fractions(4, 1000, 0.6, 50)
+
+    assert n1 <= 4
+    assert n2 <= 1000
+    assert n1 + n2 == 50
 
 
 # --- degenerate inputs -------------------------------------------------------
@@ -141,6 +166,19 @@ def test_both_pools_empty_allocates_nothing():
 
 def test_zero_target_allocates_nothing():
     assert _normalize_fractions(100, 100, DEFAULT_FLOOR, 0) == (0, 0)
+
+
+def test_odd_slot_tie_break_is_fixed_by_convention():
+    """Equal pools with an odd slot count: the tie-break is arbitrary but pinned.
+
+    `int(round(...))` is banker's rounding, so an exact .5 share resolves to the
+    even count — which hands the odd slot to candidate 2 here. The direction is
+    not meaningful; it is pinned so a change of rounding mode has to be a
+    deliberate decision rather than a silent side effect. Unreachable at the
+    shipped DCH_SAMPLE_SIZE of 50, where equal pools split exactly 25/25.
+    """
+    assert _normalize_fractions(1, 1, DEFAULT_FLOOR, 1) == (0, 1)
+    assert _normalize_fractions(10, 10, DEFAULT_FLOOR, 50) == (10, 10)
 
 
 def test_zero_floor_falls_back_to_proportional_split():

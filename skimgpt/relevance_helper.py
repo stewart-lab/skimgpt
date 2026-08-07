@@ -192,60 +192,58 @@ def _normalize_fractions(
 ) -> tuple[int, int]:
     """Compute sample counts for two pools, enforcing a minimum fraction and target total.
 
+    Allocates proportionally to pool size, then lifts whichever pool falls below
+    ``min_floor`` of the requested sample up to that floor, taking the shortfall
+    from the other pool.
+
+    The floor is enforced in count space on purpose.  This function previously
+    applied it to the proportional *shares* (``max(share, min_floor)``) and then
+    renormalized those shares by their sum, which divided the floored share back
+    down below the floor — so ``DCH_MIN_SAMPLING_FRACTION`` was not actually
+    guaranteed.  Rounding hid it entirely at the shipped 0.06/50 defaults, but it
+    under-delivered by up to 16 abstracts at floor=0.33/target=200, which would
+    have bitten whoever first raised the floor to get a more balanced comparison.
+
     Returns:
         ``(n1, n2)`` — the number of items to sample from each pool.
     """
-    total = total1 + total2
-    if total == 0:
+    available = min(target_total, total1 + total2)
+    if available <= 0:
         return 0, 0
 
-    s1 = total1 / total
-    s2 = total2 / total
+    # Proportional allocation.  Deriving n2 by subtraction rather than rounding it
+    # independently makes the counts sum to `available` by construction, which is
+    # why this needs no remainder-reconciliation pass.
+    n1 = min(total1, int(round(total1 / (total1 + total2) * available)))
+    n2 = available - n1
+    if n2 > total2:
+        n2 = total2
+        n1 = available - n2
 
-    if total1 > 0:
-        s1 = max(s1, min_floor)
-    if total2 > 0:
-        s2 = max(s2, min_floor)
+    # Minimum representation per pool, capped by what the pool actually holds.
+    floor_count = int(round(min_floor * target_total))
+    floor1 = min(total1, floor_count)
+    floor2 = min(total2, floor_count)
 
-    # Renormalize so the floor-adjusted shares sum to 1.  This also covers the
-    # single-empty-pool cases: an empty pool keeps share 0 (the floor above is
-    # gated on a non-empty total) and the other share normalizes to 1.  The
-    # divisor is always positive because total == 0 returned early, so at least
-    # one pool is non-empty.
-    sum_s = s1 + s2
-    s1 /= sum_s
-    s2 /= sum_s
+    if floor1 + floor2 > available:
+        # Both floors cannot be honored — reachable only when min_floor exceeds
+        # 0.5, or when a small target leaves too few slots.  Split as evenly as
+        # the pools allow rather than silently favoring one hypothesis.
+        logger.warning(
+            f"DCH_MIN_SAMPLING_FRACTION={min_floor} cannot be honored for both "
+            f"candidates with {available} slots available; splitting evenly."
+        )
+        n1 = min(total1, available // 2)
+        n2 = min(total2, available - n1)
+        return min(total1, available - n2), n2
 
-    n1 = int(round(s1 * target_total)) if total1 > 0 else 0
-    n2 = int(round(s2 * target_total)) if total2 > 0 else 0
-
-    diff = target_total - (n1 + n2)
-    if diff > 0:
-        for _ in range(diff):
-            cap1 = total1 - n1
-            cap2 = total2 - n2
-            if (s1 >= s2 and cap1 > 0) or cap2 <= 0:
-                n1 += 1 if cap1 > 0 else 0
-            else:
-                n2 += 1 if cap2 > 0 else 0
-    elif diff < 0:
-        for _ in range(-diff):
-            if n1 >= n2 and n1 > 0:
-                n1 -= 1
-            elif n2 > 0:
-                n2 -= 1
-
-    n1 = min(n1, total1)
-    n2 = min(n2, total2)
-
-    remaining = target_total - (n1 + n2)
-    if remaining > 0:
-        add1 = min(remaining, total1 - n1)
-        n1 += add1
-        remaining -= add1
-        if remaining > 0:
-            add2 = min(remaining, total2 - n2)
-            n2 += add2
+    # At most one pool can sit below its floor: if both did, their counts would
+    # sum to less than floor1 + floor2 <= available, yet they sum to exactly
+    # available.  So lifting one always leaves the other at or above its floor.
+    if n1 < floor1:
+        n1, n2 = floor1, available - floor1
+    elif n2 < floor2:
+        n1, n2 = available - floor2, floor2
 
     return n1, n2
 
