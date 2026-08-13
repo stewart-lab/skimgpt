@@ -93,7 +93,7 @@ def test_run_iterations_executes_in_parallel(tmp_path, monkeypatch):
     called_iterations: list[int] = []
 
     def slow_stub(out_df, config, num_abstracts_fetched, *, output_base_dir,
-                  iteration_number):
+                  iteration_number, fixed_sample=None):
         called_iterations.append(iteration_number)
         time.sleep(sleep_s)
 
