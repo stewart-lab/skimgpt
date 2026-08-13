@@ -44,7 +44,7 @@ RUN pip install --no-cache-dir \
 # Install skimgpt with --no-deps. All declared deps were installed above; this
 # avoids the duplicate-install bug in the previous Dockerfile where the `||`
 # fallback always re-ran a non-no-deps install (~4.8 GB of duplicated layers).
-ARG SKIMGPT_VERSION=0.1.9
+ARG SKIMGPT_VERSION=2.2
 RUN pip install --no-cache-dir --no-deps "skimgpt==${SKIMGPT_VERSION}"
 
 RUN skimgpt-relevance --help || echo "Entry point verification failed, but package may still work"
