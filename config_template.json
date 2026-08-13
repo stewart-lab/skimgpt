@@ -26,6 +26,7 @@
         "DCH_MIN_SAMPLING_FRACTION": 0.06,
         "DCH_SAMPLE_SIZE": 50,
         "DCH_SAMPLE_SEED": null,
+        "DCH_FIX_SAMPLE_ACROSS_ITERATIONS": false,
         "TRITON_MAX_WORKERS": 10
     },
     "HTCONDOR": {
@@ -59,6 +60,18 @@
                 "max_consecutive_stalls": 2,
                 "seed": null,
                 "on_pair_error": "advance_both",
+                "pair_retries": 1,
+                "max_parallel_pairs": null
+            },
+            "ranking": {
+                "enabled": false,
+                "tie_threshold": 5,
+                "max_passes": null,
+                "min_no_evidence_before_quarantine": 1,
+                "min_errors_before_quarantine": 2,
+                "enable_escape_comparisons": true,
+                "reseed_every_n_passes": 2,
+                "seed": null,
                 "pair_retries": 1,
                 "max_parallel_pairs": null
             },

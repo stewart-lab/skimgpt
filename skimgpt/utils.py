@@ -431,6 +431,12 @@ class Config:
         self.min_word_count = self.global_settings["MIN_WORD_COUNT"]
         self.iterations = self.global_settings.get("iterations", False)
         self.current_iteration = 0
+        # When True, every iteration reuses the same DCH abstract sample
+        # instead of drawing a fresh one, isolating LLM output variance from
+        # sampling variance.
+        self.dch_fix_sample_across_iterations = self.global_settings.get(
+            "DCH_FIX_SAMPLE_ACROSS_ITERATIONS", False
+        )
         self.temperature = self.filter_config["TEMPERATURE"]
         self.top_p = self.filter_config["TOP_P"]
         self.max_cot_tokens = self.filter_config["MAX_COT_TOKENS"]

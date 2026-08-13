@@ -104,6 +104,15 @@ This configuration file contains various settings for different job types. Below
   abstract pool being unchanged: if PubMed results or relevance-filter labels shift,
   the same seed yields a different sample. The `Pool fingerprint:` INFO log line
   identifies that case.
+- `DCH_FIX_SAMPLE_ACROSS_ITERATIONS`: Boolean, default `false`. When `true`, one
+  abstract sample is drawn before the iteration loop and every iteration scores that
+  *same* sample, instead of each iteration drawing its own. Use this to isolate the
+  LLM's own output variance from sampling variance — with the default `false`,
+  differences across iterations mix both sources; with this `true`, the input is
+  held constant so any difference across iterations comes from the model alone.
+  This is the opposite intent of `DCH_SAMPLE_SEED`, which keeps iterations
+  *different* from each other on purpose; if both are set, the one fixed draw is
+  made reproducible via the seed, but it is still identical across iterations.
 - `TRITON_MAX_WORKERS`: Concurrent streaming inference workers for Triton (e.g., `10`).
 
 ## HTCONDOR
@@ -141,6 +150,17 @@ This configuration file contains various settings for different job types. Below
   - `on_pair_error`: `"advance_both"` (default, tolerate a failed pairwise comparison) or `"abort_round"` (stop the whole tournament).
   - `pair_retries`: Number of automatic retries for a failed pairwise comparison before applying `on_pair_error` (e.g., `1`).
   - `max_parallel_pairs`: Concurrency cap for pairwise comparisons within a round (e.g., `null` to run every pair in the round at once).
+- `ranking`: Settings for ranking all N B terms via a parallel bubble sort (see [Ranking All B Terms via a Parallel Bubble Sort](#ranking-all-b-terms-via-a-parallel-bubble-sort)). Must leave `is_dch` set to `false` when `ranking.enabled` is `true`.
+  - `enabled`: Boolean flag to turn on ranking mode (e.g., `false`).
+  - `tie_threshold`: Half-width of the tie band around a score of 50, same meaning as in `tournament` (e.g., `5`).
+  - `max_passes`: Hard cap on sort passes (e.g., `null` to auto-compute as `len(B terms) + 2`).
+  - `min_no_evidence_before_quarantine`: Number of times a term must show up with zero supporting abstracts *for itself* in a real (non-cached) comparison before it's pulled out of the active sort (e.g., `1` to quarantine immediately; raise it if quarantining looks too aggressive for noisy/sparse-evidence terms). This checks each term's own support independently, not just symmetric zero-vs-zero ties -- a term with no literature of its own gets flagged even if it lost decisively to a well-evidenced opponent.
+  - `min_errors_before_quarantine`: Number of times a term must be involved in a comparison that failed at the pipeline level (not a scientific "no evidence" result -- a subprocess/infrastructure failure) before it's pulled out (e.g., `2`, giving it a couple of fresh retries first since a failure isn't a reproducible fact about the term the way zero support is).
+  - `enable_escape_comparisons`: Boolean flag for the frozen-tie-chain escape/validation mechanism (e.g., `true`; see the note on it below).
+  - `reseed_every_n_passes`: Every N passes, re-sort the active list by each term's (wins - losses) record so far (e.g., `2`; `0`/`null` to disable). Corrects positions that reflect an accident of the adjacent-sort process rather than a term's actual record -- see the note below.
+  - `seed`: Optional integer seed for reproducible initial shuffling (e.g., `null` for non-reproducible).
+  - `pair_retries`: Number of automatic retries for a failed pairwise comparison (e.g., `1`).
+  - `max_parallel_pairs`: Concurrency cap for pairwise comparisons within a pass (e.g., `null` to run every comparison in the pass at once).
 - `SORT_COLUMN`: Column used for sorting A-B relationships (e.g., `"ab_sort_ratio"`).
 - `ab_fet_threshold`: Fisher Exact Test threshold for A-B relationships (e.g., `1`).
 - `censor_year_upper`: Upper bound year for data censoring (e.g., `1980`).
@@ -298,6 +318,43 @@ If the tournament ended in a tie (multiple entries in `final_terms`), pass `-win
 ```bash
 python summarize_winner.py output/output_<timestamp>_tournament_<suffix> -winner GeneA
 ```
+
+### Ranking All B Terms via a Parallel Bubble Sort
+
+A single-elimination tournament only tells you the winner. To get a full ranking of every B term, use `rank_wrapper.py` instead — it sorts all N terms via **odd-even transposition sort** (the parallelizable version of bubble sort): each pass compares/swaps adjacent pairs in the current order, alternating "even" pairs `(0,1),(2,3),...` and "odd" pairs `(1,2),(3,4),...`, with every comparison in a pass run concurrently (same `is_dch`-per-pair machinery as the tournament).
+
+1. Point `B_TERMS_FILE` at a file with 2+ terms.
+2. In `config.json`, leave `is_dch` set to `false` and set `JOB_SPECIFIC_SETTINGS.km_with_gpt.ranking.enabled` to `true`. Adjust `tie_threshold`, `seed`, etc. as needed (see [Job-Specific Settings](#job-specific-settings) above).
+3. Run:
+
+   ```bash
+   python rank_wrapper.py
+   ```
+
+Comparisons and swaps work similarly to the tournament's tie/support logic, with one difference: a ranking has to place every term somewhere, so terms can't just be eliminated -- instead, unresolvable ones are pulled out of the active sort and appended to the bottom.
+- A clear score swaps the pair into the correct relative order (or leaves it, if already correct).
+- A tie where both sides have real support leaves the pair as-is (no strict preference either way).
+- **Zero-support quarantine**: each term's own supporting-abstract count is checked in *every* real comparison it's part of, not just symmetric ties -- a term with no literature of its own gets flagged even if it happened to lose decisively to a well-evidenced opponent. Once a term crosses `min_no_evidence_before_quarantine`, it's pulled from the active sort (`quarantine_reason: "no_evidence"`). This matters because such a term never swaps regardless of its neighbor, so left in place it becomes an immovable wall that can block correct ordering of the terms on either side of it.
+- **Repeated-error quarantine**: a comparison can fail at the pipeline/infrastructure level (not a scientific finding -- e.g. a relevance-filtering worker crashing) and come back with no usable score at all. These failures are never cached, so the pair always gets a fresh attempt if it becomes adjacent again; but if a term racks up `min_errors_before_quarantine` real failures, it's pulled out too (`quarantine_reason: "repeated_error"`) rather than blocking the sort indefinitely.
+- The same two terms are never actually re-compared twice across the whole sort for a real (successful) result — results are cached by unordered pair and reused if they become adjacent again in a later pass. Cached reuses don't count toward win/loss/tie/error tallies or quarantine thresholds, since they're the same underlying observation, not a new one.
+- **Frozen-tie-chain boundary checks**: when several adjacent *genuine* ties chain together (e.g. `X ≈ Y ≈ Z`, each with real evidence on both sides), the whole chain freezes solid — nothing inside it can swap past either boundary, since that requires a decisive result there, and the boundary is tied too. A term buried in the middle of such a chain never gets independently compared to anything outside it — it just inherits the block's position. Every pass, at most one frozen chain gets one real boundary comparison (never both directions in the same pass, to avoid two swaps corrupting each other's position bookkeeping):
+  - **Upward escape**: the chain's **deepest** untried member vs. its **upward** neighbor. A win relocates it above the whole chain, breaking it free. Tests whether a buried member is secretly *better* than what's above.
+  - **Downward validation**: the chain's **shallowest** untried member vs. its **downward** neighbor. A loss relocates it below the whole chain. Tests whether a member is secretly *worse* than what's below — the tied block moves together, but normally only the outward-facing member's relationship to that neighbor is ever checked, so other members can silently inherit a position they never earned (see below).
+
+  Either way, a tie/no-change result is cached and the next untried member gets a turn on a later pass. Controlled by `enable_escape_comparisons`. **Known v1 limitation**: each direction only tests one hop per chain per opportunity. If the immediate neighbor is itself an unresolvable tie, a buried/inherited term won't get tested against anyone further out in the same run.
+
+- **Periodic re-seed by record**: every `reseed_every_n_passes` passes, the active list is re-sorted by each term's (wins − losses) tally so far (ties in record keep their current relative order — a stable sort, so no preference is invented where there isn't evidence for one). This catches positions that reflect an accident of the adjacent-sort process rather than a term's actual record — e.g. a tied pair that got positionally "teleported" upward because unrelated neighbors above it were quarantined away, without ever having to beat what it's now sitting above. Right after re-seeding, any adjacent pair the re-seed placed in an order that contradicts an *already-known direct comparison* between them is immediately swapped back (using only the existing cache, no new comparisons) — otherwise a term's aggregate record (which reflects different opponents) could repeatedly override a specific head-to-head result the sort had already correctly resolved, oscillating forever instead of converging.
+
+The sort stops as soon as one full even+odd cycle produces no swaps, no new quarantines, and no re-seed changes (confirmed sorted), or `max_passes` is reached.
+
+Output (under `output/output_<timestamp>_rank_<suffix>/`):
+- `pass_<n>_<even|odd>/output/<pair_id>/` — a normal single-pair `is_dch` output directory for every *freshly run* comparison in pass `n` (passes made entirely of cache hits don't create any output directory).
+- `pass_<n>_escape/output/escape<idx>_<pair_id>/` and `pass_<n>_validate/output/validate<idx>_<pair_id>/` — the one boundary comparison (if any) run during pass `n`.
+- `ranking_history.json` — full pass-by-pass record (comparisons, scores, outcomes, swaps, per-term support flags, `boundary_kind`, `reseeded` flag) plus the `final_ranking` (rank, term, win/tie/loss/error counts, `avg_score`, `scores`, `insufficient_evidence` flag, `quarantine_reason`).
+- `ranking_summary.tsv` — flat table, one row per comparison across all passes (plus a marker row for any pass where a re-seed happened), including a `Boundary_Kind` column (`escape`, `validate`, or blank for a normal comparison).
+- `FINAL_RANKING.txt` — the numbered final ranking, with each term's `avg_score`, and insufficient-evidence/unresolved terms flagged.
+
+Each term's `avg_score` (and the underlying `scores` list in the JSON) averages every real comparison it was part of, corrected to that term's own perspective: a comparison's score is always recorded from term_i/H1's point of view (100 favors term_i, 0 favors term_j), so when a term was term_j in a given comparison, `100 - score` is used instead before averaging. Cache-hit reuses and errored comparisons are excluded (same reasoning as the win/tie/loss tallies) so the same underlying observation is never counted twice.
 
 ## Use web interface to run KM/Skim
 

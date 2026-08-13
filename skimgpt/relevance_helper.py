@@ -34,6 +34,13 @@ def _flatten_if_nested(data):
     return data
 
 
+def _get_dch_pools(out_df: pd.DataFrame) -> tuple[list, list]:
+    """Extract and flatten the two DCH candidate abstract pools from out_df."""
+    v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
+    v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
+    return _flatten_if_nested(v1_all_raw), _flatten_if_nested(v2_all_raw)
+
+
 def _dedup_by_pmid(abstracts, seen_pmids):
     """Return abstracts with duplicate PMIDs removed, updating seen_pmids in place."""
     deduped = []
@@ -371,6 +378,7 @@ def process_results(
     num_abstracts_fetched: int,
     output_base_dir: str,
     iteration_number: int = 0,
+    fixed_sample: tuple[str, int, int] | None = None,
 ) -> None:
     """Process results and write to JSON files.
 
@@ -384,6 +392,10 @@ def process_results(
         iteration_number: 1-indexed iteration index; 0 means "not iterated".
             Threaded through as a parameter (not read from config) so multiple
             iterations can run concurrently without racing on shared state.
+        fixed_sample: When set (DCH only), reuse this
+            ``(consolidated_abstracts, expected_count, total_relevant_abstracts)``
+            tuple instead of drawing a fresh sample, so every iteration scores
+            the identical abstract set. See ``config.dch_fix_sample_across_iterations``.
     """
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
@@ -406,16 +418,17 @@ def process_results(
         logger.debug(f"hyp1: {hyp1}")
         logger.debug(f"hyp2: {hyp2}")
 
-        v1_all_raw = out_df.iloc[0].get("ab_abstracts", [])
-        v2_all_raw = out_df.iloc[1].get("ab_abstracts", [])
+        if fixed_sample is not None:
+            consolidated_abstracts, expected_count, total_relevant_abstracts = fixed_sample
+            logger.info("DCH Sampling: reusing fixed sample across iterations "
+                        f"({expected_count}/{total_relevant_abstracts} abstracts)")
+        else:
+            v1, v2 = _get_dch_pools(out_df)
+            logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
+            logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
-        v1 = _flatten_if_nested(v1_all_raw)
-        v2 = _flatten_if_nested(v2_all_raw)
-        logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
-        logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
-
-        rng = _dch_rng(config, iteration_number)
-        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
+            rng = _dch_rng(config, iteration_number)
+            consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
 
         dch_row = {
             "hypothesis1": hyp1,
@@ -574,6 +587,15 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         for i in range(1, num_iterations + 1):
             os.makedirs(os.path.join(output_base_dir, f"iteration_{i}"), exist_ok=True)
 
+        fixed_sample = None
+        if config.is_dch and config.dch_fix_sample_across_iterations:
+            v1, v2 = _get_dch_pools(out_df)
+            rng = _dch_rng(config, 1)
+            fixed_sample = sample_consolidated_abstracts(v1, v2, config, rng)
+            logger.info("DCH_FIX_SAMPLE_ACROSS_ITERATIONS enabled: drawing one sample "
+                        f"({fixed_sample[1]}/{fixed_sample[2]} abstracts) and reusing it "
+                        f"across all {num_iterations} iterations")
+
         max_parallel = min(ITERATION_MAX_PARALLELISM, num_iterations)
         total_start = time.time()
         logger.info(f"Running {num_iterations} iterations with parallelism={max_parallel}")
@@ -582,7 +604,8 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
             t0 = time.time()
             process_results(out_df, config, num_abstracts_fetched,
                             output_base_dir=output_base_dir,
-                            iteration_number=iteration)
+                            iteration_number=iteration,
+                            fixed_sample=fixed_sample)
             return iteration, time.time() - t0
 
         with ThreadPoolExecutor(max_workers=max_parallel) as ex:
