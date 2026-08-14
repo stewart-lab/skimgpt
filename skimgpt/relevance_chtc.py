@@ -30,22 +30,54 @@ def convert_gpu_uuid_to_device_id(gpu_uuid):
 
     return gpu_uuid
 
+
+def _count_visible_gpus():
+    """Count GPU/MIG devices nvidia-smi sees in this container, or None if unknown."""
+    try:
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=uuid', '--format=csv,noheader'],
+            capture_output=True, text=True, check=True,
+        )
+        return len([line for line in result.stdout.strip().split('\n') if line.strip()])
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return None
+
 # ── IMMEDIATE GPU FIXUP ───────────────────────────────────────────────────
 # We MUST fix CUDA_VISIBLE_DEVICES before ANY other imports (like pandas/numpy)
 # touch the CUDA runtime.
+#
+# HTCondor may set this to a UUID rather than a numeric index: "GPU-abc123..."
+# for a whole physical GPU, or "MIG-abc123..." on a node where the job was
+# assigned a MIG partition instead. vLLM's own arg parsing rejects UUID-form
+# CUDA_VISIBLE_DEVICES outright (even though CUDA/PyTorch resolve it fine), so
+# it needs converting to a numeric ID here.
 cuda_devices = os.getenv('CUDA_VISIBLE_DEVICES', '')
 if cuda_devices and not cuda_devices.replace(',', '').replace(' ', '').isdigit():
-    converted_devices = []
-    for dev in cuda_devices.split(','):
-        dev = dev.strip()
-        if dev.startswith('GPU-'):
-            numeric_id = convert_gpu_uuid_to_device_id(dev)
-            print(f"BOOTSTRAP: Converted GPU UUID {dev} -> device {numeric_id}", file=sys.stderr)
-            converted_devices.append(str(numeric_id))
-        else:
-            converted_devices.append(dev)
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
-    print(f"BOOTSTRAP: Updated CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}", file=sys.stderr)
+    visible_count = _count_visible_gpus()
+    if visible_count == 1:
+        # No ambiguity when exactly one device is visible in this container --
+        # it's device 0, regardless of UUID prefix. This sidesteps needing a
+        # UUID->index lookup for MIG instances (which don't show up in
+        # `nvidia-smi --query-gpu`, only whole physical GPUs do), since it's
+        # unnecessary whenever there's nothing else the ID could refer to.
+        print(f"BOOTSTRAP: Exactly one GPU visible in this container; using device 0 "
+              f"(was: {cuda_devices})", file=sys.stderr)
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+    else:
+        converted_devices = []
+        for dev in cuda_devices.split(','):
+            dev = dev.strip()
+            if dev.startswith('GPU-'):
+                numeric_id = convert_gpu_uuid_to_device_id(dev)
+                print(f"BOOTSTRAP: Converted GPU UUID {dev} -> device {numeric_id}", file=sys.stderr)
+                converted_devices.append(str(numeric_id))
+            else:
+                count_desc = visible_count if visible_count is not None else 'unknown'
+                print(f"BOOTSTRAP: WARNING: cannot resolve device identifier {dev} among "
+                      f"{count_desc} visible devices; using 0", file=sys.stderr)
+                converted_devices.append('0')
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(converted_devices)
+        print(f"BOOTSTRAP: Updated CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}", file=sys.stderr)
 
 for _key, _val in {
     'VLLM_NO_USAGE_STATS': '1',

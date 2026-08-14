@@ -55,7 +55,20 @@ def _dedup_by_pmid(abstracts, seen_pmids):
 
 
 
+# The relevance-filter model (relevance_chtc.py) loads with max_model_len=4000
+# tokens. Most abstracts are a few hundred tokens, but an occasional outlier
+# (structured/verbose abstract) can push a prompt past that ceiling, which
+# vLLM rejects outright rather than truncating. ~4 chars/token is a common
+# average for English text; this budgets well under 4000 tokens of headroom
+# for dense scientific text plus the hypothesis + instruction template,
+# rather than cutting it close. This is a heuristic char-count guard, not an
+# exact token count.
+_RELEVANCE_FILTER_ABSTRACT_CHAR_LIMIT = 9000
+
+
 def prompt(abstract, hyp) -> str:
+    if abstract and len(abstract) > _RELEVANCE_FILTER_ABSTRACT_CHAR_LIMIT:
+        abstract = abstract[:_RELEVANCE_FILTER_ABSTRACT_CHAR_LIMIT]
     return f"Abstract: {abstract}\nHypothesis: {hyp}\nInstructions: Classify this abstract as either 0 (Not Relevant) or 1 (Relevant) for evaluating the provided hypothesis.\nScore: "
 
 
