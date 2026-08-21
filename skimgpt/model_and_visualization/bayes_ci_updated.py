@@ -66,7 +66,7 @@ COMMAND_LINE_DEF_FILE = str(Path(__file__).parent / "bayes_ci_updated_commandlin
 DPI = 96
 
 # assumptions. need to calibrate w/ benchmark data.
-A0 = 2.0               # strength of the prior. pseudo-abstracts per side
+A0 = 1.0               # strength of the prior. pseudo-abstracts per side
 RHO = 0             # intra-field correlation
 SIGMA2_CALL = 0.0007823878    # variance of a single LLM call, 0-1 scale, calculated by rerunning the same abstracts through 50 iterations
 

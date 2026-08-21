@@ -135,17 +135,31 @@ def configure_job(config: Config, job_type, a_term, c_terms, b_terms=None):
     }
 
     # Get job-specific settings - config.job_specific_settings already returns the correct job's settings
-    job_specific_settings = config.job_specific_settings
+    # Strip the raw censor_year_upper/censor_year_lower/censor_year keys before
+    # forwarding: the fast_km API rejects a literal null for censor_year_lower
+    # (strict int, no Optional) and expects the upper bound under "censor_year",
+    # not "censor_year_upper". Go through the Config properties instead, which
+    # coalesce None to their documented defaults and use the API's field name.
+    job_specific_settings = {
+        k: v
+        for k, v in config.job_specific_settings.items()
+        if k not in ("censor_year_upper", "censor_year_lower", "censor_year")
+    }
+    censor_settings = {
+        "censor_year_lower": config.censor_year_lower,
+        "censor_year": config.censor_year_upper,
+    }
 
     if config.is_skim_with_gpt:
         return {
             **common_settings,
             **job_specific_settings,
+            **censor_settings,
             "b_terms": b_terms,
             "c_terms": c_terms,
         }
     else:
-        return {**common_settings, **job_specific_settings, "b_terms": b_terms}
+        return {**common_settings, **job_specific_settings, **censor_settings, "b_terms": b_terms}
 
 
 def process_query_results(

@@ -1,0 +1,88 @@
+# EXPERIMENTAL — testing candidate for Blackwell (sm_120, e.g. RTX PRO 6000
+# Blackwell Server Edition) GPU support. NOT the production Dockerfile.
+#
+# Why this exists: the production Dockerfile pins vllm==0.9.1, which pulls
+# torch==2.7.0+cu126. That build's kernels only cover up to sm_90, so it
+# can't run on Blackwell (sm_120) cards — see the "not compatible with the
+# current PyTorch installation" warning. That pin was deliberately chosen in
+# commit 5b2a45d ("v2.0.7: pin vllm==0.9.1 ... fix CUDA mismatch in 2.0.6")
+# after an unbounded `vllm>=0.6.0` resolved to vllm 0.21 + torch 2.11+cu130,
+# which mismatched the CUDA 12.1/cuDNN8 base image and crashed at inference.
+#
+# This variant bumps the base image to CUDA 12.8/cuDNN9 (required for any
+# torch build with sm_120 kernels) and pins vllm==0.14.1, which on this base
+# resolves torch==2.9.1+cu128 — confirmed (without a GPU attached, via
+# torch._C._cuda_getArchFlags()) to include sm_120 in its compiled kernels:
+#   arch_flags: sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120
+# That only proves the kernels exist, not that inference actually runs on
+# real Blackwell hardware — still needs a live test on the RTX PRO 6000 node
+# before this replaces the production Dockerfile.
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV CUDA_VISIBLE_DEVICES=0
+
+# CHTC's docker-universe jobs run as an arbitrary sandboxed UID with no
+# matching /etc/passwd entry. torch._inductor.codecache computes its cache
+# dir at import time via getpass.getuser(), which falls back to
+# pwd.getpwuid(os.getuid()) and crashes (KeyError: getpwuid(): uid not found)
+# when that UID isn't in passwd. getpass.getuser() checks LOGNAME/USER first
+# and never touches pwd if either is set, so set them unconditionally.
+ENV USER=vllm
+ENV LOGNAME=vllm
+
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3.10-distutils \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python3 && \
+    ln -sf /usr/bin/python3.10 /usr/bin/python
+
+RUN python3.10 -m pip install --upgrade pip
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    "pandas>=1.3.0" \
+    "numpy>=1.21.0" \
+    "openai>=1.0.0" \
+    "biopython>=1.79" \
+    "requests>=2.25.0" \
+    "tiktoken>=0.7.0" \
+    "htcondor>=24.0.0" \
+    "vllm==0.14.1"
+
+# Fail the build if a future base-image/registry change silently drops
+# sm_120 support instead of crashing at inference time on the actual GPU.
+RUN python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda); flags = torch._C._cuda_getArchFlags(); print('arch_flags', flags); assert 'sm_120' in flags, 'sm_120 missing from compiled arch flags'"
+
+# Install skimgpt with --no-deps. All declared deps were installed above; this
+# avoids the duplicate-install bug in the previous Dockerfile where the `||`
+# fallback always re-ran a non-no-deps install (~4.8 GB of duplicated layers).
+ARG SKIMGPT_VERSION=2.2.1
+RUN pip install --no-cache-dir --no-deps "skimgpt==${SKIMGPT_VERSION}"
+
+RUN skimgpt-relevance --help || echo "Entry point verification failed, but package may still work"
+
+RUN mkdir -p /app/input_lists /app/output /app/debug /app/token
+
+COPY config.json ./
+
+ENV VLLM_USE_MODELSCOPE=False
+ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
+
+EXPOSE 5081
+
+RUN echo '#!/bin/bash\n\
+if ! nvidia-smi > /dev/null 2>&1; then\n\
+    echo "Warning: No GPU detected. vLLM will run on CPU (much slower)"\n\
+fi\n\
+\n\
+exec "$@"' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["skimgpt-relevance", "--help"]

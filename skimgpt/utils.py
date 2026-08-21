@@ -637,15 +637,21 @@ class Config:
 
     @property
     def censor_year_upper(self) -> int:
-        return self.job_specific_settings.get(
+        # .get(key, default) only falls back when the key is absent — an
+        # explicit `null` in config.json still comes through as None, so
+        # coalesce that case too before it reaches the fast_km API, which
+        # requires a non-nullable int.
+        value = self.job_specific_settings.get(
             "censor_year_upper",
             self.job_specific_settings.get("censor_year", 2024),
         )
+        return value if value is not None else 2024
 
     @property
     def censor_year_lower(self) -> int:
         # Default lower bound is zero (include all years)
-        return self.job_specific_settings.get("censor_year_lower", 0)
+        value = self.job_specific_settings.get("censor_year_lower", 0)
+        return value if value is not None else 0
 
     @property
     def is_km_with_gpt(self) -> bool:

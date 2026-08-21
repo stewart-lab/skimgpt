@@ -155,7 +155,13 @@ class HTCondorHelper:
             "request_memory": "15GB",
             "request_disk": "15GB",
             "gpus_minimum_memory": "10GB",
-            "requirements": "(CUDACapability >= 8.0)",
+            # jcaicedogpu0000.chtc.wisc.edu's backfill slots appear to
+            # oversubscribe its GPU(s) -- concurrent jobs landing there hit
+            # "CUDA unknown error" at cudaInit() (~20% failure rate in a
+            # 1975-2025 temporal sweep, all on this one host), while jobs on
+            # every other node (including jcaicedogpu0002) succeed. Exclude
+            # it until CHTC resolves this.
+            "requirements": '(CUDACapability >= 8.0) && (Machine != "jcaicedogpu0000.chtc.wisc.edu")',
             "+WantGPULab": "true",
             "+GPUJobLength": '"short"',
             "+is_resumable": "true",

@@ -45,11 +45,11 @@ def parse_results_file(fn: str, job_type: str, job_set: bool):
                 total = r.get("Total Relevant Abstracts", "").strip()
                 
                 row = {
-                    "Iteration": iter_number,
+                    "iteration": iter_number,
                     "Hyp1": hyp1,
                     "Hyp2": hyp2,
                     "Score": score,
-                    "Decision": decision,
+                    "decision": decision,
                     "num_abstracts": total,
                     "support_H1": H1_support,
                     "support_H2": H2_support,
@@ -70,21 +70,21 @@ def parse_results_file(fn: str, job_type: str, job_set: bool):
                     "inconclusive": inconclusive,
                     "iter_number": iter_number,
                     "Score": score,
-                }   
-            
+                }
+
             elif job_type == "skim_with_gpt":
                 if len(parts) < 3: continue
                 row = {
                     "A_term": parts[0],
                     "B_term": parts[1],
                     "C_term": parts[2],
+                    "iter_number": iter_number,
                     "Score":   score
                 }
             else:
                 print(f"Unknown job type: {job_type}")
-                row = {}
+                row = {"iter_number": iter_number}
 
-            row["iter_number"] = iter_number
             rows.append(row)
     return rows
 
