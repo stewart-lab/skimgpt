@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import os
 import shutil
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -17,6 +18,36 @@ from skimgpt.eval_JSON_results import extract_and_write_scores
 from skimgpt.utils import Config, add_file_handler, setup_wrapper_logger
 
 logger = logging.getLogger(__name__)
+
+
+def _snapshot_source(output_directory: Path) -> None:
+    """Copy the skimgpt/*.py package + git commit info into output/src/ for provenance.
+
+    Runs unconditionally so every run is reproducible after the fact, unlike the
+    relevance_triton.py CHTC-fallback staging (which only copies these files when
+    the Triton relevance path fails over to CHTC).
+    """
+    src_dir = Path(__file__).resolve().parent
+    dst_dir = output_directory / "src"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for py_file in src_dir.glob("*.py"):
+        shutil.copy2(str(py_file), str(dst_dir / py_file.name))
+
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=str(src_dir), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(src_dir), text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        dirty = bool(subprocess.check_output(
+            ["git", "status", "--porcelain", "--", "."], cwd=str(src_dir), text=True, stderr=subprocess.DEVNULL
+        ).strip())
+        (dst_dir / "GIT_COMMIT.txt").write_text(
+            f"branch: {branch}\ncommit: {commit}\nuncommitted_changes_in_skimgpt: {dirty}\n"
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        logger.warning(f"Could not record git provenance for source snapshot: {e}")
 
 
 def initialize_workflow() -> tuple[Config, Path]:
@@ -40,6 +71,8 @@ def initialize_workflow() -> tuple[Config, Path]:
     # Set up file-based logging in the output directory
     config.km_output_dir = str(output_directory)
     add_file_handler(str(output_directory))
+
+    _snapshot_source(output_directory)
 
     logger.info(f"Initializing workflow in {output_directory}")
     return config, output_directory
