@@ -103,6 +103,7 @@ def organize_output(directory: Path) -> None:
     """
     results_dir = directory / "results"
     debug_dir = directory / "debug"
+    src_dir = directory / "src"
     results_dir.mkdir(parents=True, exist_ok=True)
     debug_dir.mkdir(parents=True, exist_ok=True)
 
@@ -137,7 +138,7 @@ def organize_output(directory: Path) -> None:
             logger.info(f"Moved {item.name} -> results/{item.name}")
 
     # Classify remaining files (skip results/ and debug/ subtrees)
-    skip_prefixes = (str(results_dir.resolve()), str(debug_dir.resolve()))
+    skip_prefixes = (str(results_dir.resolve()), str(debug_dir.resolve()), str(src_dir.resolve()))
     for root, _dirs, files in os.walk(str(directory)):
         if os.path.abspath(root).startswith(skip_prefixes):
             continue

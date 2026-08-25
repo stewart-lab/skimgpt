@@ -9,8 +9,16 @@ from pathlib import Path
 from skimgpt.utils import Config, configure_logging
 from skimgpt.triton_client import TritonClient, TritonBatchFailureError
 from skimgpt.relevance_helper import run_relevance_pipeline
+from skimgpt.retry import retry_call
 
 logger = logging.getLogger(__name__)
+
+# Collector/schedd queries during HTCondorHelper setup occasionally fail with
+# transient network or auth errors (e.g. "Failed communication with
+# collector"); a couple of short retries clear these without giving up the
+# whole run.
+_HTCONDOR_CONNECT_RETRIES = 3
+_HTCONDOR_CONNECT_RETRY_DELAY = 10  # seconds
 
 
 def run_relevance_analysis(config: Config, km_output_path: str) -> None:
@@ -161,11 +169,27 @@ def _run_chtc_fallback(config: Config, km_output_path: str) -> None:
         logger.info("HTCondor token written to token directory")
 
         # -- Initialize HTCondor connection ------------------------------------
-        try:
-            htcondor_helper = HTCondorHelper(config, token_dir)
-        except Exception as e:
-            logger.error(f"Failed to initialize HTCondor helper: {e}")
-            raise
+        def _on_retryable(exc, attempt):
+            logger.warning(
+                f"HTCondor connection attempt {attempt}/{_HTCONDOR_CONNECT_RETRIES} "
+                f"failed: {exc}"
+            )
+
+        htcondor_helper = retry_call(
+            lambda: HTCondorHelper(config, token_dir),
+            max_retries=_HTCONDOR_CONNECT_RETRIES,
+            delay=_HTCONDOR_CONNECT_RETRY_DELAY,
+            on_retryable=_on_retryable,
+        )
+        if htcondor_helper is None:
+            logger.error(
+                f"Failed to initialize HTCondor helper after "
+                f"{_HTCONDOR_CONNECT_RETRIES} attempts"
+            )
+            raise RuntimeError(
+                f"Failed to initialize HTCondor helper after "
+                f"{_HTCONDOR_CONNECT_RETRIES} attempts"
+            )
 
         # -- Stage files into output directory ---------------------------------
         src_dir = Path(__file__).resolve().parent  # kmGPT/src/
