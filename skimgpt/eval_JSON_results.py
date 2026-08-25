@@ -42,8 +42,7 @@ def extract_and_write_scores(directory):
         if has_iterations:
             HEADERS.append("Iteration")
         HEADERS.extend([
-            "support_H1", "refute_H1", "inconclusive_H1",
-            "support_H2", "refute_H2", "inconclusive_H2",
+            "support_H1", "support_H2", "both", "neither_or_inconclusive",
             "Total Relevant Abstracts", "Hypothesis1", "Hypothesis2",
         ])
 
@@ -101,11 +100,9 @@ def extract_and_write_scores(directory):
                         if not isinstance(per_abs, list):
                             per_abs = []
                         sup_h1 = to_int(tallies.get("support_H1", 0))
-                        ref_h1 = to_int(tallies.get("refute_H1", 0))
-                        inc_h1 = to_int(tallies.get("inconclusive_H1", 0))
                         sup_h2 = to_int(tallies.get("support_H2", 0))
-                        ref_h2 = to_int(tallies.get("refute_H2", 0))
-                        inc_h2 = to_int(tallies.get("inconclusive_H2", 0))
+                        both = to_int(tallies.get("both", 0))
+                        neither = to_int(tallies.get("neither_or_inconclusive", 0))
                         total_relevant = rec.get("total_relevant_abstracts")
                         if not isinstance(total_relevant, int):
                             total_relevant = len(per_abs)
@@ -114,8 +111,7 @@ def extract_and_write_scores(directory):
                         if has_iterations:
                             row.append(str(iter_value))
                         row.extend([
-                            str(sup_h1), str(ref_h1), str(inc_h1),
-                            str(sup_h2), str(ref_h2), str(inc_h2),
+                            str(sup_h1), str(sup_h2), str(both), str(neither),
                             str(total_relevant),
                             str(hypothesis1),
                             str(hypothesis2),

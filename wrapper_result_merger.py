@@ -35,13 +35,13 @@ def parse_results_file(fn: str, job_type: str, job_set: bool):
             #parts = [p.strip().strip("'") for p in rel.split(" - ")]
             #hyp = r.get("Hypothesis", "").strip()
             if job_type == "km_with_gpt" and job_set:
-                hyp1 = r.get("Hypothesis 1", "").strip()
-                hyp2 = r.get("Hypothesis 2", "").strip()
+                hyp1 = r.get("Hypothesis1", "").strip()
+                hyp2 = r.get("Hypothesis2", "").strip()
                 decision = r.get("Decision", "").strip()
-                H1_support = r.get("H1", "").strip()
-                H2_support = r.get("H2", "").strip()
-                neither = r.get("Neither", "").strip()
-                both = r.get("Both", "").strip()
+                H1_support = r.get("support_H1", "").strip()
+                H2_support = r.get("support_H2", "").strip()
+                neither = r.get("neither_or_inconclusive", "").strip()
+                both = r.get("both", "").strip()
                 total = r.get("Total Relevant Abstracts", "").strip()
                 
                 row = {
