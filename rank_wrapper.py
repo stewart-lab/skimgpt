@@ -1,6 +1,7 @@
 import argparse
 import csv
 import datetime
+import heapq
 import json
 import logging
 import os
@@ -353,31 +354,62 @@ def reseed_by_record(order, term_stats):
 
 
 def repair_order_with_cache(order, cache):
-    """Fix any adjacent pair a re-seed placed in an order that contradicts an
-    already-cached DIRECT result between them.
+    """Fix a re-seeded order so it respects every known "beats" chain among
+    these terms -- not just direct, adjacent contradictions, but transitive
+    ones too (X beat Y beat Z, so X must outrank Z, even if X and Z were never
+    directly compared).
 
     Aggregate win/loss record doesn't know about specific head-to-head
-    outcomes -- two terms can have equal (or record-favoring-the-wrong-one)
-    tallies from facing different opponents, even though they've already been
-    directly compared with a clear answer. Without this, a re-seed can put
-    such a pair in the "wrong" order, the next normal pass corrects it via the
-    real adjacent comparison, and the following re-seed undoes that fix again
-    -- oscillating forever. This uses only the existing cache (no new
-    comparisons, so no extra cost) and is bounded like a standard bubble pass
-    so it terminates even if cached results are cyclic (non-transitive).
+    outcomes, or the chains between them -- a term's tally can look strong
+    from facing different opponents even though it lost to something that
+    itself lost to something else already ranked below it after a re-seed.
+    Only checking direct adjacent pairs (the previous version of this
+    function) misses that: it has nothing to contradict, since the two ends
+    of the chain were never directly compared.
+
+    Builds a directed "beats" graph from every cached decisive result among
+    these terms (using only the existing cache -- no new comparisons, so no
+    extra cost), then produces the topological order that respects every edge
+    (and therefore every transitive chain through them), preferring `order`'s
+    existing relative positions wherever the graph doesn't force a choice.
+    Cycles (non-transitive results -- A beats B beats C beats A, which can
+    happen with a subjective, per-pairing LLM comparator) can't be resolved
+    into any single order; terms caught in one are left in their current
+    relative order rather than forcing an arbitrary answer.
     """
-    order = order[:]
-    for _ in range(len(order)):
-        changed = False
-        for i in range(len(order) - 1):
-            a, b = order[i], order[i + 1]
+    n = len(order)
+    index_of = {t: i for i, t in enumerate(order)}
+    successors = {t: [] for t in order}
+    indegree = {t: 0 for t in order}
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = order[i], order[j]
             outcome = cache.get(a, b)
-            if outcome and outcome["status"] == "ok" and outcome["winner"] == b:
-                order[i], order[i + 1] = b, a
-                changed = True
-        if not changed:
-            break
-    return order
+            if not (outcome and outcome["status"] == "ok"):
+                continue
+            winner = outcome["winner"]
+            if winner not in (a, b):
+                continue  # a tie -- no ordering constraint between them
+            loser = b if winner == a else a
+            successors[winner].append(loser)
+            indegree[loser] += 1
+
+    available = [t for t in order if indegree[t] == 0]
+    available_heap = [(index_of[t], t) for t in available]
+    heapq.heapify(available_heap)
+    result = []
+    while available_heap:
+        _, t = heapq.heappop(available_heap)
+        result.append(t)
+        for loser in successors[t]:
+            indegree[loser] -= 1
+            if indegree[loser] == 0:
+                heapq.heappush(available_heap, (index_of[loser], loser))
+
+    if len(result) < n:
+        resolved = set(result)
+        result.extend(t for t in order if t not in resolved)
+    return result
 
 
 def build_final_ranking(order, term_stats, term_scores, quarantine_reason=None):
@@ -450,6 +482,13 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
     quarantine_reason = {}
     no_evidence_counts = {}
     error_counts = {}
+    # Once a term has shown real support in ANY comparison, it's permanently immune
+    # to no-evidence quarantine. DCH sampling/tallying can be noisy against a much
+    # stronger opponent -- a term with real but sparse evidence can land a false
+    # zero-support verdict there even though a different pairing already proved it
+    # has at least one real associated abstract. A later zero-support verdict
+    # against someone else doesn't un-prove that.
+    proven_support = set()
 
     for pass_num in range(1, max_passes + 1):
         if len(order) <= 1:
@@ -501,6 +540,18 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
                 comparisons = comparisons + boundary_comparisons
                 swaps += boundary_swaps
 
+        # Record proven support before applying any quarantine check below, so a
+        # term that proves support in one of this pass's comparisons is already
+        # immune when a different comparison in the SAME pass shows it zero
+        # (order within the pass shouldn't matter).
+        for c in comparisons:
+            if c["from_cache"] or c["status"] != "ok":
+                continue
+            for t, has_support in ((c["term_i"], c["term_i_has_support"]),
+                                    (c["term_j"], c["term_j_has_support"])):
+                if has_support is True:
+                    proven_support.add(t)
+
         # Zero literature support for a term is a stable, reproducible property (it
         # comes from that term's own co-occurring-abstract pool, independent of the
         # opponent) -- not just something that shows up in symmetric ties. A term
@@ -508,7 +559,10 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
         # so it becomes an immovable wall blocking correct ordering on either side
         # of it. Quarantine on either a per-term zero-support verdict or a run of
         # unresolved errors; skip cache hits everywhere since they're the exact same
-        # underlying observation being re-examined, not a new data point.
+        # underlying observation being re-examined, not a new data point. A term
+        # that has ever proven real support is exempt -- a later zero-support
+        # verdict against a different (likely much stronger) opponent doesn't
+        # un-prove that it has real, if sparse, literature of its own.
         newly_quarantined = []
         for c in comparisons:
             if c["from_cache"]:
@@ -516,7 +570,7 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
             if c["status"] == "ok":
                 for t, has_support in ((c["term_i"], c["term_i_has_support"]),
                                         (c["term_j"], c["term_j_has_support"])):
-                    if has_support is not False or t in quarantined_set:
+                    if has_support is not False or t in quarantined_set or t in proven_support:
                         continue
                     no_evidence_counts[t] = no_evidence_counts.get(t, 0) + 1
                     if no_evidence_counts[t] >= no_evidence_threshold:
