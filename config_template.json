@@ -15,7 +15,7 @@
         "TOP_N_ARTICLES_MOST_RECENT": 50,
         "POST_N": 5,
         "MIN_WORD_COUNT": 98,
-        "MODEL": "o3",
+        "MODEL": "gpt-5.6-terra",
         "RATE_LIMIT": 3,
         "DELAY": 10,
         "MAX_RETRIES": 10,
@@ -71,6 +71,8 @@
                 "min_errors_before_quarantine": 2,
                 "enable_escape_comparisons": true,
                 "reseed_every_n_passes": 2,
+                "resolve_ties_with_round_robin": true,
+                "max_tie_group_round_robin_size": 8,
                 "seed": null,
                 "pair_retries": 1,
                 "max_parallel_pairs": null

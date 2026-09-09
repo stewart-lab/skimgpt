@@ -412,6 +412,98 @@ def repair_order_with_cache(order, cache):
     return result
 
 
+def find_tied_groups(order, term_stats, cache, max_group_size):
+    """Group active terms by (wins - losses) record; for each group of size
+    >=2, return the pairs within it that have never been directly compared
+    (missing from the cache -- a real tie is left alone, since re-asking it
+    wouldn't produce new information).
+
+    Groups larger than max_group_size are reported separately rather than
+    triggering a potentially large round-robin -- callers should log them.
+    """
+    by_score = {}
+    for t in order:
+        s = term_stats[t]
+        by_score.setdefault(s["wins"] - s["losses"], []).append(t)
+
+    missing_pairs = []
+    skipped_groups = []
+    for terms in by_score.values():
+        if len(terms) < 2:
+            continue
+        if len(terms) > max_group_size:
+            skipped_groups.append(terms)
+            continue
+        for i in range(len(terms)):
+            for j in range(i + 1, len(terms)):
+                a, b = terms[i], terms[j]
+                if cache.get(a, b) is None:
+                    missing_pairs.append((a, b))
+    return missing_pairs, skipped_groups
+
+
+def run_tie_break_round_robin(missing_pairs, round_root, project_dir, master_cfg, main_py_path,
+                               tie_threshold, pair_retries, max_parallel_pairs, cache):
+    """Run every still-missing pair within tied-record groups as a genuine
+    round-robin, filling in the cache with real, direct answers instead of
+    inferring from aggregate record. There's no adjacency here (these terms
+    aren't necessarily next to each other), so position_i/position_j and
+    swapped are meaningless placeholders -- the resulting order comes from
+    re-sorting by the now-more-complete record afterward, not from a swap
+    during the comparison itself.
+    """
+    if not missing_pairs:
+        return []
+
+    pass_dir = os.path.join(round_root, "tie_break_round_robin")
+    pair_specs = []
+    for idx, (a, b) in enumerate(missing_pairs):
+        pid = f"tie{idx:03d}_{sanitize_term_for_filename(a)}_vs_{sanitize_term_for_filename(b)}"
+        pair_specs.append((pid, a, b))
+
+    os.makedirs(os.path.join(pass_dir, "output"), exist_ok=True)
+    workers = max_parallel_pairs or len(pair_specs)
+    subprocess_ok = {}
+    with ThreadPoolExecutor(max_workers=workers) as exe:
+        futures = {
+            exe.submit(run_pair_with_retries, a, b, pid, pass_dir, project_dir,
+                       master_cfg, main_py_path, pair_retries): pid
+            for pid, a, b in pair_specs
+        }
+        for f in as_completed(futures):
+            pid, ok = f.result()
+            subprocess_ok[pid] = ok
+    flatten_and_cleanup(pass_dir)
+
+    comparisons = []
+    for pid, a, b in pair_specs:
+        work_dir = os.path.join(pass_dir, "output", pid)
+        outcome = resolve_pair_winner(work_dir, a, b, tie_threshold, subprocess_ok.get(pid, False))
+        if outcome["status"] == "ok":
+            cache.set(a, b, outcome)
+
+        if outcome["status"] == "error":
+            tag = "error"
+        elif outcome["winner"] == "tie":
+            tag = "tie"
+        elif outcome["winner"] == "eliminated_no_support":
+            tag = "no_evidence"
+        elif outcome["winner"] == a:
+            tag = "term_i"
+        else:
+            tag = "term_j"
+
+        comparisons.append({
+            "pair_id": pid, "position_i": None, "position_j": None, "term_i": a, "term_j": b,
+            "status": outcome["status"], "mean_score": outcome["mean_score"],
+            "outcome": tag, "swapped": False, "from_cache": False,
+            "is_escape": False, "boundary_kind": "tie_break",
+            "term_i_has_support": outcome.get("term1_has_support"),
+            "term_j_has_support": outcome.get("term2_has_support"),
+        })
+    return comparisons
+
+
 def build_final_ranking(order, term_stats, term_scores, quarantine_reason=None):
     quarantine_reason = quarantine_reason or {}
     ranking = []
@@ -468,6 +560,14 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
     # aggregate record can correct its position even without a fresh chain
     # escape. 0/null disables this.
     reseed_every_n_passes = rconf.get("reseed_every_n_passes", 2)
+    # After the sort settles, any terms still tied on (wins - losses) with no
+    # known relationship between them (direct or transitive) got there by
+    # accident -- the adjacent-only sort just never happened to compare them.
+    # Rather than guess from indirect signal, fill in exactly the missing
+    # pairs within each tied group as a real round-robin (cheap, since tied
+    # groups are typically small) and re-sort from the complete answer.
+    resolve_ties_with_round_robin = rconf.get("resolve_ties_with_round_robin", True)
+    max_tie_group_round_robin_size = rconf.get("max_tie_group_round_robin_size", 8)
     cache = ComparisonCache()
 
     order = initial_terms[:]
@@ -622,6 +722,28 @@ def run_ranking(initial_terms, round_root, project_dir, main_py_path, master_cfg
     if not converged and len(order) > 1:
         logger.warning(f"Reached max_passes={max_passes} without a confirmed two-pass convergence.")
 
+    if resolve_ties_with_round_robin and len(order) > 1:
+        missing_pairs, skipped_groups = find_tied_groups(
+            order, compute_term_stats(initial_terms, passes), cache, max_tie_group_round_robin_size
+        )
+        for group in skipped_groups:
+            logger.warning(
+                f"Tied group too large for round-robin tie-break ({len(group)} > "
+                f"{max_tie_group_round_robin_size}), left as-is: {group}"
+            )
+        if missing_pairs:
+            logger.info(f"Tie-break round-robin: {len(missing_pairs)} missing comparison(s) among tied terms")
+            tie_break_comparisons = run_tie_break_round_robin(
+                missing_pairs, round_root, project_dir, master_cfg, main_py_path,
+                tie_threshold, pair_retries, max_parallel_pairs, cache,
+            )
+            order = repair_order_with_cache(
+                reseed_by_record(order, compute_term_stats(initial_terms, passes + [{"comparisons": tie_break_comparisons}])),
+                cache,
+            )
+            passes.append({"pass": "tie_break", "phase": "round_robin", "comparisons": tie_break_comparisons,
+                            "order_after_pass": order[:], "swaps": 0, "quarantined_this_pass": [], "reseeded": True})
+
     final_order = order + quarantined
     term_stats = compute_term_stats(initial_terms, passes)
     return final_order, passes, term_stats, converged, initial_order, quarantined, quarantine_reason
@@ -655,7 +777,8 @@ def write_ranking_outputs(parent_dir, initial_terms, initial_order, passes, fina
                     c["outcome"], c["swapped"], c["from_cache"], c["boundary_kind"] or "",
                 ])
             if p["reseeded"]:
-                writer.writerow([p["pass"], p["phase"], "", "", "", "", "", "reseed", "", "", "reseed"])
+                marker = "tie_break_resort" if p["pass"] == "tie_break" else "reseed"
+                writer.writerow([p["pass"], p["phase"], "", "", "", "", "", marker, "", "", marker])
 
     with open(os.path.join(parent_dir, "FINAL_RANKING.txt"), "w") as f:
         status = "converged" if converged else "stopped at max_passes -- may not be fully converged"

@@ -36,11 +36,20 @@ def update_censor_year(config_path, year, depth):
     #job_specific_settings[job_type]["censor_year"] = year
     # add censor_year_upper and censor_year_lower
     job_specific_settings["censor_year_upper"] = year
+    job_specific_settings["censor_year_depth"] = depth
     if depth == 1:
         job_specific_settings["censor_year_lower"] = year
     else:
         depth = depth-1
         job_specific_settings["censor_year_lower"] = year-depth
+    with open(config_path, "w") as f:
+        json.dump(data, f, indent=4)
+
+def record_censor_year_depth(config_path, depth):
+    data = json.load(open(config_path))
+    job_type = data.setdefault("JOB_TYPE", "").strip()
+    job_specific_settings = data.setdefault("JOB_SPECIFIC_SETTINGS", {}).setdefault(job_type, {})
+    job_specific_settings["censor_year_depth"] = depth
     with open(config_path, "w") as f:
         json.dump(data, f, indent=4)
 
@@ -61,13 +70,21 @@ def parse_job_status(log_dir):
     subs = [d for d in os.listdir(out_base) if d.startswith("output_")]
     if not subs:
         return None
-    logf = os.path.join(out_base, subs[0], "SKiM-GPT.log")
-    if not os.path.isfile(logf):
-        return None
+    job_dir = os.path.join(out_base, subs[0])
+    # main.py's organize_output() moves SKiM-GPT.log from job_dir/ into
+    # job_dir/debug/ right as the job finishes, so it can vanish from
+    # either location between the isfile() check and the read below -- try
+    # both spots and treat a mid-move miss as "no status yet" rather than
+    # crashing the poll loop.
     last = None
-    for L in open(logf):
-        if "status:" in L:
-            last = L.strip()
+    for logf in (os.path.join(job_dir, "SKiM-GPT.log"), os.path.join(job_dir, "debug", "SKiM-GPT.log")):
+        try:
+            for L in open(logf):
+                if "status:" in L:
+                    last = L.strip()
+            break
+        except FileNotFoundError:
+            continue
     if not last:
         return None
     return re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - ", "", last)
@@ -150,7 +167,7 @@ def main():
     master_cfg  = os.path.join(project_dir, "config.json")
     iters       = int(json.load(open(master_cfg))["GLOBAL_SETTINGS"].get("iterations", 1))
     ts          = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    parent_name = f"output_{ts}_cy_range{lo}-{hi}_cy_inc_{args.censor_year_increment}_iterations{iters}"
+    parent_name = f"output_{ts}_cy_range{lo}-{hi}_cy_inc_{args.censor_year_increment}_cy_depth_{depth}_iterations{iters}"
     parent_dir  = os.path.join(os.path.abspath("output"), parent_name)
     os.makedirs(parent_dir, exist_ok=True)
 
@@ -158,6 +175,7 @@ def main():
     shutil.copy2(master_cfg, os.path.join(parent_dir, "config.json"))
     wrapper_cfg = os.path.join(parent_dir, "config.json")
     update_input_paths(wrapper_cfg, project_dir)
+    record_censor_year_depth(wrapper_cfg, depth)
     copy_project_src(project_dir, parent_dir)
 
     # --- Logger ---

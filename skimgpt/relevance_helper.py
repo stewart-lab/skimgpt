@@ -283,7 +283,7 @@ def _sample_entries(entries: list, count: int, rng=None) -> list:
     return []
 
 
-def _dch_rng(config: Config, iteration_number: int):
+def _dch_rng(config: Config, iteration_number: int, group_key: str = ""):
     """Return a seeded RNG for DCH sampling, or None when no seed is configured.
 
     Logs the effective seed when one is in play, so the run that produced a
@@ -295,6 +295,11 @@ def _dch_rng(config: Config, iteration_number: int):
     composition also keeps ``seed=1, iteration=2`` distinct from
     ``seed=2, iteration=1``, which integer addition would collide.
 
+    ``group_key`` (the A term, under an A-term list) further decorrelates
+    sampling across A terms within the same iteration — without it, every A
+    term's comparison would draw from an identically-seeded generator and
+    reproduce the same selection pattern.
+
     A fresh ``Random`` instance per iteration is required, not optional:
     iterations run concurrently in a thread pool (see ``run_iterations``), so
     seeding the shared ``random`` module would race.
@@ -302,8 +307,9 @@ def _dch_rng(config: Config, iteration_number: int):
     seed = config.global_settings.get("DCH_SAMPLE_SEED")
     if seed is None:
         return None
-    logger.info(f"DCH sampling seed: {seed} (iteration {iteration_number})")
-    return random.Random(f"{seed}:{iteration_number}")
+    logger.info(f"DCH sampling seed: {seed} (iteration {iteration_number}, group {group_key!r})")
+    seed_key = f"{seed}:{iteration_number}" if not group_key else f"{seed}:{iteration_number}:{group_key}"
+    return random.Random(seed_key)
 
 
 def _pool_fingerprint(pmids: list) -> str:
@@ -422,35 +428,59 @@ def process_results(
         logger.info(f"Writing results to base output directory: {output_base_dir}")
 
     if config.is_dch:
-        a_terms_clean = [strip_pipe(a_term) for a_term in out_df['a_term']]
-        b_terms_clean = [strip_pipe(b_term) for b_term in out_df['b_term']]
-        hypotheses = [get_hypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
-        logger.debug(f"hypotheses: {hypotheses}")
-        hyp1 = hypotheses[0]
-        hyp2 = hypotheses[1]
-        logger.debug(f"hyp1: {hyp1}")
-        logger.debug(f"hyp2: {hyp2}")
+        # One DCH comparison (H1 vs H2) per A term: out_df holds 2 rows per
+        # A term (one per B-term candidate) when an A-term list is in play,
+        # so each group must be reduced to its own dch_row rather than
+        # collapsing the whole frame down to a single comparison.
+        dch_rows = []
+        dch_groups = list(out_df.groupby('a_term', sort=False))
+        multi_a_term = len(dch_groups) > 1
+        for a_term_value, group in dch_groups:
+            group = group.reset_index(drop=True)
+            if len(group) != 2:
+                logger.warning(
+                    f"DCH mode expects exactly 2 B-term candidates per A term "
+                    f"(hypothesis1 vs hypothesis2); got {len(group)} for "
+                    f"a_term={a_term_value!r}. Skipping this A term."
+                )
+                continue
 
-        if fixed_sample is not None:
-            consolidated_abstracts, expected_count, total_relevant_abstracts = fixed_sample
-            logger.info("DCH Sampling: reusing fixed sample across iterations "
-                        f"({expected_count}/{total_relevant_abstracts} abstracts)")
-        else:
-            v1, v2 = _get_dch_pools(out_df)
-            logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
-            logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
+            a_terms_clean = [strip_pipe(a_term) for a_term in group['a_term']]
+            b_terms_clean = [strip_pipe(b_term) for b_term in group['b_term']]
+            hypotheses = [get_hypothesis(config=config, a_term=a_term, b_term=b_term) for a_term, b_term in zip(a_terms_clean, b_terms_clean)]
+            logger.debug(f"hypotheses: {hypotheses}")
+            hyp1 = hypotheses[0]
+            hyp2 = hypotheses[1]
+            logger.debug(f"hyp1: {hyp1}")
+            logger.debug(f"hyp2: {hyp2}")
 
-            rng = _dch_rng(config, iteration_number)
-            consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
+            if fixed_sample is not None:
+                consolidated_abstracts, expected_count, total_relevant_abstracts = (
+                    fixed_sample[a_term_value] if multi_a_term else fixed_sample
+                )
+                logger.info(f"DCH Sampling ({a_term_value}): reusing fixed sample across iterations "
+                            f"({expected_count}/{total_relevant_abstracts} abstracts)")
+            else:
+                v1, v2 = _get_dch_pools(group)
+                logger.info(f"DCH Sampling ({a_term_value}): Candidate 1 has {len(v1)} relevant abstracts")
+                logger.info(f"DCH Sampling ({a_term_value}): Candidate 2 has {len(v2)} relevant abstracts")
 
-        dch_row = {
-            "hypothesis1": hyp1,
-            "hypothesis2": hyp2,
-            "ab_abstracts": consolidated_abstracts,
-            "expected_per_abstract_count": expected_count,
-            "total_relevant_abstracts": total_relevant_abstracts,
-        }
-        out_df = pd.DataFrame([dch_row])
+                # group_key only decorrelates sampling when there are multiple A
+                # terms to decorrelate; omitted for the single-A-term case so a
+                # configured DCH_SAMPLE_SEED keeps reproducing pre-existing runs.
+                rng = _dch_rng(config, iteration_number, group_key=a_term_value if multi_a_term else "")
+                consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config, rng)
+
+            dch_rows.append({
+                "a_term": a_term_value,
+                "hypothesis1": hyp1,
+                "hypothesis2": hyp2,
+                "ab_abstracts": consolidated_abstracts,
+                "expected_per_abstract_count": expected_count,
+                "total_relevant_abstracts": total_relevant_abstracts,
+            })
+        out_df = pd.DataFrame(dch_rows)
+        total_rows = len(out_df)
 
     for index, row in out_df.iterrows():
         result_dict = process_single_row(row, config)
@@ -602,12 +632,27 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
 
         fixed_sample = None
         if config.is_dch and config.dch_fix_sample_across_iterations:
-            v1, v2 = _get_dch_pools(out_df)
-            rng = _dch_rng(config, 1)
-            fixed_sample = sample_consolidated_abstracts(v1, v2, config, rng)
-            logger.info("DCH_FIX_SAMPLE_ACROSS_ITERATIONS enabled: drawing one sample "
-                        f"({fixed_sample[1]}/{fixed_sample[2]} abstracts) and reusing it "
-                        f"across all {num_iterations} iterations")
+            dch_groups = list(out_df.groupby('a_term', sort=False))
+            multi_a_term = len(dch_groups) > 1
+            if multi_a_term:
+                fixed_sample = {}
+                for a_term_value, group in dch_groups:
+                    group = group.reset_index(drop=True)
+                    if len(group) != 2:
+                        continue
+                    v1, v2 = _get_dch_pools(group)
+                    rng = _dch_rng(config, 1, group_key=a_term_value)
+                    fixed_sample[a_term_value] = sample_consolidated_abstracts(v1, v2, config, rng)
+                    logger.info(f"DCH_FIX_SAMPLE_ACROSS_ITERATIONS enabled ({a_term_value}): drawing one "
+                                f"sample ({fixed_sample[a_term_value][1]}/{fixed_sample[a_term_value][2]} "
+                                f"abstracts) and reusing it across all {num_iterations} iterations")
+            else:
+                v1, v2 = _get_dch_pools(out_df)
+                rng = _dch_rng(config, 1)
+                fixed_sample = sample_consolidated_abstracts(v1, v2, config, rng)
+                logger.info("DCH_FIX_SAMPLE_ACROSS_ITERATIONS enabled: drawing one sample "
+                            f"({fixed_sample[1]}/{fixed_sample[2]} abstracts) and reusing it "
+                            f"across all {num_iterations} iterations")
 
         max_parallel = min(ITERATION_MAX_PARALLELISM, num_iterations)
         total_start = time.time()

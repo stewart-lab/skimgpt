@@ -158,6 +158,8 @@ This configuration file contains various settings for different job types. Below
   - `min_errors_before_quarantine`: Number of times a term must be involved in a comparison that failed at the pipeline level (not a scientific "no evidence" result -- a subprocess/infrastructure failure) before it's pulled out (e.g., `2`, giving it a couple of fresh retries first since a failure isn't a reproducible fact about the term the way zero support is).
   - `enable_escape_comparisons`: Boolean flag for the frozen-tie-chain escape/validation mechanism (e.g., `true`; see the note on it below).
   - `reseed_every_n_passes`: Every N passes, re-sort the active list by each term's (wins - losses) record so far (e.g., `2`; `0`/`null` to disable). Corrects positions that reflect an accident of the adjacent-sort process rather than a term's actual record -- see the note below.
+  - `resolve_ties_with_round_robin`: Boolean flag (e.g., `true`). After the sort settles, fill in every still-missing comparison within each group of terms tied on (wins - losses) with no known relationship between them, then re-sort from the complete answer -- see the note below.
+  - `max_tie_group_round_robin_size`: Safety cap on how large a tied group can be before round-robin tie-breaking is skipped for it (e.g., `8`; a skipped group is left as-is and logged with a warning rather than spending a potentially large, unbounded number of comparisons on it).
   - `seed`: Optional integer seed for reproducible initial shuffling (e.g., `null` for non-reproducible).
   - `pair_retries`: Number of automatic retries for a failed pairwise comparison (e.g., `1`).
   - `max_parallel_pairs`: Concurrency cap for pairwise comparisons within a pass (e.g., `null` to run every comparison in the pass at once).
@@ -347,8 +349,11 @@ Comparisons and swaps work similarly to the tournament's tie/support logic, with
 
 The sort stops as soon as one full even+odd cycle produces no swaps, no new quarantines, and no re-seed changes (confirmed sorted), or `max_passes` is reached.
 
+- **Round-robin tie-break**: once the sort settles, terms can still be left tied on (wins − losses) with *no* known relationship between them, direct or transitive — the adjacent-only sort's whole efficiency advantage comes from not comparing every pair, so some pairs simply never interact, and their relative order is otherwise just an accident of the sort's path. Rather than infer an answer from indirect signal, every still-missing comparison *within* each such tied group is run as a genuine, exhaustive round-robin (cheap, since real tied groups are typically small — even in a 33-term run, tied groups stayed well under a dozen), and the group is re-sorted from the now-complete answer using the same transitive repair described above. A group larger than `max_tie_group_round_robin_size` is left as-is and logged with a warning rather than risking a large, unbounded number of comparisons. Any tie still remaining after this (a genuine direct tie, or a cycle) is honest — every possible question within the group has been asked.
+
 Output (under `output/output_<timestamp>_rank_<suffix>/`):
 - `pass_<n>_<even|odd>/output/<pair_id>/` — a normal single-pair `is_dch` output directory for every *freshly run* comparison in pass `n` (passes made entirely of cache hits don't create any output directory).
+- `tie_break_round_robin/output/<pair_id>/` — the round-robin tie-break comparisons (if any) run after the sort settled.
 - `pass_<n>_escape/output/escape<idx>_<pair_id>/` and `pass_<n>_validate/output/validate<idx>_<pair_id>/` — the one boundary comparison (if any) run during pass `n`.
 - `ranking_history.json` — full pass-by-pass record (comparisons, scores, outcomes, swaps, per-term support flags, `boundary_kind`, `reseeded` flag) plus the `final_ranking` (rank, term, win/tie/loss/error counts, `avg_score`, `scores`, `insufficient_evidence` flag, `quarantine_reason`).
 - `ranking_summary.tsv` — flat table, one row per comparison across all passes (plus a marker row for any pass where a re-seed happened), including a `Boundary_Kind` column (`escape`, `validate`, or blank for a normal comparison).

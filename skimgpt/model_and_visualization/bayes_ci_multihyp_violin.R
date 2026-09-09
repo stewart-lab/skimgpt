@@ -6,15 +6,23 @@
 # script walks many hypothesis-pair directories at one censor-year window and
 # shows them side by side as a violin plot, ordered by posterior mean.
 #
-# Expected input: projpath contains one subdirectory per hypothesis-pair
-# (e.g. "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
+# Expected input: projpath contains one subdirectory per DCH run (e.g.
+# "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
 # SKiM-GPT DCH run-output naming), each holding results/iteration_N/
-# *_km_with_gpt_direct_comp.json files. All iterations under one subdirectory
-# are pooled into a single posterior (no year-splitting - this is a snapshot,
-# not a timecourse). H1/H2 short labels are derived automatically from the
-# JSON's "hypothesis1"/"hypothesis2" text by diffing out the shared wording
-# they're templated from (see short_hypothesis_labels()); the topic label
-# comes from the subdirectory name.
+# *_km_with_gpt_direct_comp.json files. A subdirectory may itself contain
+# several distinct hypothesis-pairs when it comes from an A-term-list run
+# (one *_direct_comp.json basename per A term, e.g. one per gene, all
+# comparing that gene against the same fixed B-term pair) - each such
+# basename group is pooled across its own iterations into its own posterior
+# and gets its own violin (no year-splitting within a group - this is a
+# snapshot, not a timecourse). H1/H2 short labels are derived automatically
+# from the JSON's "hypothesis1"/"hypothesis2" text by diffing out the shared
+# wording they're templated from (see short_hypothesis_labels()); when a
+# subdirectory holds multiple hypothesis-pairs, the varying term across
+# their "hypothesis1" texts (e.g. the A term) is extracted the same way (see
+# extract_varying_term()) and appended to the subdirectory-derived topic
+# label so each pair gets its own axis entry instead of being pooled
+# together.
 #
 # Packages: kept from the user's older multi-hypothesis violin script -
 # ggplot2, patchwork, dplyr, optparse, viridis (used here for the violin
@@ -44,58 +52,57 @@ get_script_dir <- function() {
 source(file.path(get_script_dir(), "bayes_ci_updated.R"))
 
 # ---------------------------------------------------------------------------
-# Per-topic data loading: pool every iteration's (score, per_abstract) under
-# one hypothesis-pair directory into a single list of "calls", and pull the
-# hypothesis1/hypothesis2 text straight from the JSON (same for every
-# iteration in the directory, so the first file found is enough).
+# Per-directory data loading: a directory can hold more than one distinct
+# hypothesis-pair (one *_direct_comp.json basename per pair - e.g. one per A
+# term, under an A-term-list DCH run). Group files by basename and pool each
+# group's iterations into its own list of "calls", pulling hypothesis1/
+# hypothesis2 straight from the JSON (same for every iteration within a
+# group, so the first file in the group is enough). Returns one list entry
+# per distinct hypothesis-pair found.
 # ---------------------------------------------------------------------------
 
-load_hypothesis_calls <- function(topic_dir) {
+load_hypothesis_groups <- function(topic_dir) {
   files <- list.files(topic_dir, pattern = "gpt_direct_comp\\.json$", recursive = TRUE, full.names = TRUE)
   files <- files[!grepl("\\.backup", files)]
   if (length(files) == 0) {
     return(NULL)
   }
 
-  distinct_names <- unique(basename(files))
-  if (length(distinct_names) > 1) {
-    warning(paste0(
-      "Multiple distinct hypothesis-comparison files found under ", topic_dir,
-      " - using only the first (", distinct_names[1], ")."
-    ))
-    files <- files[basename(files) == distinct_names[1]]
-  }
-
-  calls <- list()
-  hyp1_text <- NULL
-  hyp2_text <- NULL
   keep_labels <- c("supports_H1", "supports_H2", "both")
 
-  for (f in files) {
-    content <- jsonlite::fromJSON(f, simplifyVector = FALSE)
-    hc <- content[[1]]$Hypothesis_Comparison
-    if (is.null(hyp1_text)) {
-      hyp1_text <- hc$hypothesis1
-      hyp2_text <- hc$hypothesis2
+  groups <- lapply(split(files, basename(files)), function(group_files) {
+    calls <- list()
+    hyp1_text <- NULL
+    hyp2_text <- NULL
+
+    for (f in group_files) {
+      content <- jsonlite::fromJSON(f, simplifyVector = FALSE)
+      hc <- content[[1]]$Hypothesis_Comparison
+      if (is.null(hyp1_text)) {
+        hyp1_text <- hc$hypothesis1
+        hyp2_text <- hc$hypothesis2
+      }
+
+      result <- hc$Result[[1]]
+      per_abstract <- Filter(function(a) a$label %in% keep_labels, result$per_abstract)
+
+      if (length(per_abstract) == 0) {
+        pmids_df <- data.frame(pmid = character(0), label = character(0), stringsAsFactors = FALSE)
+      } else {
+        pmids_df <- data.frame(
+          pmid = vapply(per_abstract, function(a) as.character(a$pmid), character(1)),
+          label = vapply(per_abstract, function(a) a$label, character(1)),
+          stringsAsFactors = FALSE
+        )
+      }
+
+      calls[[length(calls) + 1]] <- list(score = result$score, pmids = pmids_df)
     }
 
-    result <- hc$Result[[1]]
-    per_abstract <- Filter(function(a) a$label %in% keep_labels, result$per_abstract)
+    list(calls = calls, hypothesis1 = hyp1_text, hypothesis2 = hyp2_text)
+  })
 
-    if (length(per_abstract) == 0) {
-      pmids_df <- data.frame(pmid = character(0), label = character(0), stringsAsFactors = FALSE)
-    } else {
-      pmids_df <- data.frame(
-        pmid = vapply(per_abstract, function(a) as.character(a$pmid), character(1)),
-        label = vapply(per_abstract, function(a) a$label, character(1)),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    calls[[length(calls) + 1]] <- list(score = result$score, pmids = pmids_df)
-  }
-
-  list(calls = calls, hypothesis1 = hyp1_text, hypothesis2 = hyp2_text)
+  unname(groups)
 }
 
 # ---------------------------------------------------------------------------
@@ -131,6 +138,43 @@ short_hypothesis_labels <- function(h1, h2) {
   list(term1 = term1, term2 = term2)
 }
 
+# ---------------------------------------------------------------------------
+# N-way generalization of short_hypothesis_labels()'s diff: given several
+# strings templated from the same wording but with one term substituted
+# (e.g. one hypothesis1 per A term, all sharing the same B-term comparison),
+# diff out the prefix/suffix common to ALL of them and return each string's
+# differing middle segment (the substituted term). Falls back to the full
+# string for any input where no common prefix/suffix could be established.
+# ---------------------------------------------------------------------------
+
+extract_varying_term <- function(strings) {
+  clean <- function(words) trimws(gsub("[.,;:]+$", "", paste(words, collapse = " ")))
+
+  word_lists <- lapply(strings, function(s) strsplit(trimws(s), "\\s+")[[1]])
+  lens <- vapply(word_lists, length, integer(1))
+  max_common <- if (length(lens) > 0) min(lens) else 0
+
+  n_pre <- 0
+  while (n_pre < max_common) {
+    words_at_pos <- vapply(word_lists, function(w) w[n_pre + 1], character(1))
+    if (length(unique(words_at_pos)) != 1) break
+    n_pre <- n_pre + 1
+  }
+
+  n_suf <- 0
+  max_suf <- max_common - n_pre
+  while (n_suf < max_suf) {
+    words_at_pos <- vapply(word_lists, function(w) w[length(w) - n_suf], character(1))
+    if (length(unique(words_at_pos)) != 1) break
+    n_suf <- n_suf + 1
+  }
+
+  vapply(word_lists, function(w) {
+    mid <- if (n_pre + n_suf < length(w)) w[(n_pre + 1):(length(w) - n_suf)] else character(0)
+    if (length(mid) > 0) clean(mid) else clean(w)
+  }, character(1))
+}
+
 topic_from_dirname <- function(dir_name) {
   m <- regmatches(dir_name, regexec("^output_[0-9]+_(.+?)_kmgptdch", dir_name))[[1]]
   if (length(m) >= 2) m[2] else dir_name
@@ -152,6 +196,14 @@ summarize_topic <- function(topic, hyp1_label, hyp2_label, hypothesis1, hypothes
 
   all_pmids <- unique(unlist(lapply(calls, function(cc) cc$pmids$pmid)))
 
+  # Mean per-iteration count of abstracts labeled as supporting H1/H2 -
+  # the raw evidence tally that accompanies the posterior estimate in the
+  # side-by-side bar plot. Averaged (not summed) across calls/iterations so
+  # topics are comparable regardless of how many iterations each ran.
+  count_label <- function(lbl) vapply(calls, function(cc) sum(cc$pmids$label == lbl), numeric(1))
+  mean_support_h1 <- mean(count_label("supports_H1"))
+  mean_support_h2 <- mean(count_label("supports_H2"))
+
   list(
     summary = data.frame(
       topic = topic, hyp1_label = hyp1_label, hyp2_label = hyp2_label,
@@ -159,7 +211,8 @@ summarize_topic <- function(topic, hyp1_label, hyp2_label, hypothesis1, hypothes
       n_calls = length(calls), n_unique_pmids = length(all_pmids),
       mean_llm_score = mean(scores), posterior_mean = posterior_mean,
       hdi_level = level, hdi_lo = hdi[1], hdi_hi = hdi[2],
-      shape1 = a, shape2 = b
+      shape1 = a, shape2 = b,
+      mean_support_h1 = mean_support_h1, mean_support_h2 = mean_support_h2
     ),
     # samples for the violin shape: drawn directly from the exact posterior
     # Beta(a,b) - not a resampling/refitting step, just visualizing that
@@ -203,36 +256,67 @@ main <- function() {
   output_dir <- file.path(proj_path, paste0("output_model_", timestamp))
   dir.create(output_dir, mode = "0777", showWarnings = FALSE, recursive = TRUE)
 
-  dirs <- list.dirs(proj_path, full.names = FALSE, recursive = FALSE)
-  dirs <- dirs[!grepl("^output_(model|visualization)_", dirs)] # skip our own (and older) output folders
+  # --projpath can point either at a parent folder holding many DCH run
+  # directories (the normal multi-topic case) or directly at a single run's
+  # own output directory (which itself contains a top-level "results/"
+  # folder). Without this check, list.dirs() below would enumerate that
+  # single run's own results/debug/src folders as if each were a separate
+  # hypothesis-pair run, and "results" - which doesn't match the
+  # output_<ts>_<topic>_kmgptdch naming topic_from_dirname() expects - would
+  # leak into every topic label verbatim (e.g. "results: CHAT").
+  if (dir.exists(file.path(proj_path, "results"))) {
+    dir_labels <- basename(proj_path)
+    dir_paths <- proj_path
+  } else {
+    dir_labels <- list.dirs(proj_path, full.names = FALSE, recursive = FALSE)
+    dir_labels <- dir_labels[!grepl("^output_(model|visualization)_", dir_labels)] # skip our own (and older) output folders
+    dir_paths <- file.path(proj_path, dir_labels)
+  }
 
   summaries <- list()
   samples_list <- list()
 
-  for (d in dirs) {
-    full_dir <- file.path(proj_path, d)
-    loaded <- load_hypothesis_calls(full_dir)
-    if (is.null(loaded)) {
+  for (idx in seq_along(dir_labels)) {
+    d <- dir_labels[idx]
+    full_dir <- dir_paths[idx]
+    groups <- load_hypothesis_groups(full_dir)
+    if (is.null(groups)) {
       message(paste0(d, ": no hypothesis-comparison JSON found, skipping"))
       next
     }
 
-    labels <- short_hypothesis_labels(loaded$hypothesis1, loaded$hypothesis2)
-    topic <- topic_from_dirname(d)
+    dir_topic <- topic_from_dirname(d)
 
-    result <- summarize_topic(
-      topic = topic, hyp1_label = labels$term1, hyp2_label = labels$term2,
-      hypothesis1 = loaded$hypothesis1, hypothesis2 = loaded$hypothesis2,
-      calls = loaded$calls, level = opt$level, n_samples = opt$n_samples
-    )
+    # A directory with more than one distinct hypothesis-pair (an A-term-list
+    # run) needs a per-pair topic label, not one shared by the whole
+    # directory - otherwise every pair's violin would be plotted as if it
+    # were the same comparison. Derive that label from what varies across
+    # the pairs' hypothesis1 texts (e.g. the A term).
+    if (length(groups) > 1) {
+      varying_terms <- extract_varying_term(vapply(groups, function(g) g$hypothesis1, character(1)))
+    } else {
+      varying_terms <- NA_character_
+    }
 
-    message(paste0(
-      d, ": ", topic, " (", labels$term1, " vs ", labels$term2, ") - ",
-      length(loaded$calls), " calls"
-    ))
+    for (i in seq_along(groups)) {
+      g <- groups[[i]]
+      labels <- short_hypothesis_labels(g$hypothesis1, g$hypothesis2)
+      topic <- if (length(groups) > 1) paste0(dir_topic, ": ", varying_terms[i]) else dir_topic
 
-    summaries[[length(summaries) + 1]] <- result$summary
-    samples_list[[length(samples_list) + 1]] <- result$samples
+      result <- summarize_topic(
+        topic = topic, hyp1_label = labels$term1, hyp2_label = labels$term2,
+        hypothesis1 = g$hypothesis1, hypothesis2 = g$hypothesis2,
+        calls = g$calls, level = opt$level, n_samples = opt$n_samples
+      )
+
+      message(paste0(
+        d, " [", topic, "]: (", labels$term1, " vs ", labels$term2, ") - ",
+        length(g$calls), " calls"
+      ))
+
+      summaries[[length(summaries) + 1]] <- result$summary
+      samples_list[[length(samples_list) + 1]] <- result$samples
+    }
   }
 
   if (length(summaries) == 0) {
@@ -290,8 +374,35 @@ main <- function() {
       plot.margin = margin(t = 5, r = 5, b = 5, l = 15)
     )
 
+  # Side-by-side bar plot of mean supporting-abstract counts per H1/H2,
+  # sharing the violin's topic ordering/factor levels so rows line up when
+  # the two panels are combined below.
+  bar_df <- rbind(
+    data.frame(topic = summary_df$topic, term = "H1", count = summary_df$mean_support_h1),
+    data.frame(topic = summary_df$topic, term = "H2", count = summary_df$mean_support_h2)
+  )
+  bar_df$term <- factor(bar_df$term, levels = c("H1", "H2"))
+
+  p_bar <- ggplot(bar_df, aes(x = topic, y = count, fill = term)) +
+    geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+    scale_fill_manual(values = c(H1 = "#31688e", H2 = "#8fd744"), name = NULL) +
+    coord_flip() +
+    labs(x = NULL, y = "mean supporting abstracts") +
+    theme_bw() +
+    theme(
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      axis.line = element_line(color = "black"),
+      legend.position = "top",
+      plot.margin = margin(t = 5, r = 5, b = 5, l = 5)
+    )
+
+  combined <- p + p_bar + patchwork::plot_layout(widths = c(3, 1))
+
   plot_height <- max(6, 0.45 * nlevels(summary_df$topic) + 2)
-  ggsave(file.path(output_dir, "posterior_violin_plot.pdf"), p, width = 8, height = plot_height, units = "in")
+  ggsave(file.path(output_dir, "posterior_violin_plot.pdf"), combined, width = 11, height = plot_height, units = "in")
 
   cat("Plots and data saved to", output_dir, "\n")
 }

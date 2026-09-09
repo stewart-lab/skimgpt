@@ -34,7 +34,7 @@ def extract_and_write_scores(directory):
 
     # Compute headers based on mode
     if km_mode or skim_mode:
-        HEADERS = ["Hypothesis", "Score", "support", "refute", "inconclusive"]
+        HEADERS = ["Aterm", "Bterm", "Hypothesis", "Score", "support", "refute", "inconclusive"]
         if has_iterations:
             HEADERS.append("Iteration")
     else:
@@ -123,6 +123,8 @@ def extract_and_write_scores(directory):
                 if km_mode:
                     abr = rec.get("A_B_Relationship")
                     if isinstance(abr, dict):
+                        a_term = abr.get("a_term", "")
+                        b_term = abr.get("b_term", "")
                         hypothesis = abr.get("Hypothesis", "")
                         results_list = abr.get("Result") or []
                         if not isinstance(results_list, list):
@@ -137,6 +139,8 @@ def extract_and_write_scores(directory):
                             inconclusive = to_int(tallies.get("inconclusive", 0))
 
                             row = [
+                                str(a_term),
+                                str(b_term),
                                 str(hypothesis),
                                 str(score),
                                 str(support),
@@ -152,6 +156,8 @@ def extract_and_write_scores(directory):
                     for key in ["A_B_C_Relationship", "A_C_Relationship"]:
                         section = rec.get(key)
                         if isinstance(section, dict):
+                            a_term = section.get("a_term", "")
+                            b_term = section.get("b_term", "")
                             hypothesis = section.get("Hypothesis", "")
                             results_list = section.get("Result") or []
                             if not isinstance(results_list, list):
@@ -166,6 +172,8 @@ def extract_and_write_scores(directory):
                                 inconclusive = to_int(tallies.get("inconclusive", 0))
 
                                 row = [
+                                    str(a_term),
+                                    str(b_term),
                                     str(hypothesis),
                                     str(score),
                                     str(support),
