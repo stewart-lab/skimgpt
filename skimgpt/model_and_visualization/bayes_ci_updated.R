@@ -69,7 +69,7 @@ library(patchwork)
 
 A0 <- 1.2 # strength of the prior. pseudo-abstracts per side
 RHO <- 0 # intra-field correlation
-SIGMA2_CALL <- 0.0007823878 # variance of a single LLM call, 0-1 scale, calculated by rerunning the same abstracts through 50 iterations
+SIGMA2_CALL <- 0.0004566556 # variance of a single LLM call, 0-1 scale, calculated by rerunning the same abstracts through 50 iterations
 
 n_effective <- function(m, n_calls, rho = RHO, sigma2_call = SIGMA2_CALL, theta = 0.5) {
   if (m == 0 || n_calls == 0) {
@@ -494,7 +494,7 @@ option_list <- list(
     help = "HDI credible level [default %default]", metavar = "double"
   ),
   make_option(c("--dot_size"),
-    type = "double", default = 1.8,
+    type = "double", default = 1.0,
     help = "marker size for the LLM score dots [default %default]", metavar = "double"
   ),
   make_option(c("-t", "--title"),
