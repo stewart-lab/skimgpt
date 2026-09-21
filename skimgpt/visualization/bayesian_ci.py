@@ -14,67 +14,13 @@ import cmdlogtime
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy import optimize
 from scipy.stats import beta as beta_dist
+
+from skimgpt.stats.bayes_ci import posterior_ci
 
 logger = logging.getLogger(__name__)
 
 COMMAND_LINE_DEF_FILE = str(Path(__file__).parent / "bayesian_ci_commandline.txt")
-
-
-# ---------------------------------------------------------------------------
-# Beta-distribution helpers
-# ---------------------------------------------------------------------------
-
-def _estimate_beta_mom(mu, var):
-    """Method-of-moments estimator for Beta(alpha, beta)."""
-    alpha = ((1 - mu) / var - 1 / mu) * mu ** 2
-    beta = alpha * (1 / mu - 1)
-    if alpha <= 0 or beta <= 0:
-        logger.warning("MoM produced non-positive params (mu=%.4f, var=%.4f) — clamping", mu, var)
-    return max(alpha, 1e-22), max(beta, 1e-22)
-
-
-def _estimate_beta_mle(data):
-    """MLE estimator using scipy.stats.beta.fit (location=0, scale=1)."""
-    # Clamp data to open interval (0, 1)
-    data = np.clip(data, 1e-10, 1 - 1e-10)
-    a, b, loc, scale = beta_dist.fit(data, floc=0, fscale=1)
-    return max(a, 1e-22), max(b, 1e-22)
-
-
-def _hdi(a, b, credible_mass=0.95):
-    """Highest Density Interval for Beta(a, b).
-
-    Finds the narrowest interval containing *credible_mass* of the
-    probability.  Uses numerical optimisation on the inverse-CDF.
-    """
-    # For unimodal Beta (a>1, b>1) the HDI is the shortest credible interval.
-    # For other shapes, fall back to the ETI.
-    def _interval_width(low_tail):
-        low = beta_dist.ppf(low_tail, a, b)
-        high = beta_dist.ppf(low_tail + credible_mass, a, b)
-        return high - low
-
-    try:
-        result = optimize.minimize_scalar(
-            _interval_width,
-            bounds=(0, 1 - credible_mass),
-            method="bounded",
-        )
-        low_tail = result.x
-    except Exception:
-        low_tail = (1 - credible_mass) / 2  # fall back to ETI
-
-    low = beta_dist.ppf(low_tail, a, b)
-    high = beta_dist.ppf(low_tail + credible_mass, a, b)
-    return low, high
-
-
-def _eti(a, b, credible_mass=0.95):
-    """Equal-Tailed Interval for Beta(a, b)."""
-    tail = (1 - credible_mass) / 2
-    return beta_dist.ppf(tail, a, b), beta_dist.ppf(1 - tail, a, b)
 
 
 # ---------------------------------------------------------------------------
@@ -159,69 +105,37 @@ def main():
     for year in years:
         print(year)
         dfsub = df[df["censor_year"] == year].copy()
-        score = (dfsub["score"] / 100).values
-        score = np.nan_to_num(score, nan=0.5)
-
         abstracts_num = (dfsub["num_abstracts"] - dfsub["neither_or_inconclusive"]).mean()
         rel_abstracts = dfsub["num_abstracts"].mean()
 
-        # Handle constant scores
-        if len(np.unique(score)) == 1:
-            score = score.copy()
-            score[0] += 0.01
-            if len(score) > 1:
-                score[1] -= 0.01
-                if score[1] < 0:
-                    score[1] = 1e-22
+        # The Beta-Binomial model itself lives in skimgpt.stats.bayes_ci so
+        # that SKiM_web's result pages compute the identical posterior from
+        # their own (summed) tallies. Aggregation stays here; maths goes there.
+        fit = posterior_ci(
+            (dfsub["score"] / 100).values,
+            support_h1=dfsub["support_H1"].mean(),
+            support_h2=dfsub["support_H2"].mean(),
+            both=dfsub["both"].mean(),
+            rel_abstracts=rel_abstracts,
+            credible_mass=0.95,
+            include_mle=True,
+        )
 
-        # Estimate likelihood parameters (MLE)
-        a_mle, b_mle = _estimate_beta_mle(score)
+        meanscore = fit.mean_score
+        alpha1, beta1 = fit.alpha_lik, fit.beta_lik
+        alpha2, beta2 = fit.alpha_prior, fit.beta_prior
+        a2_post, b2_post = fit.alpha_post, fit.beta_post
+        hdi_low, hdi_high = fit.hdi_low, fit.hdi_high
+        eti_low, eti_high = fit.eti_low, fit.eti_high
+        posterior2_mean = fit.post_mean
 
-        # Estimate likelihood parameters (method of moments)
-        meanscore = np.mean(score)
-        varscore = np.var(score, ddof=1) if len(score) > 1 else 1e-6
-        if varscore == 0 or np.isnan(varscore):
-            varscore = 1e-6
-        alpha1, beta1 = _estimate_beta_mom(meanscore, varscore)
-
-        # Estimate prior from supporting abstract counts
-        if rel_abstracts <= 50:
-            alpha2 = dfsub["support_H1"].mean()
-            beta2 = dfsub["support_H2"].mean()
-            if dfsub["both"].sum() != 0:
-                both = dfsub["both"].mean() / 2
-                alpha2 += both
-                beta2 += both
-        else:
-            nhyp1 = dfsub["support_H1"].mean()
-            nhyp2 = dfsub["support_H2"].mean()
-            if dfsub["both"].sum() != 0:
-                both = dfsub["both"].mean() / 2
-                nhyp1 += both
-                nhyp2 += both
-            ntot = nhyp1 + nhyp2
-            if ntot == 0:
-                ntot = 1
-            prop1 = nhyp1 / ntot
-            prop2 = nhyp2 / ntot
-            alpha2 = prop1 * rel_abstracts
-            beta2 = prop2 * rel_abstracts
-
-        alpha2 = max(alpha2, 0.01)
-        beta2 = max(beta2, 0.01)
-
-        # Posterior parameters (MLE likelihood + prior)
-        a_post = a_mle + alpha2
-        b_post = b_mle + beta2
-        # Posterior parameters (MoM likelihood + prior)
-        a2_post = alpha1 + alpha2
-        b2_post = beta1 + beta2
-
-        # Compute HDI and ETI on posterior2 (MoM-based)
-        hdi_low, hdi_high = _hdi(a2_post, b2_post, 0.95)
-        eti_low, eti_high = _eti(a2_post, b2_post, 0.95)
-
-        posterior2_mean = a2_post / (a2_post + b2_post)
+        # MLE shapes are reported but never intervalled. The solver does not
+        # converge on degenerate windows (one iteration, or identical scores);
+        # that used to raise and kill the whole run, so the columns now carry
+        # NaN for those years and the diagnostic panel falls back to MoM.
+        a_mle, b_mle = fit.alpha_lik_mle, fit.beta_lik_mle
+        a_post = fit.alpha_post_mle if fit.mle_ok else float("nan")
+        b_post = fit.beta_post_mle if fit.mle_ok else float("nan")
 
         ci_row = {
             "CI_hdi": 0.95,
@@ -244,7 +158,10 @@ def main():
 
         # Per-year beta distribution diagnostic plot
         fig_diag, axes = plt.subplots(2, 2, figsize=(8, 6))
-        _plot_beta_density(axes[0, 0], a_mle, b_mle, "orchid", "likelihood MLE")
+        if fit.mle_ok:
+            _plot_beta_density(axes[0, 0], a_mle, b_mle, "orchid", "likelihood MLE")
+        else:
+            _plot_beta_density(axes[0, 0], alpha1, beta1, "silver", "likelihood MLE (did not converge)")
         _plot_beta_density(axes[0, 1], alpha1, beta1, "gold", "likelihood MoM")
         _plot_beta_density(axes[1, 0], alpha2, beta2, "red", "prior")
         _plot_beta_density(axes[1, 1], a2_post, b2_post, "orange", "posterior")

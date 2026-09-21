@@ -79,7 +79,7 @@ skimgpt-bayesian-ci = "skimgpt.visualization.bayesian_ci:main"
 skimgpt-plot-runs = "skimgpt.visualization.plot_separate_runs:main"
 
 [tool.setuptools]
-packages = ["skimgpt", "skimgpt.visualization"]
+packages = ["skimgpt", "skimgpt.stats", "skimgpt.visualization"]
 include-package-data = true
 
 [tool.setuptools.package-data]
