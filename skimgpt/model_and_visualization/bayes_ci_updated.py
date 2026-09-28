@@ -66,17 +66,22 @@ COMMAND_LINE_DEF_FILE = str(Path(__file__).parent / "bayes_ci_updated_commandlin
 DPI = 96
 
 # assumptions. need to calibrate w/ benchmark data.
-A0 = 1.0               # strength of the prior. pseudo-abstracts per side
-RHO = 0             # intra-field correlation
-SIGMA2_CALL = 0.0007823878    # variance of a single LLM call, 0-1 scale, calculated by rerunning the same abstracts through 50 iterations
+A0 = 1.2               # strength of the prior. pseudo-abstracts per side
+RHO = 0                # intra-field correlation
+SLOPE = 0.00761        # variance of a multiple LLM calls (each call from the same 50 abstracts), divided by proportional variance
+# of those same calls (theta * (1-theta)) on a 0-1 scale, where theta is the mean score
+# of the calls. A line is fitted across multiple runs and this slope is calculated. This is essentially
+# sigma2_call/ sigma2_theta_hat
 
-def n_effective(m, n_calls, rho=RHO, sigma2_call=SIGMA2_CALL, theta=0.5):
+TIE_BREAK_ORDER = ["supports_H1", "supports_H2", "both"]
+
+def n_effective(m, n_calls, rho=RHO, slope=SLOPE):
     if m == 0 or n_calls == 0:
         return 0.0
     n_lit = m / (1.0 + (m - 1) * rho)
-    n_call = (theta * (1 - theta) * n_calls) / sigma2_call
-
-    return 1.0 / (1.0 / n_lit + 1.0 / n_call)
+    sigma_n_call = slope / n_calls
+    n_eff = 1.0 / (1.0 / n_lit + sigma_n_call)
+    return n_eff
 
 def posterior_params(calls, a0=A0):
     scores = np.array([s / 100.0 for s, _ in calls], dtype=float)
@@ -94,8 +99,9 @@ def posterior_params(calls, a0=A0):
         pmids.update(call_pmids)
 
     m = len(pmids)
-    n_eff = n_effective(m, len(calls), theta=s_bar)
+    n_eff = n_effective(m, len(calls))
 
+    # add prior (a0) and likelihood parameters together
     a = a0 + n_eff * s_bar
     b = a0 + n_eff * (1.0 - s_bar)
 
@@ -113,16 +119,18 @@ def hdi_beta(a, b, level=0.95):
     return beta_dist.ppf(res.x, a, b), beta_dist.ppf(res.x + level, a, b)
 
 def posterior_beta(calls, n_theta=300):
-    a, b, = posterior_params(calls)
+    a, b = posterior_params(calls)
     grid = np.linspace(0.005, 0.995, n_theta)
     p = beta_dist.pdf(grid, a, b)
     return grid, p / p.sum(), a, b
 
 def timecourse_data(data, level=0.95, hyp1_label="hyp1", hyp2_label="hyp2"):
     """
-    Per-year summary statistics underlying the timecourse plot: the mean raw
-    LLM score, the shrunk posterior score (mode), and the HDI bounds at
-    `level`, all on the 0-100 scale.
+    Per-year summary statistics underlying the plots: the mean raw LLM score,
+    the shrunk posterior score (mode), and the HDI bounds at `level`, all on
+    the 0-100 scale; plus unique-abstract counts, per-iteration label
+    averages, and the per-iteration H1 support proportion (0-1 scale, "both"
+    split evenly between H1 and H2).
     """
     rows = []
 
@@ -136,6 +144,26 @@ def timecourse_data(data, level=0.95, hyp1_label="hyp1", hyp2_label="hyp2"):
         scores = [s for s, _ in calls]
         llm = float(np.mean(scores))
 
+        total_unique_abstracts = len({pmid for _, pmids in calls for pmid, _ in pmids})
+
+        n_h1, n_h2, n_both, proportions = [], [], [], []
+        for _, pmids in calls:
+            labels = [label for _, label in pmids]
+            h1 = labels.count("supports_H1")
+            h2 = labels.count("supports_H2")
+            both = labels.count("both")
+            n_h1.append(h1)
+            n_h2.append(h2)
+            n_both.append(both)
+
+            adj_h1 = h1 + both / 2
+            adj_h2 = h2 + both / 2
+            denom = adj_h1 + adj_h2
+            proportions.append(np.nan if denom == 0 else adj_h1 / denom)
+
+        valid_props = [p for p in proportions if not np.isnan(p)]
+        avg_proportion = float(np.mean(valid_props)) if valid_props else np.nan
+
         rows.append({
             "year": year,
             "hyp1": hyp1_label,
@@ -145,6 +173,12 @@ def timecourse_data(data, level=0.95, hyp1_label="hyp1", hyp2_label="hyp2"):
             "hdi_level": level,
             "hdi_lo": lo,
             "hdi_hi": hi,
+            "total_unique_abstracts": total_unique_abstracts,
+            "avg_abstracts_per_iteration": float(np.mean(np.array(n_h1) + np.array(n_h2) + np.array(n_both))),
+            "avg_supports_H1": float(np.mean(n_h1)),
+            "avg_supports_H2": float(np.mean(n_h2)),
+            "avg_both": float(np.mean(n_both)),
+            "avg_proportion": avg_proportion,
         })
 
     return rows
@@ -155,7 +189,9 @@ def write_timecourse_csv(data, path, level=0.95, hyp1_label="hyp1", hyp2_label="
 
     rows = timecourse_data(data, level=level, hyp1_label=hyp1_label, hyp2_label=hyp2_label)
     fieldnames = ["year", "hyp1", "hyp2", "mean_llm_score", "posterior_score",
-                  "hdi_level", "hdi_lo", "hdi_hi"]
+                  "hdi_level", "hdi_lo", "hdi_hi", "total_unique_abstracts",
+                  "avg_abstracts_per_iteration", "avg_supports_H1", "avg_supports_H2",
+                  "avg_both", "avg_proportion"]
 
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -169,11 +205,11 @@ def _draw_milestones(ax, proposed_date=None, decision_date=None, decision_label=
     Vertical dashed reference lines shared across the timecourse and
     label-counts plots: when the hypothesis was proposed (dark red), when
     the literature accepted/rejected it (black - decision_label must be
-    "accepted" or "rejected"), and optionally when it was reconsidered
+    "accepted", "rejected" or "unknown"), and optionally when it was reconsidered
     (dark grey).
     """
     if decision_date is not None and decision_label not in ("accepted", "rejected","unknown"):
-        raise ValueError('decision_label must be "accepted" or "rejected"')
+        raise ValueError('decision_label must be "accepted" or "rejected" or "unknown"')
 
     milestones = []
     if proposed_date is not None:
@@ -270,7 +306,7 @@ def _draw_label_counts(ax, data, hyp1_label="hyp1", hyp2_label="hyp2",
     """
     from collections import Counter
 
-    tie_break_order = ["supports_H1", "supports_H2", "both"]
+    tie_break_order = TIE_BREAK_ORDER
     stack_order = ["both", "supports_H2", "supports_H1"]
     label_colors = {
         "supports_H1": "darkorange",
@@ -314,8 +350,8 @@ def _draw_label_counts(ax, data, hyp1_label="hyp1", hyp2_label="hyp2",
         else:
             y_vals = np.array(raw, dtype=float)
 
-        ax.bar(years, y_vals, bottom=bottom, color=label_colors[label],
-               edgecolor="white", linewidth=0.5, label=label_display[label])
+        ax.bar(years, y_vals, width=0.6, bottom=bottom, color=label_colors[label],
+               linewidth=0, label=label_display[label])
         bottom += y_vals
 
     _draw_milestones(ax, proposed_date=proposed_date, decision_date=decision_date,
@@ -390,7 +426,52 @@ def plot_combined(data, hyp1_label="hyp1", hyp2_label="hyp2", level=0.95,
     fig.tight_layout()
 
     return fig
-    
+
+
+def plot_llm_vs_proportion(data, level=0.95, title=None,
+                            hyp1_label="hyp1", hyp2_label="hyp2",
+                            proposed_date=None, decision_date=None, decision_label=None,
+                            reconsidered_date=None, show_milestone_labels=True):
+    """
+    Mean LLM score (rescaled to 0-1) vs. the average per-iteration proportion
+    of abstracts supporting H1 ("both" split evenly), per year.
+    """
+    rows = timecourse_data(data, level=level, hyp1_label=hyp1_label, hyp2_label=hyp2_label)
+
+    years = [r["year"] for r in rows]
+    llm_y = [r["mean_llm_score"] / 100 for r in rows]
+    prop_y = [r["avg_proportion"] for r in rows]
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=DPI)
+
+    ax.axhline(0.5, color="black", linewidth=1, linestyle="--")
+
+    ax.plot(years, llm_y, color="darkblue", linewidth=2, marker="o", markersize=5,
+            label="LLM score")
+    ax.plot(years, prop_y, color="darkorange", linewidth=2, marker="o", markersize=5,
+            label="abstract proportion")
+
+    _draw_milestones(ax, proposed_date=proposed_date, decision_date=decision_date,
+                      decision_label=decision_label, reconsidered_date=reconsidered_date,
+                      show_labels=show_milestone_labels)
+
+    ax.set_ylim(0, 1)
+    ax.set_yticks(np.arange(0, 1.01, 0.1))
+    ax.set_ylabel("value (0-1)")
+    ax.set_title(title or "LLM score vs. abstract support proportion")
+
+    ax.set_xlim(1975, 2025)
+    ax.set_xticks(range(1975, 2026, 1))
+    ax.tick_params(axis="x", labelrotation=90, labelsize=7)
+    ax.set_xlabel("year")
+
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.legend(loc="lower right", fontsize=8)
+    fig.tight_layout()
+
+    return fig
+
+
 def get_data(data_dir: str):
     data = dict()
 
@@ -401,34 +482,36 @@ def get_data(data_dir: str):
     json_files = []
     for dirpath, dirnames, filenames in os.walk(data_dir):
         for f in filenames:
-            if f.endswith("gpt_direct_comp.json") and ".backup" not in dirpath:
+            path = os.path.join(dirpath, f)
+            if f.endswith("gpt_direct_comp.json") and ".backup" not in path:
                 json_files.append(os.path.join(dirpath, f))
 
     for iteration_json in json_files:
-        # get config.json for this iteration
-        config_found = False
+        # get config.json for this iteration (nearest ancestor directory)
+        config_json = None
         config_dir = os.path.dirname(iteration_json)
-        while not config_found:
-            configs = [x for x in os.listdir(config_dir) if x == "config.json"]
-            if configs:
-                config_found = True
-                config_json = os.path.join(config_dir, configs[0])
+        while True:
+            candidate = os.path.join(config_dir, "config.json")
+            if os.path.isfile(candidate):
+                config_json = candidate
                 break
-            config_dir = os.path.dirname(config_dir)
+            parent = os.path.dirname(config_dir)
+            if parent == config_dir:  # reached filesystem root without finding one
+                break
+            config_dir = parent
+        if config_json is None:
+            raise FileNotFoundError(f"No config.json found for {iteration_json}")
 
         # read config.json to get the censor year
         with open(config_json, 'r') as f:
             config_json_content = json.load(f)
         
-        try:
-            year = config_json_content["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["censor_year_upper"]
-        except:
-            year = config_json_content["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]["km_with_gpt"]["censor_year_upper"]
+        km = config_json_content["JOB_SPECIFIC_SETTINGS"]["km_with_gpt"]
+        year = km.get("censor_year_upper")
+        if year is None:
+            year = km["km_with_gpt"]["censor_year_upper"]
 
         # read the iteration result .json and add the data to the dictionary
-        if year not in data:
-            data[year] = []
-
         with open(iteration_json, 'r') as f:
             iter_json_content = json.load(f)
 
@@ -439,10 +522,10 @@ def get_data(data_dir: str):
             continue
 
         hyp_eval = hyp_eval[0]
-        pmids = [(a["pmid"], a["label"]) for a in hyp_eval["per_abstract"] if a["label"] in {"supports_H1", "supports_H2", "both"}]
+        pmids = [(str(a["pmid"]), a["label"]) for a in hyp_eval["per_abstract"] if a["label"] in {"supports_H1", "supports_H2", "both"}]
         llm_score = hyp_eval["score"]
 
-        data[year].append((llm_score, pmids))
+        data.setdefault(year, []).append((llm_score, pmids))
 
     return data
 
@@ -484,6 +567,26 @@ def main():
 
     write_timecourse_csv(data, os.path.join(output_dir, "timecourse_data.csv"),
                           level=level, hyp1_label=hyp1_label, hyp2_label=hyp2_label)
+
+    fig = plot_llm_vs_proportion(data, level=level, title=title,
+                                  hyp1_label=hyp1_label, hyp2_label=hyp2_label,
+                                  proposed_date=proposed_date, decision_date=decision_date,
+                                  decision_label=decision_label, reconsidered_date=reconsidered_date)
+    fig.savefig(os.path.join(output_dir, "llm_vs_proportion.pdf"))
+
+    # reproducibility: record the exact args and model constants for this run
+    import csv
+    parameters = {
+        "data_dir": data_dir, "hyp1_label": hyp1_label, "hyp2_label": hyp2_label,
+        "level": level, "dot_size": dot_size, "title": title or "",
+        "normalize": normalize, "proposed_date": proposed_date,
+        "decision_date": decision_date, "decision_label": decision_label,
+        "reconsidered_date": reconsidered_date, "A0": A0, "rho": RHO, "slope": SLOPE,
+    }
+    with open(os.path.join(output_dir, "parameters.csv"), "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Parameter", "Value"])
+        writer.writerows(parameters.items())
 
     print(f"Plots and data saved to {output_dir}")
     cmdlogtime.end(addl_logfile, start_time_secs)

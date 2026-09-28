@@ -175,9 +175,16 @@ extract_varying_term <- function(strings) {
   }, character(1))
 }
 
+# Short topic label from a run directory name: drops the "output_<timestamp>_"
+# prefix, then everything from the job type ("_kmgpt"/"_kmgptdch") or the
+# censor-year range ("_2020-2026") onward (which also drops the model suffix,
+# e.g. "_terra"/"_o3") - e.g.
+#   output_20260914111316_Schizophrenia_2020-2026_terra -> Schizophrenia
+#   output_20260911133046_REM_sleep_kmgptdch_2020-2026_terra -> REM_sleep
 topic_from_dirname <- function(dir_name) {
-  m <- regmatches(dir_name, regexec("^output_[0-9]+_(.+?)_kmgptdch", dir_name))[[1]]
-  if (length(m) >= 2) m[2] else dir_name
+  topic <- sub("^output_[0-9]+_", "", dir_name, perl = TRUE)
+  topic <- sub("(_kmgpt(dch)?(_|$)|_[0-9]{4}-[0-9]{4}(_|$)).*$", "", topic, perl = TRUE)
+  if (nchar(topic) == 0) dir_name else topic
 }
 
 # ---------------------------------------------------------------------------

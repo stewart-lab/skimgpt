@@ -10,7 +10,7 @@ from importlib import import_module
 from types import ModuleType
 from typing import Any
 
-_EXPOSED = {"hyp_stats", "plot_hyp_stats", "bayesian_ci", "plot_separate_runs"}
+_EXPOSED = {"hyp_stats", "plot_hyp_stats", "plot_separate_runs"}
 
 __all__ = list(_EXPOSED)
 

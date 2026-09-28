@@ -14,5 +14,5 @@ data_dir|directory holding gpt_direct_comp.json result files and config.json; th
 -normalize|normalize the label-counts bars to percent of abstracts|0|0|0|0|0|--normalize|BOOLEANFALSE|
 -proposed_date|year the hypothesis was proposed|0|0|0|0|0|--proposed_date|1998|int
 -decision_date|year the literature accepted or rejected the hypothesis|0|0|0|0|0|--decision_date|2011|int
--decision_label|"accepted" or "rejected"; required if decision_date is set|0|0|0|0|0|--decision_label|rejected|str
+-decision_label|"accepted" or "rejected"; required if decision_date is set|0|0|0|0|0|--decision_label|accepted|str
 -reconsidered_date|year the hypothesis was reconsidered, if applicable|0|0|0|0|0|--reconsidered_date||int

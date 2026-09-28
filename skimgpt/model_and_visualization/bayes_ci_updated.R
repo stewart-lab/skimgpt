@@ -69,15 +69,19 @@ library(patchwork)
 
 A0 <- 1.2 # strength of the prior. pseudo-abstracts per side
 RHO <- 0 # intra-field correlation
-SIGMA2_CALL <- 0.0004566556 # variance of a single LLM call, 0-1 scale, calculated by rerunning the same abstracts through 50 iterations
+SLOPE <- 0.00761 # variance of a multiple LLM calls (each call from the same 50 abstracts), divided by proportional variance
+# of those same calls (theta * (1-theta)) on a 0-1 scale, where theta is the mean score
+# of the calls. A line is fitted across multiple runs and this slope is calculated. This is essentially
+# sigma2_call/ sigma2_theta_hat
 
-n_effective <- function(m, n_calls, rho = RHO, sigma2_call = SIGMA2_CALL, theta = 0.5) {
+n_effective <- function(m, n_calls, rho = RHO, slope = SLOPE) {
   if (m == 0 || n_calls == 0) {
     return(0.0)
   }
   n_lit <- m / (1.0 + (m - 1) * rho)
-  n_call <- (theta * (1 - theta) * n_calls) / sigma2_call
-  1.0 / (1.0 / n_lit + 1.0 / n_call)
+  sigma_n_call <- slope / n_calls
+  n_eff <- 1.0 / (1.0 / n_lit + sigma_n_call)
+  return(n_eff)
 }
 
 posterior_params <- function(calls, a0 = A0) {
@@ -93,8 +97,9 @@ posterior_params <- function(calls, a0 = A0) {
 
   all_pmids <- unique(unlist(lapply(calls, function(cc) cc$pmids$pmid)))
   m <- length(all_pmids)
-  n_eff <- n_effective(m, length(calls), theta = s_bar)
+  n_eff <- n_effective(m, length(calls))
 
+  # add prior (a0) and likelihood parameters together
   a <- a0 + n_eff * s_bar
   b <- a0 + n_eff * (1.0 - s_bar)
 
@@ -566,12 +571,12 @@ main <- function() {
     Parameter = c(
       "data_dir", "hyp1_label", "hyp2_label", "level", "dot_size", "title",
       "normalize", "proposed_date", "decision_date", "decision_label", "reconsidered_date",
-      "A0", "rho", "sigma2_call"
+      "A0", "rho", "slope"
     ),
     Value = c(
       data_dir, opt$hyp1_label, opt$hyp2_label, opt$level, opt$dot_size,
       opt$title %||% "", opt$normalize, opt$proposed_date, opt$decision_date,
-      opt$decision_label, opt$reconsidered_date, A0, RHO, SIGMA2_CALL
+      opt$decision_label, opt$reconsidered_date, A0, RHO, SLOPE
     )
   )
   write.csv(parameter_df, file = file.path(output_dir, "parameters.csv"), row.names = FALSE)

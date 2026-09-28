@@ -1,401 +1,420 @@
-"""
-KM-GPT Bayesian Posterior Visualization
-Python conversion of the original R script.
+# Compares many DIFFERENT hypothesis-pairs (each its own H1 vs H2, e.g. one
+# per disease/topic) at a single timepoint, using the same closed-form Beta
+# posterior model as bayes_ci_updated.py (n_effective shrinkage + exact HDI -
+# see that file for the full model rationale). Where bayes_ci_updated.py walks
+# one hypothesis-pair across many censor years to show a timecourse, this
+# script walks many hypothesis-pair directories at one censor-year window and
+# shows them side by side as a violin plot, ordered by posterior mean.
+#
+# Expected input: projpath contains one subdirectory per DCH run (e.g.
+# "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
+# SKiM-GPT DCH run-output naming), each holding results/iteration_N/
+# *_km_with_gpt_direct_comp.json files. A subdirectory may itself contain
+# several distinct hypothesis-pairs when it comes from an A-term-list run
+# (one *_direct_comp.json basename per A term, e.g. one per gene, all
+# comparing that gene against the same fixed B-term pair) - each such
+# basename group is pooled across its own iterations into its own posterior
+# and gets its own violin (no year-splitting within a group - this is a
+# snapshot, not a timecourse). H1/H2 short labels are derived automatically
+# from the JSON's "hypothesis1"/"hypothesis2" text by diffing out the shared
+# wording they're templated from (see short_hypothesis_labels()); when a
+# subdirectory holds multiple hypothesis-pairs, the varying term across
+# their "hypothesis1" texts (e.g. the A term) is extracted the same way (see
+# extract_varying_term()) and appended to the subdirectory-derived topic
+# label so each pair gets its own axis entry instead of being pooled
+# together.
+#
+# Python port of bayes_ci_multihyp_violin.R.
 
-Dependencies:
-    pip install scipy numpy pandas matplotlib seaborn bayesian-credible-interval
-    (or just: pip install scipy numpy pandas matplotlib seaborn) cmdlogtime
-
-Usage:
-    python kmgpt_bayesian_viz.py /path/to/your/data/
-"""
-import logging
-import argparse
 import os
+import re
 import sys
-import warnings
-from datetime import datetime
+import json
+import shutil
 from pathlib import Path
 
 import cmdlogtime
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.patches import Polygon
 from scipy.stats import beta as beta_dist
-from scipy.special import gammaln
-import seaborn as sns
+from scipy.stats import gaussian_kde
 
-logger = logging.getLogger(__name__)
+# reuse the exact Beta-posterior model (n_effective, posterior_params, hdi_beta,
+# A0/RHO/SLOPE) from bayes_ci_updated.py so both scripts always agree.
+sys.path.insert(0, str(Path(__file__).parent))
+from bayes_ci_updated import posterior_params, hdi_beta  # noqa: E402
 
 COMMAND_LINE_DEF_FILE = str(Path(__file__).parent / "bayes_ci_violinplot_commandLine.txt")
 
+DPI = 96
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
-
-# def parse_args():
-#     parser = argparse.ArgumentParser(
-#         description="Bayesian posterior visualization for KM-GPT results."
-#     )
-#     parser.add_argument(
-#         "-p", "--projpath",
-#         type=str,
-#         required=True,
-#         help="Path where input subdirectories (each containing results.tsv) are located."
-#     )
-#     return parser.parse_args()
+KEEP_LABELS = {"supports_H1", "supports_H2", "both"}
 
 
-# ── Beta parameter estimation ─────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Per-directory data loading: a directory can hold more than one distinct
+# hypothesis-pair (one *_direct_comp.json basename per pair - e.g. one per A
+# term, under an A-term-list DCH run). Group files by basename and pool each
+# group's iterations into its own list of "calls", pulling hypothesis1/
+# hypothesis2 straight from the JSON (same for every iteration within a
+# group, so the first file in the group is enough). Returns one entry per
+# distinct hypothesis-pair found.
+#
+# calls: [(llm_score, [(pmid, label), ...]), ...]  (same as bayes_ci_updated.py)
+# ---------------------------------------------------------------------------
 
-def ebeta_mle(data):
+def load_hypothesis_groups(topic_dir):
+    files = []
+    for dirpath, _, filenames in os.walk(topic_dir):
+        for f in filenames:
+            path = os.path.join(dirpath, f)
+            if f.endswith("gpt_direct_comp.json") and ".backup" not in path:
+                files.append(path)
+    if not files:
+        return None
+
+    by_basename = {}
+    for path in sorted(files):
+        by_basename.setdefault(os.path.basename(path), []).append(path)
+
+    groups = []
+    for basename in sorted(by_basename):
+        calls = []
+        hyp1_text = None
+        hyp2_text = None
+
+        for path in by_basename[basename]:
+            with open(path, "r") as f:
+                content = json.load(f)
+            hc = content[0]["Hypothesis_Comparison"]
+            if hyp1_text is None:
+                hyp1_text = hc.get("hypothesis1")
+                hyp2_text = hc.get("hypothesis2")
+
+            if not hc.get("Result"):
+                print(f"no result for {path}")
+                continue
+
+            result = hc["Result"][0]
+            pmids = [(str(a["pmid"]), a["label"]) for a in result["per_abstract"]
+                     if a["label"] in KEEP_LABELS]
+            calls.append((result["score"], pmids))
+
+        if calls:
+            groups.append({"calls": calls, "hypothesis1": hyp1_text, "hypothesis2": hyp2_text})
+
+    return groups or None
+
+
+# ---------------------------------------------------------------------------
+# Derive short H1/H2 labels by diffing out the wording hypothesis1/hypothesis2
+# share (they're both instantiations of the same template, differing only in
+# the term that was substituted in) - e.g.
+#   "The main cause of Schizophrenia is due to dopamine signaling."
+#   "The main cause of Schizophrenia is due to glutamate signaling."
+# -> "dopamine" / "glutamate"
+# Falls back to the full text if no common prefix/suffix is found.
+# ---------------------------------------------------------------------------
+
+def _clean(words):
+    return re.sub(r"[.,;:]+$", "", " ".join(words)).strip()
+
+
+def _middle_words(word_lists):
+    """Words left in each list after removing the prefix/suffix common to all."""
+    max_common = min((len(w) for w in word_lists), default=0)
+
+    n_pre = 0
+    while n_pre < max_common and len({w[n_pre] for w in word_lists}) == 1:
+        n_pre += 1
+
+    n_suf = 0
+    max_suf = max_common - n_pre
+    while n_suf < max_suf and len({w[len(w) - 1 - n_suf] for w in word_lists}) == 1:
+        n_suf += 1
+
+    return [w[n_pre:len(w) - n_suf] for w in word_lists]
+
+
+def short_hypothesis_labels(h1, h2):
+    w1 = h1.strip().split()
+    w2 = h2.strip().split()
+    mid1, mid2 = _middle_words([w1, w2])
+
+    term1 = _clean(mid1) if mid1 else _clean(w1)
+    term2 = _clean(mid2) if mid2 else _clean(w2)
+
+    return term1, term2
+
+
+# ---------------------------------------------------------------------------
+# N-way generalization of short_hypothesis_labels()'s diff: given several
+# strings templated from the same wording but with one term substituted
+# (e.g. one hypothesis1 per A term, all sharing the same B-term comparison),
+# diff out the prefix/suffix common to ALL of them and return each string's
+# differing middle segment (the substituted term). Falls back to the full
+# string for any input where no common prefix/suffix could be established.
+# ---------------------------------------------------------------------------
+
+def extract_varying_term(strings):
+    word_lists = [s.strip().split() for s in strings]
+    mids = _middle_words(word_lists)
+    return [_clean(mid) if mid else _clean(w) for w, mid in zip(word_lists, mids)]
+
+
+def topic_from_dirname(dir_name):
     """
-    Estimate Beta distribution parameters via MLE using scipy.
-    Equivalent to EnvStats::ebeta(score, method='mle') in R.
+    Short topic label from a run directory name: drops the "output_<timestamp>_"
+    prefix, then everything from the job type ("_kmgpt"/"_kmgptdch") or the
+    censor-year range ("_2020-2026") onward (which also drops the model suffix,
+    e.g. "_terra"/"_o3") - e.g.
+      output_20260914111316_Schizophrenia_2020-2026_terra -> Schizophrenia
+      output_20260911133046_REM_sleep_kmgptdch_2020-2026_terra -> REM_sleep
     """
-    # Clip data away from 0/1 boundaries to avoid numerical issues
-    data_clipped = np.clip(data, 1e-9, 1 - 1e-9)
-    alpha_hat, beta_hat, _, _ = beta_dist.fit(data_clipped, floc=0, fscale=1)
-    return alpha_hat, beta_hat
+    topic = re.sub(r"^output_[0-9]+_", "", dir_name)
+    topic = re.sub(r"(_kmgpt(dch)?(_|$)|_[0-9]{4}-[0-9]{4}(_|$)).*$", "", topic)
+    return topic or dir_name
 
 
-def ebeta_mom(mu, var):
+# ---------------------------------------------------------------------------
+# Per-topic posterior summary (exact Beta(a,b), same math as bayes_ci_updated.py)
+# ---------------------------------------------------------------------------
+
+def summarize_topic(topic, hyp1_label, hyp2_label, hypothesis1, hypothesis2,
+                    calls, level=0.95, n_samples=2000, rng=None):
+    rng = rng or np.random.default_rng()
+
+    a, b = posterior_params(calls)
+
+    hdi_lo, hdi_hi = [100 * v for v in hdi_beta(a, b, level)]
+    posterior_mean = (a / (a + b)) * 100
+    scores = [s for s, _ in calls]
+
+    all_pmids = {pmid for _, pmids in calls for pmid, _ in pmids}
+
+    # Mean per-iteration count of abstracts labeled as supporting H1/H2 -
+    # the raw evidence tally that accompanies the posterior estimate in the
+    # side-by-side bar plot. Averaged (not summed) across calls/iterations so
+    # topics are comparable regardless of how many iterations each ran.
+    def count_label(lbl):
+        return [sum(1 for _, label in pmids if label == lbl) for _, pmids in calls]
+
+    summary = {
+        "topic": topic, "hyp1_label": hyp1_label, "hyp2_label": hyp2_label,
+        "hypothesis1": hypothesis1, "hypothesis2": hypothesis2,
+        "n_calls": len(calls), "n_unique_pmids": len(all_pmids),
+        "mean_llm_score": float(np.mean(scores)), "posterior_mean": posterior_mean,
+        "hdi_level": level, "hdi_lo": hdi_lo, "hdi_hi": hdi_hi,
+        "shape1": a, "shape2": b,
+        "mean_support_h1": float(np.mean(count_label("supports_H1"))),
+        "mean_support_h2": float(np.mean(count_label("supports_H2"))),
+    }
+
+    # samples for the violin shape: drawn directly from the exact posterior
+    # Beta(a,b) - not a resampling/refitting step, just visualizing that
+    # closed-form distribution.
+    samples = pd.DataFrame({
+        "topic": topic,
+        "posterior": beta_dist.rvs(a, b, size=n_samples, random_state=rng) * 100,
+    })
+
+    return summary, samples
+
+
+# ---------------------------------------------------------------------------
+# Plotting
+# ---------------------------------------------------------------------------
+
+def _violin_density(values, n_grid=512):
     """
-    Estimate Beta distribution parameters via method of moments (mean + variance).
-    Equivalent to the custom estBetaParams() function in R.
+    Gaussian KDE matching ggplot2::geom_violin(trim = FALSE): Silverman's
+    rule-of-thumb bandwidth (R's bw.nrd0) and a grid extended 3 bandwidths
+    past the data range.
     """
-    alpha = ((1 - mu) / var - 1 / mu) * mu ** 2
-    beta  = alpha * (1 / mu - 1)
-    return alpha, beta
+    values = np.asarray(values, dtype=float)
+    sd = np.std(values, ddof=1)
+    iqr = np.subtract(*np.percentile(values, [75, 25]))
+    spread = min(sd, iqr / 1.34) if iqr > 0 else sd
+    bw = 0.9 * spread * len(values) ** (-0.2)
+    if not np.isfinite(bw) or bw <= 0:
+        bw = 1e-3
+
+    grid = np.linspace(values.min() - 3 * bw, values.max() + 3 * bw, n_grid)
+    kde = gaussian_kde(values, bw_method=bw / sd if sd > 0 else 1.0)
+    return grid, kde(grid)
 
 
-# ── Equal-tailed credible interval ───────────────────────────────────────────
-
-def eti(samples, ci=0.95):
+def plot_violin(summary_df, samples_df, level=0.95):
     """
-    Equal-Tailed Interval (ETI) — equivalent to bayestestR::ci(method='ETI').
-    Returns (CI_low, CI_high).
+    Left: horizontal violin of each topic's posterior (ordered by posterior
+    mean, highest at top) with mean + HDI pointrange and the H2/H1 short
+    labels just outside the 0/100 edges. Right: mean supporting-abstract
+    counts per H1/H2, sharing the violin's topic ordering.
     """
-    lower = (1 - ci) / 2
-    upper = 1 - lower
-    return np.quantile(samples, lower), np.quantile(samples, upper)
+    topics = list(summary_df["topic"])
+    n = len(topics)
+    positions = np.arange(n)
 
-
-# ── Prior construction ────────────────────────────────────────────────────────
-
-def build_prior_params(df, rel_abstracts):
-    """
-    Derive Beta prior parameters from H1/H2/Both abstract counts,
-    mirroring the if/else logic in the R script.
-    """
-    nhyp1 = df["H1"].mean()
-    nhyp2 = df["H2"].mean()
-
-    if df["Both"].sum() != 0:
-        both   = df["Both"].mean() / 2
-        nhyp1 += both
-        nhyp2 += both
-
-    if rel_abstracts <= 50:
-        alpha2 = nhyp1
-        beta2  = nhyp2
-    else:
-        ntot   = nhyp1 + nhyp2
-        prop1  = nhyp1 / ntot if ntot > 0 else 0.5
-        prop2  = nhyp2 / ntot if ntot > 0 else 0.5
-        alpha2 = prop1 * rel_abstracts
-        beta2  = prop2 * rel_abstracts
-
-    alpha2 = max(alpha2, 0.01)
-    beta2  = max(beta2,  0.01)
-    return alpha2, beta2
-
-
-# ── Distribution sampling helper ─────────────────────────────────────────────
-
-def sample_beta(a, b, n=1000, seed=None):
-    """Sample n values from Beta(a, b). Clamps degenerate parameters."""
-    a = max(a, 1e-22)
-    b = max(b, 1e-22)
-    rng = np.random.default_rng(seed)
-    return rng.beta(a, b, n)
-
-
-# ── Four-panel diagnostic plot ────────────────────────────────────────────────
-
-def plot_beta_panels(likelihood_mle, likelihood_mom, prior_samples,
-                     posterior2, ci_low, ci_high, output_path, a_term):
-    """
-    Reproduce the 2×2 grid of R plots:
-      top-left:  likelihood MLE (orchid)
-      top-right: likelihood MOM (gold)
-      bot-left:  prior (red)
-      bot-right: posterior with ETI lines (orange + violet)
-    """
-    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-    fig.suptitle(f"{a_term} — Beta distributions", fontsize=13)
-
-    panels = [
-        (likelihood_mle, "orchid",   "Likelihood MLE",        axes[0, 0]),
-        (likelihood_mom, "gold",     "Likelihood (MOM)",      axes[0, 1]),
-        (prior_samples,  "red",      "Prior",                  axes[1, 0]),
-        (posterior2,     "orange",   "Posterior",              axes[1, 1]),
-    ]
-
-    for samples, color, xlabel, ax in panels:
-        xs = np.linspace(0, 1, 500)
-        # Use KDE for a smooth density curve
-        from scipy.stats import gaussian_kde
-        try:
-            kde = gaussian_kde(samples, bw_method="scott")
-            ys  = kde(xs)
-            ax.fill_between(xs, ys, color=color, alpha=0.7)
-            ax.plot(xs, ys, color=color, linewidth=1.2)
-        except Exception:
-            ax.hist(samples, bins=40, color=color, alpha=0.7, density=True)
-        ax.set_xlim(0, 1)
-        ax.set_xlabel(xlabel, fontsize=10)
-        ax.set_ylabel("Density", fontsize=9)
-        ax.spines[["top", "right"]].set_visible(False)
-        if xlabel == "Posterior":
-            ax.axvline(ci_low,  color="violet", linewidth=1.5)
-            ax.axvline(ci_high, color="violet", linewidth=1.5)
-
-    plt.tight_layout()
-    fname = os.path.join(output_path, f"{a_term}_post_beta_distributions_withCI.pdf")
-    plt.savefig(fname, bbox_inches="tight")
-    plt.close(fig)
-
-
-# ── Violin summary plot ───────────────────────────────────────────────────────
-
-def plot_violin(df1, output_path):
-    """
-    Reproduce the R violin plot (p5):
-      - Violin per A_term, filled by mean posterior (viridis C palette)
-      - ETI mean ± CI error bars
-      - Dashed line at 50
-      - B1_term label at top, B2_term label at bottom of each violin
-      - Horizontal orientation (coord_flip equivalent)
-    """
-    a_terms = df1["A_term"].unique()
-
-    # Compute mean posterior per group for colour mapping
-    group_means = df1.groupby("A_term")["posterior"].mean()
-
-    # Build label lookup (B1 / B2 per A_term)
-    label_df = (
-        df1.groupby("A_term")
-           .first()
-           .reset_index()[["A_term", "B1_term", "B2_term"]]
+    plot_height = max(6, 0.45 * n + 2)
+    fig, (ax, ax_bar) = plt.subplots(
+        1, 2, figsize=(11, plot_height), dpi=DPI, sharey=True,
+        gridspec_kw={"width_ratios": [3, 1], "wspace": 0.05},
     )
 
-    fig, ax = plt.subplots(figsize=(8, max(4, len(a_terms) * 0.9)))
+    # discrete viridis "C" (plasma) fill, one colour per topic in axis order
+    colors = plt.colormaps["plasma"](np.linspace(0, 1, n)) if n > 1 else [plt.colormaps["plasma"](0.0)]
 
-    cmap   = plt.colormaps["plasma"] #plt.cm.get_cmap("plasma")
-    vmin   = group_means.min()
-    vmax   = group_means.max()
-    norm   = plt.Normalize(vmin=vmin, vmax=vmax)
+    # ggplot2's default scale = "area": every violin has the same area, so
+    # scale all densities by the single largest density across topics
+    densities = [_violin_density(samples_df.loc[samples_df["topic"] == t, "posterior"]) for t in topics]
+    max_dens = max(d.max() for _, d in densities)
+    half_width = 0.9 / 2
 
-    y_positions = np.arange(len(a_terms))
+    for pos, (grid, dens), color in zip(positions, densities, colors):
+        w = dens / max_dens * half_width
+        ax.fill_between(grid, pos - w, pos + w, facecolor=color, edgecolor="black",
+                        linewidth=0.5, zorder=2)
 
-    for idx, term in enumerate(a_terms):
-        data  = df1.loc[df1["A_term"] == term, "posterior"].values
-        color = cmap(norm(group_means[term]))
+    # mean + HDI pointrange
+    ax.hlines(positions, summary_df["hdi_lo"], summary_df["hdi_hi"],
+              color="black", linewidth=1.2, zorder=3)
+    ax.scatter(summary_df["posterior_mean"], positions, color="black", s=12, zorder=4)
 
-        # Violin
-        parts = ax.violinplot(
-            data,
-            positions=[idx],
-            vert=False,
-            showmeans=False,
-            showmedians=False,
-            showextrema=False,
-            widths=0.7,
-        )
-        for pc in parts["bodies"]:
-            pc.set_facecolor(color)
-            pc.set_edgecolor("none")
-            pc.set_alpha(0.85)
+    ax.axvline(50, linestyle="--", color="darkgrey", linewidth=1, zorder=1)
 
-        # ETI error bar + mean dot
-        mean_val          = np.mean(data)
-        ci_low, ci_high   = eti(data, ci=0.95)
-        ax.plot([ci_low, ci_high], [idx, idx], color="black", linewidth=1.2, zorder=5)
-        ax.scatter(mean_val, idx, color="black", s=20, zorder=6)
+    # H1/H2 labels sit just outside the 0/100 edges (not deep in the margin -
+    # just enough to clear a violin whose mean sits close to 0 or 100) -
+    # topic name is left as the normal axis label, so it stays on the left
+    # where it's always been, and isn't competing with these for space.
+    for pos, h1, h2 in zip(positions, summary_df["hyp1_label"], summary_df["hyp2_label"]):
+        ax.text(-6, pos, h2, ha="right", va="center", fontsize=7)
+        ax.text(106, pos, h1, ha="left", va="center", fontsize=7)
 
-        # B-term labels
-        row = label_df.loc[label_df["A_term"] == term].iloc[0]
-        ax.text(
-            99, idx + 0.28,
-            row["B1_term"],
-            ha="right", va="bottom", fontsize=7, color="#444"
-        )
-        ax.text(
-            1, idx - 0.28,
-            row["B2_term"],
-            ha="left", va="top", fontsize=7, color="#444"
-        )
-
-    # Dashed line at 50
-    ax.axvline(50, linestyle="--", color="darkgrey", linewidth=1)
-
-    ax.set_yticks(y_positions)
-    ax.set_yticklabels(a_terms, fontsize=9)
-    ax.set_xlim(0, 100)
-    ax.set_xlabel("Posterior (0–100 scale)", fontsize=10)
+    ax.set_xlim(-55, 155)
+    ax.set_xticks(range(0, 101, 25))
+    ax.set_ylim(-0.6, n - 0.4)
+    ax.set_yticks(positions)
+    ax.set_yticklabels(topics, fontsize=9)
+    ax.set_xlabel(f"posterior score (mean, {level:.0%} HDI)")
+    ax.grid(True, which="major", color="#ebebeb", linewidth=0.8, zorder=0)
+    ax.set_axisbelow(True)
     ax.spines[["top", "right"]].set_visible(False)
 
-    plt.tight_layout()
-    fname = os.path.join(output_path, "KM-GPT_posterior_vln_plot.pdf")
-    plt.savefig(fname, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Violin plot saved → {fname}")
+    # side-by-side bars of mean supporting-abstract counts per H1/H2
+    # (position_dodge(0.8), width 0.7 -> bars 0.35 tall at +/-0.2)
+    ax_bar.barh(positions - 0.2, summary_df["mean_support_h1"], height=0.35,
+                color="#31688e", label="H1", zorder=2)
+    ax_bar.barh(positions + 0.2, summary_df["mean_support_h2"], height=0.35,
+                color="#8fd744", label="H2", zorder=2)
+    ax_bar.set_xlabel("mean supporting abstracts")
+    ax_bar.tick_params(axis="y", left=False, labelleft=False)
+    ax_bar.grid(True, which="major", color="#ebebeb", linewidth=0.8, zorder=0)
+    ax_bar.set_axisbelow(True)
+    ax_bar.spines[["top", "right"]].set_visible(False)
+    ax_bar.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2,
+                  frameon=False, fontsize=8)
+
+    fig.tight_layout()
+
+    return fig
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# CLI + main
+# ---------------------------------------------------------------------------
 
 def main():
-    #args     = parse_args()
-    #projPath = Path(args.projpath).resolve()
     (start_time_secs, pretty_start_time, my_args, addl_logfile) = cmdlogtime.begin(
         COMMAND_LINE_DEF_FILE
     )
 
-    projPath = Path(my_args["projpath"])
-    os.chdir(projPath)
+    proj_path = os.path.abspath(my_args["projpath"])
+    level = my_args["level"]
+    n_samples = my_args["n_samples"]
 
-    # Create timestamped output directory
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output    = os.path.join(projPath, f"output_visualization_{timestamp}")
-    os.makedirs(output, mode=0o777, exist_ok=True)
-    print(f"Output directory: {output}")
+    output_dir = os.path.join(proj_path, f"output_model_{pretty_start_time}")
+    os.makedirs(output_dir, mode=0o777, exist_ok=True)
 
-    # Collect subdirectories (skip any pre-existing output_visualization_ dirs)
-    dirs = [
-        d for d in projPath.iterdir()
-        if d.is_dir() and not d.name.startswith("output_visualization_")
-    ]
+    # cmdlogtime.begin() already created its own bookkeeping directory
+    # directly under proj_path; move it into our output folder so everything
+    # from this run lives together (and it isn't mistaken for a run directory
+    # below). The addl_logfile handle stays valid after the move.
+    shutil.move(my_args["out_dir"], os.path.join(output_dir, "cmdlogtime"))
 
-    all_posts = []
+    # projpath can point either at a parent folder holding many DCH run
+    # directories (the normal multi-topic case) or directly at a single run's
+    # own output directory (which itself contains a top-level "results/"
+    # folder). Without this check, the listing below would enumerate that
+    # single run's own results/debug/src folders as if each were a separate
+    # hypothesis-pair run, and "results" - which doesn't match the
+    # output_<ts>_<topic>_kmgptdch naming topic_from_dirname() expects - would
+    # leak into every topic label verbatim (e.g. "results: CHAT").
+    if os.path.isdir(os.path.join(proj_path, "results")):
+        dir_labels = [os.path.basename(proj_path)]
+        dir_paths = [proj_path]
+    else:
+        dir_labels = sorted(
+            d for d in os.listdir(proj_path)
+            if os.path.isdir(os.path.join(proj_path, d))
+            and not re.match(r"^output_(model|visualization)_", d)  # skip our own (and older) output folders
+        )
+        dir_paths = [os.path.join(proj_path, d) for d in dir_labels]
 
-    for d in dirs:
-        tsv_path = d / "results.tsv"
-        if not tsv_path.exists():
-            print(f"  {d.name} — no results.tsv, skipping")
+    rng = np.random.default_rng()
+    summaries = []
+    samples_list = []
+
+    for d, full_dir in zip(dir_labels, dir_paths):
+        groups = load_hypothesis_groups(full_dir)
+        if groups is None:
+            print(f"{d}: no hypothesis-comparison JSON found, skipping")
             continue
 
-        print(f"  {d.name} — running")
+        dir_topic = topic_from_dirname(d)
 
-        df = pd.read_csv(tsv_path, sep="\t")
+        # A directory with more than one distinct hypothesis-pair (an A-term-list
+        # run) needs a per-pair topic label, not one shared by the whole
+        # directory - otherwise every pair's violin would be plotted as if it
+        # were the same comparison. Derive that label from what varies across
+        # the pairs' hypothesis1 texts (e.g. the A term).
+        if len(groups) > 1:
+            varying_terms = extract_varying_term([g["hypothesis1"] for g in groups])
+        else:
+            varying_terms = [None]
 
-        hyp1    = df["Hypothesis1"].iloc[0]
-        hyp2    = df["Hypothesis2"].iloc[0]
-        a_term  = df["A_term"].iloc[0]
-        b1_term = df["B1_term"].iloc[0]
-        b2_term = df["B2_term"].iloc[0]
+        for g, varying in zip(groups, varying_terms):
+            hyp1_label, hyp2_label = short_hypothesis_labels(g["hypothesis1"], g["hypothesis2"])
+            topic = f"{dir_topic}: {varying}" if len(groups) > 1 else dir_topic
 
-        # Raw scores → 0-1
-        score = (df["Score"] / 100).values
-        score = np.where(np.isnan(score), 0.5, score)
+            summary, samples = summarize_topic(
+                topic=topic, hyp1_label=hyp1_label, hyp2_label=hyp2_label,
+                hypothesis1=g["hypothesis1"], hypothesis2=g["hypothesis2"],
+                calls=g["calls"], level=level, n_samples=n_samples, rng=rng,
+            )
 
-        abstracts_num = (df["H1"] + df["H2"] + df["Both"]).values
-        rel_abstracts = abstracts_num.mean()
-        iter_number   = df["Iteration"].nunique()
+            print(f"{d} [{topic}]: ({hyp1_label} vs {hyp2_label}) - {len(g['calls'])} calls")
 
-        print(f"    iterations={iter_number}  rel_abstracts={rel_abstracts:.1f}")
-        print(f"    scores: {score}")
+            summaries.append(summary)
+            samples_list.append(samples)
 
-        # Handle degenerate case where all scores are identical
-        if len(np.unique(score)) == 1:
-            score = score.copy()
-            score[0] += 0.01
-            score[1]  = max(score[1] - 0.01, 1e-22)
+    if not summaries:
+        raise RuntimeError(f"No hypothesis-pair directories with usable data were found under {proj_path}")
 
-        # ── Likelihood 1: MLE beta ────────────────────────────────────────────
-        alpha_mle, beta_mle = ebeta_mle(score)
-        alpha_mle = max(alpha_mle, 1e-22)
-        beta_mle  = max(beta_mle,  1e-22)
-        likelihood_mle = sample_beta(alpha_mle, beta_mle)
+    summary_df = pd.DataFrame(summaries)
+    samples_df = pd.concat(samples_list, ignore_index=True)
 
-        # ── Likelihood 2: Method-of-moments beta ──────────────────────────────
-        mu      = score.mean()
-        var_s   = score.var(ddof=1)  # R uses var() which is unbiased (ddof=1)
-        alpha_mom, beta_mom = ebeta_mom(mu, var_s)
-        likelihood_mom = sample_beta(alpha_mom, beta_mom)
+    summary_df.to_csv(os.path.join(output_dir, "summary_stats.txt"), sep="\t", index=False)
+    samples_df.to_csv(os.path.join(output_dir, "posterior_samples.txt"), sep="\t", index=False)
 
-        # ── Prior from abstract counts ─────────────────────────────────────────
-        alpha2, beta2 = build_prior_params(df, rel_abstracts)
-        prior_samples = sample_beta(alpha2, beta2)
+    # order topics by posterior mean, low to high (lowest at the bottom of the
+    # plot, highest at the top)
+    summary_df = summary_df.sort_values("posterior_mean", kind="stable").reset_index(drop=True)
 
-        # ── Posteriors (conjugate Beta update) ────────────────────────────────
-        # Posterior 1: MLE likelihood + prior
-        a1_post = alpha_mle + alpha2
-        b1_post = beta_mle  + beta2
+    fig = plot_violin(summary_df, samples_df, level=level)
+    fig.savefig(os.path.join(output_dir, "posterior_violin_plot.pdf"), bbox_inches="tight")
 
-        # Posterior 2: MOM likelihood + prior  (used for violin / summary)
-        a2_post = alpha_mom + alpha2
-        b2_post = beta_mom  + beta2
-
-        posterior1 = sample_beta(a1_post, b1_post)
-        posterior2 = sample_beta(a2_post, b2_post)
-
-        # ── ETI on posterior 2 ────────────────────────────────────────────────
-        ci_low, ci_high = eti(posterior2)
-
-        # ── Four-panel diagnostic PDF ─────────────────────────────────────────
-        plot_beta_panels(
-            likelihood_mle, likelihood_mom, prior_samples,
-            posterior2, ci_low, ci_high,
-            str(output), a_term
-        )
-
-        # ── Accumulate results ────────────────────────────────────────────────
-        for val in posterior2:
-            all_posts.append({
-                "posterior": val,
-                "A_term":    a_term,
-                "B1_term":   b1_term,
-                "B2_term":   b2_term,
-            })
-
-    if not all_posts:
-        print("No results collected — check that subdirectories contain results.tsv files.")
-        sys.exit(1)
-
-    df1 = pd.DataFrame(all_posts)
-
-    # Convert posterior to 0–100 scale (mirrors R's df1$posterior <- ... * 100)
-    df1["posterior"] *= 100
-
-    # ── Write raw posterior data ───────────────────────────────────────────────
-    posterior_out = os.path.join(output, "posterior_data.txt")
-    df1.to_csv(posterior_out, sep="\t", index=False, quoting=False)
-    print(f"Posterior data saved → {posterior_out}")
-
-    # ── Summary stats table ────────────────────────────────────────────────────
-    def summarise(group):
-        low, high = eti(group["posterior"].values)
-        return pd.Series({
-            "mean":    group["posterior"].mean(),
-            "CI_low":  low,
-            "CI_high": high,
-        })
-
-    summary = (
-        df1.groupby(["A_term", "B1_term", "B2_term"])
-           .apply(summarise)
-           .reset_index()
-    )
-    summary_out = os.path.join(output, "summary_stats.txt")
-    summary.to_csv(summary_out, sep="\t", index=False, quoting=False)
-    print(f"Summary stats saved → {summary_out}")
-
-    # ── Violin plot ────────────────────────────────────────────────────────────
-    plot_violin(df1, output)
-
-    # parameters
+    print(f"Plots and data saved to {output_dir}")
     cmdlogtime.end(addl_logfile, start_time_secs)
 
 
