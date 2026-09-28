@@ -9,5 +9,16 @@ Keep it that way — a heavy import added here breaks the web deployment.
 """
 
 from skimgpt.stats.bayes_ci import PosteriorCI, posterior_ci
+from skimgpt.stats.bayes_posterior import (
+    PosteriorSummary,
+    call_from_result,
+    posterior_summary,
+)
 
-__all__ = ["PosteriorCI", "posterior_ci"]
+__all__ = [
+    "PosteriorCI",
+    "posterior_ci",
+    "PosteriorSummary",
+    "call_from_result",
+    "posterior_summary",
+]

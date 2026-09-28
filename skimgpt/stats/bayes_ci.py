@@ -1,20 +1,14 @@
-"""Beta-Binomial credible interval for DCH hypothesis scores.
+"""Beta-Binomial credible interval for DCH hypothesis scores (legacy model).
 
-The single source of truth for the Beta-Binomial conjugate model (Beth's
-method, mirroring ``bayes_citest.R``): a Beta likelihood fitted to the
-per-iteration scores, a prior built from the support-label counts, and
-credible intervals on the resulting posterior.
+**Superseded** by :mod:`skimgpt.stats.bayes_posterior`, Beth's updated
+closed-form model. Kept only so SKiM_web builds pinned to it keep working
+while they migrate; new callers should not use it.
 
-Two callers share this module:
-
-* ``skimgpt.visualization.bayesian_ci`` - the ribbon-plot CLI, one row per
-  iteration in a pandas DataFrame, needs the MLE shapes for its CI table.
-* SKiM_web's ``application/bayes_ci.py`` - the web result pages, which hold
-  summed label tallies and need only the MoM posterior and its ETI.
-
-Both reduce their own data shape to per-iteration averages and call
-:func:`posterior_ci`. Aggregation stays with the caller; the Beta maths lives
-here.
+The Beta-Binomial conjugate model (mirroring ``bayes_citest.R``): a Beta
+likelihood fitted to the per-iteration scores, a prior built from the
+support-label counts, and credible intervals on the resulting posterior.
+The remaining caller is SKiM_web's ``application/bayes_ci.py``, which holds
+summed label tallies and needs only the MoM posterior and its ETI.
 
 Scores are on the **0-1 scale** throughout. Callers working on the 0-100
 scale divide on the way in and multiply on the way out.

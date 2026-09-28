@@ -186,46 +186,63 @@ Use KM-GPT-DCH output results.tsv file where the tab-delimited file has the foll
   * both:                     number of abstracts supporting both hypotheses
   * neither_or_inconclusive:  number of abstracts not supporting either hypothesis
 
+### Bayesian posterior model
+
+Both scripts below use the closed-form Beta posterior in `skimgpt/stats/bayes_posterior.py` (numpy + scipy only), which SKiM_web also imports, so a result page and a paper figure come from the same code. `bayes_ci_updated.R` and `bayes_ci_multihyp_violin.R` are R ports of the same model.
+
+```python
+from skimgpt.stats import call_from_result, posterior_summary
+
+calls = [call_from_result(r) for r in iteration_results]  # Hypothesis_Comparison Result[0] dicts
+fit = posterior_summary(calls)  # posterior_mean / posterior_mode / hdi_lo / hdi_hi on 0-100
+```
+
 ### Running bayesian credible interval for one year
 
-bayes_ci_violinplot.py
+bayes_ci_violinplot.py (Python port of bayes_ci_multihyp_violin.R)
 
 Arguments:
-  * <projpath> # directory where output directory for km-gpt-dch is that contains results.txt/results.tsv
-    
+  * <projpath> # directory containing one subdirectory per KM-GPT-DCH run (each holding *_gpt_direct_comp.json results), or a single run's output directory
+  * -level <float> # optional: HDI credible level, default 0.95
+  * -n_samples <int> # optional: posterior draws per hypothesis-pair used for the violin shape, default 2000
+
 To Run:
 ```
 python bayes_ci_violinplot.py <projpath>
 ```
 
-Output:
+Output (under `<projpath>/output_model_<timestamp>/`):
 
-* violin plot showing posterior distribution with bars for credible interval
+* posterior_violin_plot.pdf: violin plot of each hypothesis-pair's posterior (mean + HDI), ordered by posterior mean, with a bar plot of mean supporting abstracts for H1/H2
+* summary_stats.txt, posterior_samples.txt
 
-### Running bayesian credible interval over multiple years 
+### Running bayesian credible interval over multiple years
 
-bayesian_ci.py
+bayes_ci_updated.py (Python port of bayes_ci_updated.R)
 
 Arguments:
-  * <projpath> # directory where results.txt or results.tsv file (KM-GPT-DCH output) is located
-  * <filename> # input CSV filename with the above headers
-  * -discover <year> # optional: year of discovery
-  * -accept <year> # optional: year of acceptance
-  * -x_date <year> # extra date line
-  * -title <title of graph> # optional: title for figure- default is "Aterm: aterm Co-occurrence terms: term1 vs. term2 Years: year1-lastyear km or skim data"
-  * -labels <label1,label2> # optional: Comma-separated list of labels for discovery and acceptance (e.g., 'discover,accept')
-  * -move <list of numbers> # optional: move discovery/acceptance labels. Comma separated list of 4 numbers required: x, y for discovery, x, y for acceptance. e.g. -m '0.1,0.1,0.1,0.1'
-  * -xinterval <int> # interval for x-axis labels, default is 1
-
+  * <data_dir> # directory holding gpt_direct_comp.json results and config.json for each censor year
+  * -hyp1_label <term> # optional: display term for hypothesis 1 (H1)
+  * -hyp2_label <term> # optional: display term for hypothesis 2 (H2)
+  * -level <float> # optional: HDI credible level, default 0.95
+  * -dot_size <int> # optional: marker size for the LLM score dots
+  * -title <title> # optional: title for the timecourse panel
+  * -normalize # optional: normalize the label-counts bars to percent of abstracts
+  * -proposed_date <year> # optional: year the hypothesis was proposed
+  * -decision_date <year> # optional: year the literature accepted or rejected the hypothesis
+  * -decision_label <accepted|rejected|unknown> # optional: label for decision_date
+  * -reconsidered_date <year> # optional: year the hypothesis was reconsidered
 
 To Run:
 ```
-python bayesian_ci.py <projpath> <filename> -discover <discovery date> -accept <acceptance date> -title <title> -labels <list of labels> -move <"0.1,0.1,0.1,0.1"> -xinterval 1
+python bayes_ci_updated.py <data_dir> -hyp1_label <term> -hyp2_label <term> -proposed_date <year> -decision_date <year> -decision_label rejected
 ```
 
-Output:
+Output (under `<data_dir>/output_model_<timestamp>/`):
 
-* ribbon plot of scores across time where shaded region is the credible interval
+* combined.pdf: posterior score over time with the HDI as a shaded ribbon, above a stacked bar plot of unique abstracts per year by label
+* llm_vs_proportion.pdf: mean LLM score vs. the proportion of abstracts supporting H1 per year
+* timecourse_data.csv, parameters.csv
 
 # Running KM co-occurrence only
 

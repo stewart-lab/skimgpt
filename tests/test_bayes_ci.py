@@ -1,9 +1,8 @@
-"""Golden vectors for the shared Beta-Binomial model in ``skimgpt.stats``.
+"""Golden vectors for the legacy Beta-Binomial model in ``skimgpt.stats``.
 
-``skimgpt/stats/bayes_ci.py`` is the single source of truth for the DCH
-credible interval: the ribbon-plot CLI in ``skimgpt.visualization`` and
-SKiM_web's result pages both call it. Two copies of this maths drifted apart
-once already, so the numbers are pinned here.
+``skimgpt/stats/bayes_ci.py`` is superseded by ``bayes_posterior.py`` (see
+``test_bayes_posterior.py``) but stays pinned while SKiM_web builds still
+import it.
 
 The expectations in ``bayes_ci_gold.json`` were captured from the pre-refactor
 implementation (the inline block in ``bayesian_ci.py::main()``), so a passing
