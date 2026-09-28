@@ -4,5 +4,7 @@
 # PA_name|PA_Description|Is_out_dir|Is_Dir|Check_Directory|Is_file|Check_File|||
 # Key/Value Line:
 # KVA_name|KVA_Description|Is_out_dir|Is_Dir|Check_Directory|Is_file|Check_File|alternate_KVA_name|default value|type
-Bayesian credible interval analysis for hypothesis comparison, violin plot
-projpath|path where the ouput folder from km-gpt-dch is located that contains the results.txt file|1|1|1|0|0|||
+Bayesian posterior violin plot comparing many hypothesis-pairs at a single timepoint
+projpath|directory containing one subdirectory per hypothesis-pair (km-gpt-dch) run; the output_model_ folder is created here|1|1|1|0|0|||
+-level|HDI credible level|0|0|0|0|0|--level|0.95|float
+-n_samples|posterior draws per hypothesis-pair used for the violin shape|0|0|0|0|0|--n_samples|2000|int
