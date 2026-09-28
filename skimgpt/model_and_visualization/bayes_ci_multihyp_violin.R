@@ -4,7 +4,7 @@
 # see that file for the full model rationale). Where bayes_ci_updated.R walks
 # one hypothesis-pair across many censor years to show a timecourse, this
 # script walks many hypothesis-pair directories at one censor-year window and
-# shows them side by side as a violin plot, ordered by posterior mean.
+# shows them side by side as a violin plot, ordered by posterior mode.
 #
 # Expected input: projpath contains one subdirectory per DCH run (e.g.
 # "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
@@ -198,7 +198,9 @@ summarize_topic <- function(topic, hyp1_label, hyp2_label, hypothesis1, hypothes
   b <- params$b
 
   hdi <- hdi_beta(a, b, level) * 100
-  posterior_mean <- (a / (a + b)) * 100
+  pb <- posterior_beta(calls, n_theta = 300)
+  posterior_mode <- pb$grid[which.max(pb$p)] * 100
+  # posterior_mean <- (a / (a + b)) * 100
   scores <- vapply(calls, function(cc) cc$score, numeric(1))
 
   all_pmids <- unique(unlist(lapply(calls, function(cc) cc$pmids$pmid)))
@@ -216,7 +218,7 @@ summarize_topic <- function(topic, hyp1_label, hyp2_label, hypothesis1, hypothes
       topic = topic, hyp1_label = hyp1_label, hyp2_label = hyp2_label,
       hypothesis1 = hypothesis1, hypothesis2 = hypothesis2,
       n_calls = length(calls), n_unique_pmids = length(all_pmids),
-      mean_llm_score = mean(scores), posterior_mean = posterior_mean,
+      mean_llm_score = mean(scores), posterior_mode = posterior_mode,
       hdi_level = level, hdi_lo = hdi[1], hdi_hi = hdi[2],
       shape1 = a, shape2 = b,
       mean_support_h1 = mean_support_h1, mean_support_h2 = mean_support_h2
@@ -342,9 +344,9 @@ main <- function() {
     sep = "\t", col.names = TRUE, quote = FALSE, row.names = FALSE
   )
 
-  # order topics by posterior mean, low to high (coord_flip below puts the
+  # order topics by posterior mode, low to high (coord_flip below puts the
   # highest mean at the top of the plot)
-  summary_df <- summary_df[order(summary_df$posterior_mean), ]
+  summary_df <- summary_df[order(summary_df$posterior_mode), ]
   topic_levels <- summary_df$topic
   summary_df$topic <- factor(summary_df$topic, levels = topic_levels)
   samples_df$topic <- factor(samples_df$topic, levels = topic_levels)
@@ -353,7 +355,7 @@ main <- function() {
     geom_violin(trim = FALSE, linewidth = 0.3) +
     geom_pointrange(
       data = summary_df,
-      aes(x = topic, y = posterior_mean, ymin = hdi_lo, ymax = hdi_hi, fill = NULL),
+      aes(x = topic, y = posterior_mode, ymin = hdi_lo, ymax = hdi_hi, fill = NULL),
       inherit.aes = FALSE, size = 0.3, linewidth = 0.6
     ) +
     geom_hline(yintercept = 50, linetype = "dashed", color = "darkgrey") +
@@ -372,7 +374,7 @@ main <- function() {
     scale_fill_viridis(discrete = TRUE, option = "C", guide = "none") +
     scale_y_continuous(breaks = seq(0, 100, 25)) +
     coord_flip(ylim = c(-55, 155), clip = "off") +
-    labs(x = NULL, y = paste0("posterior score (mean, ", sprintf("%.0f%%", opt$level * 100), " HDI)")) +
+    labs(x = NULL, y = paste0("posterior score (mode, ", sprintf("%.0f%%", opt$level * 100), " HDI)")) +
     theme_bw() +
     theme(
       axis.line = element_line(color = "black"),
