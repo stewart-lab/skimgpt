@@ -213,7 +213,7 @@ python bayes_ci_violinplot.py <projpath>
 
 Output (under `<projpath>/output_model_<timestamp>/`):
 
-* posterior_violin_plot.pdf: violin plot of each hypothesis-pair's posterior (mean + HDI), ordered by posterior mean, with a bar plot of mean supporting abstracts for H1/H2
+* posterior_violin_plot.pdf: violin plot of each hypothesis-pair's posterior (mode + HDI), ordered by posterior mode, with a bar plot of mean supporting abstracts for H1/H2
 * summary_stats.txt, posterior_samples.txt
 
 ### Running bayesian credible interval over multiple years

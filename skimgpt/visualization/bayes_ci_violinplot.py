@@ -4,7 +4,7 @@
 # see that file for the full model rationale). Where bayes_ci_updated.py walks
 # one hypothesis-pair across many censor years to show a timecourse, this
 # script walks many hypothesis-pair directories at one censor-year window and
-# shows them side by side as a violin plot, ordered by posterior mean.
+# shows them side by side as a violin plot, ordered by posterior mode.
 #
 # Expected input: projpath contains one subdirectory per DCH run (e.g.
 # "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
@@ -190,7 +190,7 @@ def summarize_topic(topic, hyp1_label, hyp2_label, hypothesis1, hypothesis2,
         "topic": topic, "hyp1_label": hyp1_label, "hyp2_label": hyp2_label,
         "hypothesis1": hypothesis1, "hypothesis2": hypothesis2,
         "n_calls": fit.n_calls, "n_unique_pmids": fit.n_unique_pmids,
-        "mean_llm_score": fit.mean_llm_score, "posterior_mean": fit.posterior_mean,
+        "mean_llm_score": fit.mean_llm_score, "posterior_mode": fit.posterior_mode,
         "hdi_level": level, "hdi_lo": fit.hdi_lo, "hdi_hi": fit.hdi_hi,
         "shape1": a, "shape2": b,
         "mean_support_h1": float(np.mean(counts[:, 0])),
@@ -234,7 +234,7 @@ def _violin_density(values, n_grid=512):
 def plot_violin(summary_df, samples_df, level=0.95):
     """
     Left: horizontal violin of each topic's posterior (ordered by posterior
-    mean, highest at top) with mean + HDI pointrange and the H2/H1 short
+    mode, highest at top) with mode + HDI pointrange and the H2/H1 short
     labels just outside the 0/100 edges. Right: mean supporting-abstract
     counts per H1/H2, sharing the violin's topic ordering.
     """
@@ -262,10 +262,10 @@ def plot_violin(summary_df, samples_df, level=0.95):
         ax.fill_between(grid, pos - w, pos + w, facecolor=color, edgecolor="black",
                         linewidth=0.5, zorder=2)
 
-    # mean + HDI pointrange
+    # mode + HDI pointrange
     ax.hlines(positions, summary_df["hdi_lo"], summary_df["hdi_hi"],
               color="black", linewidth=1.2, zorder=3)
-    ax.scatter(summary_df["posterior_mean"], positions, color="black", s=12, zorder=4)
+    ax.scatter(summary_df["posterior_mode"], positions, color="black", s=12, zorder=4)
 
     ax.axvline(50, linestyle="--", color="darkgrey", linewidth=1, zorder=1)
 
@@ -282,7 +282,7 @@ def plot_violin(summary_df, samples_df, level=0.95):
     ax.set_ylim(-0.6, n - 0.4)
     ax.set_yticks(positions)
     ax.set_yticklabels(topics, fontsize=9)
-    ax.set_xlabel(f"posterior score (mean, {level:.0%} HDI)")
+    ax.set_xlabel(f"posterior score (mode, {level:.0%} HDI)")
     ax.grid(True, which="major", color="#ebebeb", linewidth=0.8, zorder=0)
     ax.set_axisbelow(True)
     ax.spines[["top", "right"]].set_visible(False)
@@ -393,9 +393,9 @@ def main():
     summary_df.to_csv(os.path.join(output_dir, "summary_stats.txt"), sep="\t", index=False)
     samples_df.to_csv(os.path.join(output_dir, "posterior_samples.txt"), sep="\t", index=False)
 
-    # order topics by posterior mean, low to high (lowest at the bottom of the
+    # order topics by posterior mode, low to high (lowest at the bottom of the
     # plot, highest at the top)
-    summary_df = summary_df.sort_values("posterior_mean", kind="stable").reset_index(drop=True)
+    summary_df = summary_df.sort_values("posterior_mode", kind="stable").reset_index(drop=True)
 
     fig = plot_violin(summary_df, samples_df, level=level)
     fig.savefig(os.path.join(output_dir, "posterior_violin_plot.pdf"), bbox_inches="tight")
