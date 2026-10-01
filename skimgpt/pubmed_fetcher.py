@@ -119,8 +119,13 @@ class PubMedFetcher:
         logger.warning(f"No publication year found for PMID {pmid}")
         return "0000"
 
-    def _fetch_batch(self, batch: list[str]) -> dict:
-        """Fetch a single batch of PMIDs with retry logic."""
+    def _fetch_batch(self, batch: list[str], min_word_count: int | None = None) -> dict:
+        """Fetch a single batch of PMIDs with retry logic.
+
+        ``min_word_count`` overrides ``config.min_word_count`` when given.
+        """
+        if min_word_count is None:
+            min_word_count = self.config.min_word_count
 
         def _attempt() -> dict:
             with Entrez.efetch(
@@ -145,7 +150,7 @@ class PubMedFetcher:
                     )
                 )
 
-                if len(abstract_text.split()) >= self.config.min_word_count:
+                if len(abstract_text.split()) >= min_word_count:
                     returned_pmids.append(pmid)
                     self.pmid_years[pmid] = int(pub_year)
                     content = f"PMID: {pmid}\nTitle: {title}\nAbstract: {abstract_text}{delimiter}"
@@ -156,7 +161,7 @@ class PubMedFetcher:
             if skipped_min_wc_pmids:
                 logger.debug(
                     f"Excluded {len(skipped_min_wc_pmids)} PMIDs due to MIN_WORD_COUNT="
-                    f"{self.config.min_word_count}. Example: {skipped_min_wc_pmids[:5]}"
+                    f"{min_word_count}. Example: {skipped_min_wc_pmids[:5]}"
                 )
 
             return {
@@ -176,7 +181,7 @@ class PubMedFetcher:
             default={},
         )
 
-    def fetch_abstracts_iter(self, pmids: list[str]) -> Iterator[dict[str, str]]:
+    def fetch_abstracts_iter(self, pmids: list[str], min_word_count: int | None = None) -> Iterator[dict[str, str]]:
         """Yield {pmid: content} dicts batch-by-batch as PubMed responds.
 
         Used by pipelined callers that want to start downstream work (e.g.
@@ -196,7 +201,7 @@ class PubMedFetcher:
         upper = self.config.censor_year_upper
 
         for batch in self._batch_pmids(pmids):
-            batch_result = self._fetch_batch(batch)
+            batch_result = self._fetch_batch(batch, min_word_count)
             if batch_result:
                 batch_dict = dict(zip(batch_result["pmids"],
                                       batch_result["contents"]))
@@ -209,10 +214,10 @@ class PubMedFetcher:
                     yield filtered
             time.sleep(0.34)  # Rate limiting
 
-    def fetch_abstracts(self, pmids: list[str]) -> dict[str, str]:
+    def fetch_abstracts(self, pmids: list[str], min_word_count: int | None = None) -> dict[str, str]:
         """Fetch abstracts for a list of PMIDs (all-at-once convenience wrapper)."""
         abstract_dict: dict[str, str] = {}
-        for batch_dict in self.fetch_abstracts_iter(pmids):
+        for batch_dict in self.fetch_abstracts_iter(pmids, min_word_count):
             abstract_dict.update(batch_dict)
 
         if not abstract_dict:

@@ -82,7 +82,7 @@ packages = ["skimgpt", "skimgpt.stats", "skimgpt.visualization"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-skimgpt = ["*.py", "*.sh"]
+skimgpt = ["*.py", "*.sh", "data/*.csv"]
 "skimgpt.visualization" = ["*.txt", "*.R", "example_data/**/*"]
 
 [tool.setuptools_scm]

@@ -15,6 +15,7 @@ from skimgpt.utils import (
     extract_pmid, get_hypothesis,
 )
 from skimgpt.pubmed_fetcher import PubMedFetcher
+from skimgpt.reference_pmids import reference_pmids_for
 from skimgpt.classifier import calculate_relevance_ratios, process_single_row
 from skimgpt.triton_client import TritonBatchFailureError
 
@@ -256,13 +257,16 @@ def _sample_entries(entries: list, count: int) -> list:
     return []
 
 
-def sample_consolidated_abstracts(v1, v2, config: Config):
+def sample_consolidated_abstracts(v1, v2, config: Config, reference_abstracts: list[str] | None = None):
     """Sample from two abstract collections; return consolidated text, sampled count, total deduped count.
 
     Args:
         v1: First collection of abstracts (list or single string or empty).
         v2: Second collection of abstracts (list or single string or empty).
         config: Global configuration providing sampling parameters.
+        reference_abstracts: Curated abstracts that are always selected. They
+            fill the first slots of ``DCH_SAMPLE_SIZE`` and are removed from
+            both pools so they are never drawn twice.
 
     Returns:
         A tuple of (consolidated_abstracts: str, expected_count: int, total_relevant_abstracts: int)
@@ -270,8 +274,9 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     list1 = normalize_entries(v1)
     list2 = normalize_entries(v2)
 
-    # Deduplicate across both lists using PMID
+    # Deduplicate across both lists using PMID; references claim their PMIDs first
     seen_pmids = set()
+    forced = _dedup_by_pmid(normalize_entries(reference_abstracts or []), seen_pmids)
     list1 = _dedup_by_pmid(list1, seen_pmids)
     list2 = _dedup_by_pmid(list2, seen_pmids)
 
@@ -293,7 +298,11 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
     min_floor = float(config.global_settings.get("DCH_MIN_SAMPLING_FRACTION", 0.06))
     target_total = int(config.global_settings.get("DCH_SAMPLE_SIZE", 50))
 
-    n1, n2 = _normalize_fractions(total1, total2, min_floor, target_total)
+    if forced:
+        logger.info(f"Sampling: {len(forced)} reference abstracts always selected: "
+                    f"{[extract_pmid(abstract) for abstract in forced]}")
+
+    n1, n2 = _normalize_fractions(total1, total2, min_floor, max(target_total - len(forced), 0))
 
     sampled1 = _sample_entries(list1, n1)
     sampled2 = _sample_entries(list2, n2)
@@ -308,12 +317,13 @@ def sample_consolidated_abstracts(v1, v2, config: Config):
 
     logger.debug(f"sampled1: len {len(sampled1)} {sampled1}")
     logger.debug(f"sampled2: len {len(sampled2)} {sampled2}")
-    sampled_abstracts = sampled1 + sampled2
-    logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({n1} from candidate1 + {n2} from candidate2)")
+    sampled_abstracts = forced + sampled1 + sampled2
+    logger.info(f"Total sampled: {len(sampled_abstracts)} abstracts ({len(forced)} references + "
+                f"{n1} from candidate1 + {n2} from candidate2)")
     logger.debug(f"num_sampled_candidate1: {n1}, num_sampled_candidate2: {n2}, total_sampled: {len(sampled_abstracts)}")
 
     consolidated_abstracts = "\n\n".join(sampled_abstracts) if sampled_abstracts else ""
-    total_relevant_abstracts = total1 + total2
+    total_relevant_abstracts = len(forced) + total1 + total2
 
     return consolidated_abstracts, len(sampled_abstracts), total_relevant_abstracts
 
@@ -324,6 +334,7 @@ def process_results(
     num_abstracts_fetched: int,
     output_base_dir: str,
     iteration_number: int = 0,
+    reference_abstracts: list[str] | None = None,
 ) -> None:
     """Process results and write to JSON files.
 
@@ -337,6 +348,8 @@ def process_results(
         iteration_number: 1-indexed iteration index; 0 means "not iterated".
             Threaded through as a parameter (not read from config) so multiple
             iterations can run concurrently without racing on shared state.
+        reference_abstracts: DCH only — curated abstracts every sample must
+            include (see ``skimgpt.reference_pmids``).
     """
     total_rows = len(out_df)
     logger.info(f"Processing {total_rows} results...")
@@ -367,7 +380,9 @@ def process_results(
         logger.info(f"DCH Sampling: Candidate 1 has {len(v1)} relevant abstracts")
         logger.info(f"DCH Sampling: Candidate 2 has {len(v2)} relevant abstracts")
 
-        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(v1, v2, config)
+        consolidated_abstracts, expected_count, total_relevant_abstracts = sample_consolidated_abstracts(
+            v1, v2, config, reference_abstracts
+        )
 
         dch_row = {
             "hypothesis1": hyp1,
@@ -499,7 +514,7 @@ def collect_pmids_and_hypotheses(config: Config):
 
 
 def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: int,
-                   output_base_dir: str) -> None:
+                   output_base_dir: str, reference_abstracts: list[str] | None = None) -> None:
     """Handle iteration-based or single-pass result processing.
 
     Both relevance_chtc.py and relevance_triton.py share nearly identical
@@ -512,6 +527,7 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
         output_base_dir: Base directory for JSON output, forwarded to
             process_results.  Resolved by the caller (e.g.
             ``config.km_output_dir`` for Triton, ``"output"`` for CHTC).
+        reference_abstracts: Forwarded to process_results.
     """
     if config.iterations:
         num_iterations = 1
@@ -534,7 +550,8 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
             t0 = time.time()
             process_results(out_df, config, num_abstracts_fetched,
                             output_base_dir=output_base_dir,
-                            iteration_number=iteration)
+                            iteration_number=iteration,
+                            reference_abstracts=reference_abstracts)
             return iteration, time.time() - t0
 
         with ThreadPoolExecutor(max_workers=max_parallel) as ex:
@@ -549,7 +566,38 @@ def run_iterations(config: Config, out_df: pd.DataFrame, num_abstracts_fetched: 
     else:
         logger.info("No iterations requested, processing results once")
         process_results(out_df, config, num_abstracts_fetched,
-                        output_base_dir=output_base_dir, iteration_number=0)
+                        output_base_dir=output_base_dir, iteration_number=0,
+                        reference_abstracts=reference_abstracts)
+
+
+def fetch_dch_reference_abstracts(config: Config, pubmed_fetcher: PubMedFetcher) -> list[str]:
+    """Fetch the curated reference abstracts for this run's DCH combination.
+
+    Returns [] for non-DCH runs and combinations with no listed references.
+    References are exempt from MIN_WORD_COUNT (a listed editorial with no
+    abstract is still selected, title only) but not from the censor-year
+    window, so a year-sliced run never sees a later paper; misses are logged.
+    """
+    if not config.is_dch or len(config.data) < 2:
+        return []
+    a_term = config.data.iloc[0]["a_term"]
+    b1_term, b2_term = config.data.iloc[0]["b_term"], config.data.iloc[1]["b_term"]
+    pmids = reference_pmids_for(
+        a_term, b1_term, b2_term,
+        a_term_suffix=config.global_settings.get("A_TERM_SUFFIX") or "",
+    )
+    if not pmids:
+        return []
+
+    abstract_map = pubmed_fetcher.fetch_abstracts(pmids, min_word_count=0)
+    missing = [pmid for pmid in pmids if pmid not in abstract_map]
+    logger.info(f"DCH references for {a_term!r} ({b1_term!r} vs {b2_term!r}): "
+                f"{len(pmids) - len(missing)}/{len(pmids)} fetched")
+    if missing:
+        logger.warning(f"DCH references not usable (outside censor years "
+                       f"{config.censor_year_lower}-{config.censor_year_upper} "
+                       f"or not in PubMed): {missing}")
+    return [abstract_map[pmid] for pmid in pmids if pmid in abstract_map]
 
 
 InferenceFn = Callable[[RaggedTensor], RaggedTensor]
@@ -774,6 +822,9 @@ def run_relevance_pipeline(
     out_df.to_csv(initial_output_file, sep="\t")
     logger.info(f"Saved initial processed data to {initial_output_file}")
 
-    run_iterations(config, out_df, num_abstracts_fetched, output_base_dir=output_base_dir)
+    reference_abstracts = fetch_dch_reference_abstracts(config, pubmed_fetcher)
+
+    run_iterations(config, out_df, num_abstracts_fetched, output_base_dir=output_base_dir,
+                   reference_abstracts=reference_abstracts)
 
     logger.info(f"Relevance analysis completed in {time.time() - start_time:.2f} seconds")
