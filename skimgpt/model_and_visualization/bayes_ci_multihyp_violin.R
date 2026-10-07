@@ -7,29 +7,8 @@
 # shows them side by side as a violin plot, ordered by posterior mode.
 #
 # Expected input: projpath contains one subdirectory per DCH run (e.g.
-# "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", the standard
-# SKiM-GPT DCH run-output naming), each holding results/iteration_N/
-# *_km_with_gpt_direct_comp.json files. A subdirectory may itself contain
-# several distinct hypothesis-pairs when it comes from an A-term-list run
-# (one *_direct_comp.json basename per A term, e.g. one per gene, all
-# comparing that gene against the same fixed B-term pair) - each such
-# basename group is pooled across its own iterations into its own posterior
-# and gets its own violin (no year-splitting within a group - this is a
-# snapshot, not a timecourse). H1/H2 short labels are derived automatically
-# from the JSON's "hypothesis1"/"hypothesis2" text by diffing out the shared
-# wording they're templated from (see short_hypothesis_labels()); when a
-# subdirectory holds multiple hypothesis-pairs, the varying term across
-# their "hypothesis1" texts (e.g. the A term) is extracted the same way (see
-# extract_varying_term()) and appended to the subdirectory-derived topic
-# label so each pair gets its own axis entry instead of being pooled
-# together.
-#
-# Packages: kept from the user's older multi-hypothesis violin script -
-# ggplot2, patchwork, dplyr, optparse, viridis (used here for the violin
-# fill scale, unlike bayes_ci_updated.R where it wasn't needed) - plus
-# jsonlite for the JSON inputs. bayestestR/EnvStats/schoolmath/zoo/gridExtra
-# are dropped for the same reason as bayes_ci_updated.R: no MLE/MoM fitting
-# or per-hypothesis diagnostic density plots here either.
+# "output_<timestamp>_<topic>_kmgptdch_<years>_<model>/", each holding 
+# results/iteration_N/*_km_with_gpt_direct_comp.json files. 
 
 library(optparse)
 library(jsonlite)
