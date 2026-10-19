@@ -11,6 +11,7 @@ import statistics
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from bradleyterry_model import run_bradley_terry
 from main_wrapper import copy_project_src, flatten_and_cleanup
 from skimgpt.utils import sanitize_term_for_filename, setup_wrapper_logger
 from tournament_wrapper import read_bracket_terms, run_pair_with_retries, resolve_pair_winner
@@ -872,6 +873,21 @@ def main():
                            converged, rconf, started_at, finished_at)
 
     logger.info(f"Ranking complete ({'converged' if converged else 'stopped at max_passes'}). Final order: {final_order}")
+
+    bt_conf = rconf.get("bradley_terry", {})
+    if bt_conf.get("enabled", False):
+        try:
+            run_bradley_terry(
+                parent_dir,
+                penalty=bt_conf.get("penalty", 1.0),
+                iterations=bt_conf.get("iterations", 100),
+                plots=bt_conf.get("make_plots", True),
+                celltype_file=bt_conf.get("celltype_file"),
+                initial_passes=bt_conf.get("initial_passes", 1),
+            )
+        except Exception:
+            # The ranking itself is already written; don't fail the run over the BT add-on
+            logger.exception("Bradley-Terry analysis failed")
 
 
 if __name__ == "__main__":

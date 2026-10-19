@@ -163,6 +163,13 @@ This configuration file contains various settings for different job types. Below
   - `seed`: Optional integer seed for reproducible initial shuffling (e.g., `null` for non-reproducible).
   - `pair_retries`: Number of automatic retries for a failed pairwise comparison (e.g., `1`).
   - `max_parallel_pairs`: Concurrency cap for pairwise comparisons within a pass (e.g., `null` to run every comparison in the pass at once).
+  - `bradley_terry`: Optional Bradley-Terry analysis run on the finished ranking (see [Bradley-Terry Analysis of a Ranking Run](#bradley-terry-analysis-of-a-ranking-run)).
+    - `enabled`: Boolean flag (e.g., `false`).
+    - `make_plots`: Also produce the R visualizations; requires `Rscript` with ggplot2, ggrepel, dplyr, readr and tidyr (e.g., `true`).
+    - `penalty`: Number of imaginary tied games each term plays against an "average" term, which keeps strengths finite for terms that always win or always lose (e.g., `1.0`).
+    - `iterations`: Bradley-Terry update iterations (e.g., `100`).
+    - `initial_passes`: Number of early passes to fit as the "early" result that is compared against all passes (e.g., `1` for just the initial comparisons), or a list such as `[1, 2]` for one result each.
+    - `celltype_file`: Optional tab-separated file with `gene` and `celltype` columns (`amacrine`, `ganglion`, or `both`) used to colour terms by cell type in the shared-axis timeline and bump/slope plots (e.g., `null`).
 - `SORT_COLUMN`: Column used for sorting A-B relationships (e.g., `"ab_sort_ratio"`).
 - `ab_fet_threshold`: Fisher Exact Test threshold for A-B relationships (e.g., `1`).
 - `censor_year_upper`: Upper bound year for data censoring (e.g., `1980`).
@@ -366,6 +373,29 @@ Output (under `output/output_<timestamp>_rank_<suffix>/`):
 - `FINAL_RANKING.txt` — the numbered final ranking, with each term's `avg_score`, and insufficient-evidence/unresolved terms flagged.
 
 Each term's `avg_score` (and the underlying `scores` list in the JSON) averages every real comparison it was part of, corrected to that term's own perspective: a comparison's score is always recorded from term_i/H1's point of view (100 favors term_i, 0 favors term_j), so when a term was term_j in a given comparison, `100 - score` is used instead before averaging. Cache-hit reuses and errored comparisons are excluded (same reasoning as the win/tie/loss tallies) so the same underlying observation is never counted twice.
+
+### Bradley-Terry Analysis of a Ranking Run
+
+`bradleyterry_model.py` fits a [Bradley-Terry model](https://en.wikipedia.org/wiki/Bradley%E2%80%93Terry_model) to every pairwise comparison in a ranking run, giving each term a strength on a continuous scale rather than just a position. For each comparison folder, the `Score` column of `results.tsv` is averaged across iterations and used as a partial win for term1 (e.g. a mean score of 80 counts as 0.8 of a win for term1 and 0.2 for term2).
+
+It runs automatically at the end of `rank_wrapper.py` when `ranking.bradley_terry.enabled` is `true`, or separately on any existing ranking output:
+
+```bash
+python bradleyterry_model.py output/output_<timestamp>_rank_<suffix> [-penalty 1.0] [-iterations 100] [-no_plots] [-celltypes markers.tsv] [-initial_passes 1,2]
+```
+
+Run standalone, it uses [cmdlogtime](https://pypi.org/project/cmdlogtime/) (installed in the `kmgpt` conda environment) for reproducibility: arguments are defined in `bradleyterry_model_commandline.txt`, and each run's parameters, a copy of the script, installed package versions, timing, and stderr (`err.txt`) are saved in `output_BT_<timestamp>/cmdlogtime/`. When run from `rank_wrapper.py`, cmdlogtime isn't used; its log goes to the wrapper's log file instead.
+
+Output (written into a new `output_BT_<timestamp>/` folder inside the ranking output directory, so each run is kept separately):
+- `bradley_terry_initial.tsv` — Rank, term, strength, and a label (pass and comparison counts) from the first pass's comparisons only. With `-initial_passes N` (N > 1) this is `bradley_terry_first<N>passes.tsv` instead, covering every comparison (including escape/validate) in passes 1 to N.
+- `bradley_terry_all.tsv` — the same, from every pass plus the tie-break round robin. Its label records how many passes the run actually took.
+- `bradley_terry_timeline_log2.pdf` / `bradley_terry_timeline_log2_shared_axis.pdf` — each term as a point on a vertical line, spaced by log2 strength, with the two results on separate or shared axes. With a cell-type file, the shared-axis plot colours each term as amacrine (purple-blue), ganglion (yellow-orange), or both (green).
+- `bradley_terry_bump_rank.pdf` / `bradley_terry_slope_log2.pdf` — lines joining each term's initial and all-passes rank (or log2 strength), coloured by how far it moved; with a cell-type file, the term labels are coloured by cell type.
+- `bradley_terry_vs_winloss_rank.pdf` — bump chart of the win-loss ranking in `FINAL_RANKING.txt` against the Bradley-Terry all-passes ranking (ranks only). Terms flagged as "rank not meaningful" (e.g. insufficient evidence) are tied last in the win-loss ranking and drawn with grey lines. With `-initial_passes N` (N > 1), `bradley_terry_vs_winloss_rank_first<N>passes.pdf` makes the same comparison against the first-N-passes result.
+
+With `-initial_passes N` (N > 1), the PDFs get a `_first<N>passes` suffix (e.g. `bradley_terry_bump_rank_first2passes.pdf`), so they sit alongside the pass-1 versions. The plots are made by `plot_bradley_terry_timeline.R` and `plot_bradley_terry_bump.R` (sharing setup in `plot_bradley_terry_common.R`), which can also be run directly: `Rscript plot_bradley_terry_bump.R <run_dir> [--out-dir output_BT_folder] [--initial-passes N] [--celltypes file]` (TSVs are read from, and PDFs saved to, `--out-dir`, which defaults to `run_dir`).
+
+Strengths are normalized to their geometric mean within each result, so log2 strength 0 is the average term. The first pass has only one comparison per term, so its strengths are shrunk toward 0 more than the all-passes result.
 
 ## Use web interface to run KM/Skim
 

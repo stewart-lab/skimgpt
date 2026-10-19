@@ -75,7 +75,15 @@
                 "max_tie_group_round_robin_size": 8,
                 "seed": null,
                 "pair_retries": 1,
-                "max_parallel_pairs": null
+                "max_parallel_pairs": null,
+                "bradley_terry": {
+                    "enabled": false,
+                    "make_plots": true,
+                    "penalty": 1.0,
+                    "iterations": 100,
+                    "initial_passes": 1,
+                    "celltype_file": null
+                }
             },
             "SORT_COLUMN": "ab_sort_ratio",
             "ab_fet_threshold": 1,
