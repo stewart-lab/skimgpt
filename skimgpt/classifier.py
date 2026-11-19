@@ -440,8 +440,17 @@ def _system_instructions_for(config, relationship_type: str | None = None) -> st
     """Return system instructions for the active job type + relationship_type.
 
     Mirrors _schema_for's job/relationship branching so the system instructions
-    always match the schema being enforced via response_format.
+    always match the schema being enforced via response_format. With synonym
+    expansion on, the abstracts may name a term only by another name, so the
+    model is told to count those as the term.
     """
+    instructions = _base_system_instructions_for(config, relationship_type)
+    if config.expand_synonyms:
+        instructions += prompts_module.EXPANDED_TERMS_NOTE
+    return instructions
+
+
+def _base_system_instructions_for(config, relationship_type: str | None = None) -> str:
     if config.is_dch:
         return prompts_module.km_with_gpt_direct_comp_system_instructions()
     if config.is_km_with_gpt:

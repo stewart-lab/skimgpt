@@ -483,6 +483,13 @@ def km_with_gpt_json_schema():
     }
 
 
+# Added to the system instructions when fast_km expanded the search terms
+# (expand_synonyms), so an abstract may not contain a term's exact wording.
+EXPANDED_TERMS_NOTE = """\
+- The abstracts were found with expanded search terms: an abstract may name a term only by a synonym, abbreviation, spelling variant, or singular/plural form (e.g. "p53" for "TP53", "mammary cancer" for "breast cancer"). Wherever these instructions or the prompt say an abstract contains or mentions a term, those other names count as the term. Do not treat an abstract as less relevant because the exact wording is absent.
+"""
+
+
 def km_with_gpt_system_instructions():
     return """\
 You evaluate a single biomedical hypothesis using ONLY the provided PubMed abstracts.
