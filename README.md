@@ -165,6 +165,7 @@ This configuration file contains various settings for different job types. Below
 - `ab_fet_threshold`: Fisher Exact Test threshold for A-B relationships (e.g., `1`).
 - `censor_year_upper`: Upper bound year for data censoring (e.g., `1980`).
 - `censor_year_lower`: Lower bound year for data censoring (e.g., `0`).
+- `expand_synonyms`: Also match plural/singular forms, MeSH synonyms, HGNC gene names, and abbreviations defined in PubMed of each term, so `breast cancer` also matches `breast cancers` and `mammary cancer`, `TP53` matches `p53`, and `HPV` matches `human papillomavirus`, without writing `|` variants by hand (default `false`). It never broadens a term: keep using `|` for related concepts, e.g. `bacterial infection|bacteria`. The LLM is told that abstracts may name a term only by one of these other names. Requires a fast_km server that supports it; with an older server the run logs a warning and terms are matched only as written.
 
 ### skim_with_gpt
 
@@ -178,6 +179,7 @@ This configuration file contains various settings for different job types. Below
 - `bc_fet_threshold`: Fisher Exact Test threshold for B-C relationships (e.g., `0.5`).
 - `censor_year_upper`: Upper bound year for data censoring (e.g., `2024`).
 - `censor_year_lower`: Lower bound year for data censoring (e.g., `0`).
+- `expand_synonyms`: Same as for `km_with_gpt` above (default `false`).
 
 This configuration is critical for tailoring the behavior of the system to specific job types and requirements. Ensure all file paths and parameters are correctly set before execution to avoid runtime errors.
 

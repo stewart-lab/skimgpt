@@ -52,6 +52,7 @@ class APIClient:
 
                 if status == "finished":
                     logger.info("Job completed successfully")
+                    self.last_response = response_json
                     return response_json.get("result")
                 elif status == "failed":
                     raise AssertionError(f"Job failed with status: {status}")
@@ -94,6 +95,7 @@ def run_and_save_query(
     logger.debug(f"Job config: {job_config}")
     api_client = APIClient(config=config)
     result = api_client.run_api_query(job_config, api_url)
+    warn_if_expansion_unsupported(config, getattr(api_client, "last_response", None))
 
     if not result:
         logger.warning("API query returned no results.")
@@ -111,6 +113,20 @@ def run_and_save_query(
     file_path = f"{job_type}_{file_name}_output.tsv"
     save_to_tsv(result_df, file_path, output_directory)
     return file_path
+
+
+def warn_if_expansion_unsupported(config: Config, response_json: dict | None) -> bool:
+    """A fast_km server that supports expand_synonyms reports what each term was
+    searched as ('expansions', possibly empty). An older server ignores the
+    setting, so warn that the job only matched the terms as written.
+    Returns True if it warned."""
+    if not config.expand_synonyms or response_json is None or "expansions" in response_json:
+        return False
+    logger.warning(
+        "expand_synonyms is on, but this fast_km server doesn't support it: terms were only "
+        "matched as written, without synonyms, plurals or abbreviations."
+    )
+    return True
 
 
 def filter_term_columns(df):

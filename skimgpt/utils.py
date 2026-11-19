@@ -648,6 +648,11 @@ class Config:
         return self.job_specific_settings.get("censor_year_lower", 0)
 
     @property
+    def expand_synonyms(self) -> bool:
+        """Whether fast_km also matches each term's synonyms, plurals and abbreviations."""
+        return self.job_specific_settings.get("expand_synonyms") is True
+
+    @property
     def is_km_with_gpt(self) -> bool:
         return self.job_type == "km_with_gpt"
 
